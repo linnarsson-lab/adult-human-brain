@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 exec(open('dtop/_version.py').read())
 
 setup(
-    name = "dtop",
+    name = "diffusion-topology",
     version = __version__,
     packages = find_packages(),
     install_requires = [
@@ -14,15 +14,12 @@ setup(
         'annoy',
         'hdbscan'
     ],
-    
-    # loom command
-#    scripts=['krom/krom'],
-    
+
     # metadata
     author = "Linnarsson Lab",
     author_email = "sten.linnarsson@ki.se",
     description = "Diffusion topology algorithm",
     license = "MIT",
-    url = "https://github.com/linnarsson-lab/dtop",
+    url = "https://github.com/linnarsson-lab/diffusion-topology",
 )
 

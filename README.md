@@ -1,5 +1,5 @@
 
-# cello
+# diffusion-topology
 
 ## Installation
 
@@ -29,19 +29,29 @@ For each Loom file individually:
 
 3. Mark all other cells as passed
 
+### Poisoning doublets
+
+In order to detect and remove doublets, we 
+
+* generate an additional 10% fake doublet cells by randomly pooloing pairs of cells
+* fake doublets are generated per sample (i.e. per loom file)
+* a new column attribute `_FakeDoublet` is added, set to 1 for fakes and 0 for real cells
+
+These fake doublets act as poisoning pills that will reveal which clusters are likely to consist mainly of
+actual doublet cells.
 
 ### Preprocessing of genes
 
-Five classes of genes were treated specially: the olfactory receptors, the vomeronasal receptors, the clustered protocadherins, 
+Five classes of genes are treated specially: the olfactory receptors, the vomeronasal receptors, the clustered protocadherins, 
 and the sex-specific genes (male and female).
 
-In each case, a metagene was created by summing the expression of all genes in the class, and this metagene was used in place
-of the original genes for the purposes of clustering, correlation etc. The original genes were retained for purposes of
+In each case, a metagene is created by summing the expression of all genes in the class, and this metagene is used in place
+of the original genes for the purposes of clustering, correlation etc. The original genes are retained for purposes of
 differential gene expression analysis etc.
 
-The metagenes were denoted OrMeta, VmnrMeta, PcdhMeta, MaleMeta and FemaleMeta.
+The metagenes are denoted `OrMeta`, `VmnrMeta`, `PcdhMeta`, `MaleMeta` and `FemaleMeta`.
 
-In the Loom files, this was accomplished by creating new modified files having five new rows (the metagenes).
+In the Loom files, this is accomplished by creating new modified files having five new rows (the metagenes).
 
 ### Initial feature selection
 
@@ -58,7 +68,10 @@ and thus make the graph fully connected, ensuring diffusion to all nodes.
 
 ### Compute diffusion pseudotime from root
 
-Use essentially the approach in the DPT paper. Consider what might be a good root node:
+Instead of the exact method descriped in Fabian Theis paper, we use a numerical approximation that is essentially
+identical to Google PageRank. This scales easily to millions of cells.
+
+Consider what might be a good root node:
 
 * Average or single ES cells (might be bad if it's cycling)
 * Average of all cells
@@ -69,12 +82,12 @@ Use essentially the approach in the DPT paper. Consider what might be a good roo
 
 Slice the cells by pseudotime, in overlapping slices. On first iteration, use wide slices, then narrow them.
 
-Cluster each slice using e.g. affinity propagation to obtain individual components
-(or simply use connected kNN components?)
+Cluster each slice using e.g. HDBSCAN to obtain individual components (or simply use connected kNN components?).
+
 
 ### Refine local distances and restart
 
-For each cluster:
+For each cluster (node in graph):
 
 1. Perform gene selection
 2. Compute full pairwise distance matrix
@@ -94,7 +107,7 @@ set equal to the pseudotime interval they contain.
 Place each cell along the linear (edge) dimension according to its pseudotime position.
 
 Place each cell randomly to the left or right of the edge, at a distance inversely related to its nearest
-neighbour-distance. This ensures that dense regions.
+neighbour-distance. This ensures that dense regions appear wider/fatter.
 
 
 ### Estimate gene expression on the pseudotime graph
