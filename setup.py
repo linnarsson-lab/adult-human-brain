@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-exec(open('dtop/_version.py').read())
+exec(open('diffusion_topology/_version.py').read())
 
 setup(
     name = "diffusion-topology",

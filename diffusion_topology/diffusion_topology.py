@@ -80,8 +80,8 @@ def knn_similarities(ds, k=50, kth=5, r=10, annoy_trees=50, cells=None, n_genes=
 
 	# Create remote links
 	(n_connected, labels) = sparse.csgraph.connected_components(kNN, directed='False')
-	print "n_connected: ", n_components
 	if n_connected > 1:
+		print "Stitching : ", n_connected
 		n = (n_connected*n_connected/2 - 1)*r
 		I = np.empty(n*r)
 		J = np.empty(n*r)
