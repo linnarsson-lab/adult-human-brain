@@ -64,19 +64,16 @@ def validate_genes(ds):
 	valid = np.logical_and(nnz > 20, nnz < ds.shape[1]*0.6)
 	ds.set_attr("_Valid", valid, dtype='int', axis=0)
 
-def preprocess(loom_folder, out_file):
-	for f in os.listdir(loom_folder):
-		if not f[-5:] == ".loom":
-			continue
-		sample_id = f[:-5]
+def preprocess(loom_folder, sample_ids, out_file):
+	for sample_id in sample_ids:
 		logging.info("Preprocessing " + f)
-		ds = loompy.connect(os.path.join(loom_folder, f))
+		ds = loompy.connect(os.path.join(loom_folder, sample_id + ".loom"))
 		logging.info("   Making fake doublets")
 		make_doublets(ds, sample_id)
 		logging.info("   Marking invalid cells")
 		validate_cells(ds)
 		ds.close()
-	logging.info("Combining all loom files")
+	logging.info("Creating joint loom file")
 	loompy.combine([os.path.join(loom_folder, f) for f in os.listdir(loom_folder)], out_file)
 	ds = loompy.connect(out_file)
 	validate_genes(ds)
