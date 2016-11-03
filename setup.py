@@ -11,8 +11,7 @@ setup(
         'numpy',
         'scikit-learn',
         'scipy<=0.17.1',
-        'annoy',
-        'hdbscan'
+        'annoy'
     ],
 
     # metadata

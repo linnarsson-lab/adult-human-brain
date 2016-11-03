@@ -1,2 +1,2 @@
-from .diffusion_topology import knn_similarities, dpt, sparse_dmap, mapper
+from .diffusion_topology import knn_similarities, dpt, sparse_dmap, block_model_graph, knn_from_blocks
 from ._version import __version__
