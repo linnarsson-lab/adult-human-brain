@@ -12,13 +12,12 @@ from annoy import AnnoyIndex
 
 
 
-def knn_similarities(ds, cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, mutual=True, metric='euclidean'):
+def knn_similarities(ds, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
 	"""
 	Compute knn similarity matrix for the given cells
 
 	Args:
 		ds (LoomConnecton):		Loom file
-		cells (int array):		Indices of cells to include in the graph
 		n_genes (int):			Number of genes to select
 		k (int):				Number of nearest neighbours to search
 		annoy_trees (int):		Number of Annoy trees used for kNN approximation
@@ -33,8 +32,7 @@ def knn_similarities(ds, cells=None, n_genes=1000, k=50, annoy_trees=50, n_compo
 		cells (array of int):	Selection of cells that are included in the graph
 		sigma (numpy array):	Nearest neighbor similarity for each cell
 	"""
-	if cells is None:
-		cells = np.array(range(ds.shape[1]))
+	cells = np.array(range(ds.shape[1]))
 
 	# Compute an initial gene set
 	logging.info("Selecting genes")
@@ -64,7 +62,7 @@ def knn_similarities(ds, cells=None, n_genes=1000, k=50, annoy_trees=50, n_compo
 	# Compute kNN and similarities for each cell, in sparse matrix IJV format
 	logging.info("Computing mutual nearest neighbors")
 	kth = int(max(k/10, 1))
-	d = len(cells)
+	d = ds.shape[1]
 	I = np.empty(d*k)
 	J = np.empty(d*k)
 	V = np.empty(d*k)
@@ -102,10 +100,10 @@ def knn_similarities(ds, cells=None, n_genes=1000, k=50, annoy_trees=50, n_compo
 		knn = knn.maximum(knn.transpose())
 
 	# Find disconnected components
-	logging.info("Finding graph components")
+	logging.info("Removing small components")
 	(_, labels) = sparse.csgraph.connected_components(knn, directed='False')
 	sizes = np.bincount(labels)
-	cells = cells[(sizes > min_cells)[labels]]
+	cells = (sizes > min_cells)[labels]
 
 	logging.info("Done")
 	return (knn, genes, cells, sigma)

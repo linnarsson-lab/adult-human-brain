@@ -64,19 +64,18 @@ def validate_genes(ds):
 	valid = np.logical_and(nnz > 20, nnz < ds.shape[1]*0.6)
 	ds.set_attr("_Valid", valid, dtype='int', axis=0)
 
-def preprocess(loom_folder, sample_ids, out_file, make_doublets=False):
+def preprocess(loom_folder, sample_ids, out_file):
 	for sample_id in sample_ids:
 		logging.info("Preprocessing " + sample_id)
 		ds = loompy.connect(os.path.join(loom_folder, sample_id + ".loom"))
-		if make_doublets and not "_FakeDoublet" in ds.col_attrs:
-			logging.info("Making fake doublets")
+		if not "_FakeDoublets" in ds.col_attrs:
+			logging.info("   Making fake doublets")
 			make_doublets(ds, sample_id)
-		logging.info("Marking invalid cells")
+		logging.info("   Marking invalid cells")
 		validate_cells(ds)
 		ds.close()
 	logging.info("Creating joint loom file")
 	loompy.combine([os.path.join(loom_folder, s + ".loom") for s in sample_ids], out_file)
-	logging.info("Marking invalid genes")
 	ds = loompy.connect(out_file)
 	validate_genes(ds)
 	ds.close()
