@@ -48,13 +48,16 @@ def knn_similarities(ds, n_genes=1000, k=50, annoy_trees=50, n_components=200, m
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
 	pca = PCA(n_components=n_components)
-	pca.fit(np.log(ds[:, cells][genes, :]+1).transpose())
+	vals = np.log(ds[:, cells_sample][genes, :]+1)
+	vals = vals - np.mean(vals, axis=0)
+	pca.fit(vals.transpose())
 
 	logging.info("Creating approximate nearest neighbors model (annoy)")
 	annoy = AnnoyIndex(n_components, metric=metric)
 	for ix in cells:
-		vector = ds[:, ix][genes]
-		transformed = pca.transform(np.log(ds[:, ix][genes, np.newaxis]+1).transpose())[0]
+		vals = np.log(ds[:, ix][genes, np.newaxis]+1)
+		vals = vals - np.mean(vals)
+		transformed = pca.transform(vals.transpose())[0]
 		annoy.add_item(ix, transformed)
 
 	annoy.build(annoy_trees)
