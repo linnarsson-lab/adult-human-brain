@@ -36,6 +36,12 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	if cells == None:
 		cells = np.array(range(ds.shape[1]))
 
+	# Find the totals
+	if not "_Total" in ds.col_attrs:
+		ds.compute_stats()
+	totals = ds.col_attrs["_Total"]
+	median_cell = np.median(totals)
+
 	# Compute an initial gene set
 	logging.info("Selecting genes")
 	ds.feature_selection(n_genes, method="SVR")
@@ -51,14 +57,18 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
 	pca = PCA(n_components=n_components)
-	vals = np.log(ds[:, cells_sample][genes, :]+1)
+	vals = ds[:, cells_sample][genes, :]
+	vals = vals/totals[cells_sample]*median_cell
+	vals = np.log(vals+1)
 	vals = vals - np.mean(vals, axis=0)
 	pca.fit(vals.transpose())
 
 	logging.info("Creating approximate nearest neighbors model (annoy)")
 	annoy = AnnoyIndex(n_components, metric=metric)
 	for ix in cells:
-		vals = np.log(ds[:, ix][genes, np.newaxis]+1)
+		vals = ds[:, ix][genes, np.newaxis]
+		vals = vals/totals[ix]*median_cell
+		vals = np.log(vals+1)
 		vals = vals - np.mean(vals)
 		transformed = pca.transform(vals.transpose())[0]
 		annoy.add_item(ix, transformed)
