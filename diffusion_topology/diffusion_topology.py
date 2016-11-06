@@ -12,12 +12,13 @@ from annoy import AnnoyIndex
 
 
 
-def knn_similarities(ds, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
+def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
 	"""
 	Compute knn similarity matrix for the given cells
 
 	Args:
 		ds (LoomConnecton):		Loom file
+		cells (array of int):	Selection of cells that should be considered for the graph
 		n_genes (int):			Number of genes to select
 		k (int):				Number of nearest neighbours to search
 		annoy_trees (int):		Number of Annoy trees used for kNN approximation
@@ -32,18 +33,20 @@ def knn_similarities(ds, n_genes=1000, k=50, annoy_trees=50, n_components=200, m
 		cells (array of int):	Selection of cells that are included in the graph
 		sigma (numpy array):	Nearest neighbor similarity for each cell
 	"""
-	cells = np.array(range(ds.shape[1]))
+	if cells == None:
+		cells = np.array(range(ds.shape[1]))
 
 	# Compute an initial gene set
 	logging.info("Selecting genes")
 	ds.feature_selection(n_genes, method="SVR")
-	genes = np.where(ds.row_attrs["_Excluded"] == 0)[0]
+	genes = np.where(np.logical_and(ds.row_attrs["_Valid"] == 1, ds.row_attrs["_Excluded"] == 0))[0]
 
-	# Pick a random set of (up to) 1000 cells
+	# Pick a random set of (up to) 5000 cells
 	logging.info("Subsampling cells")
 	cells_sample = cells
-	if len(cells_sample) > 1000:
-		cells_sample = np.random.choice(cells_sample, size=1000, replace=False)
+	if len(cells_sample) > 5000:
+		cells_sample = np.random.choice(cells_sample, size=5000, replace=False)
+	cells_sample.sort()
 
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
@@ -106,10 +109,10 @@ def knn_similarities(ds, n_genes=1000, k=50, annoy_trees=50, n_components=200, m
 	logging.info("Removing small components")
 	(_, labels) = sparse.csgraph.connected_components(knn, directed='False')
 	sizes = np.bincount(labels)
-	cells = (sizes > min_cells)[labels]
+	ok_cells = np.where((sizes > min_cells)[labels])[0]
 
 	logging.info("Done")
-	return (knn, genes, cells, sigma)
+	return (knn, genes, ok_cells, sigma)
 
 def block_model_graph(knn):
 	"""
