@@ -1,3 +1,26 @@
+"""
+From Amit:
+
+
+few more things,
+before sending the data to the clustering i usually filter out cells like that:
+
+validcells = (tot_mol>600 & (tot_mol./tot_genes) > 1.2 & tot_mol < 20000 & tot_genes > 500);
+then i remove doublets based on markers for neurons, oligo,endo,microglia, astro ect.
+less relevant maybe to development but can be good to check it.
+
+for genes, first filter
+in = find(sum(data>0,2)>20 & sum(data>0,2)<length(data(1,:))*0.6);
+
+then using cv vs mean select 10,000 genes (maybe should be higher)
+remove sex genes
+shuffle the columns
+normalize the total number of molecules to 10,000. i found that this give better results.
+
+amit
+"""
+
+
 
 import os
 import logging
@@ -37,24 +60,6 @@ def make_doublets(ds, cell_id_template):
 	ds.set_attr("_FakeDoublet", dblts, dtype='int',axis=1)
 
 def validate_cells(ds):
-	"""
-	few more things,
-	before sending the data to the clustering i usually filter out cells like that:
-
-	validcells = (tot_mol>600 & (tot_mol./tot_genes) > 1.2 & tot_mol < 20000 & tot_genes > 500);
-	then i remove doublets based on markers for neurons, oligo,endo,microglia, astro ect.
-	less relevant maybe to development but can be good to check it.
-
-	for genes, first filter
-	in = find(sum(data>0,2)>20 & sum(data>0,2)<length(data(1,:))*0.6);
-
-	then using cv vs mean select 10,000 genes (maybe should be higher)
-	remove sex genes
-	shuffle the columns
-	normalize the total number of molecules to 10,000. i found that this give better results.
-
-	amit
-	"""
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 	valid = np.logical_and(np.logical_and(mols > 600, (mols/genes) > 1.2), np.logical_and(mols < 20000, genes > 500)).astype('int')
 	ds.set_attr("_Valid", valid, dtype='int', axis=1)

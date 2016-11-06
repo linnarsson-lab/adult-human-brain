@@ -11,6 +11,20 @@ import graph_tool.all as gt
 from annoy import AnnoyIndex
 
 
+def broken_stick(n, k):
+	"""
+	Return a vector of the k largest expected broken stick fragments, out of n total
+
+	Remarks:
+		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
+
+	Note:	
+		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
+		In the paper a corrected method is proposed
+	
+	"""
+	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
+
 
 def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
 	"""
@@ -62,6 +76,10 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	vals = np.log(vals+1)
 	vals = vals - np.mean(vals, axis=0)
 	pca.fit(vals.transpose())
+
+	bs = broken_stick(len(cells_sample), n_components)
+	sig = pca.explained_variance_ratio_ > bs
+	logging.info("Found %d significant principal components", np.sum(sig))
 
 	logging.info("Creating approximate nearest neighbors model (annoy)")
 	annoy = AnnoyIndex(n_components, metric=metric)
