@@ -9,22 +9,7 @@ from sklearn.metrics import pairwise_distances
 from sklearn.decomposition import PCA
 import graph_tool.all as gt
 from annoy import AnnoyIndex
-
-
-def broken_stick(n, k):
-	"""
-	Return a vector of the k largest expected broken stick fragments, out of n total
-
-	Remarks:
-		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
-
-	Note:	
-		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
-		In the paper a corrected method is proposed
-	
-	"""
-	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
-
+from diffusion_topology import broken_stick
 
 def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
 	"""
@@ -133,11 +118,19 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 		# This duplicates all edges that are not reciprocal
 		knn = knn.maximum(knn.transpose())
 
-	# Find disconnected components
+	# Find and remove disconnected components
 	logging.info("Removing small components")
 	(_, labels) = sparse.csgraph.connected_components(knn, directed='False')
 	sizes = np.bincount(labels)
 	ok_cells = np.where((sizes > min_cells)[labels])[0]
+
+	if "_FakeDoublet" in ds.col_attrs:
+		# Find and remove cells connected to doublets
+		logging.info("Removing putative doublets")
+		doublets = np.where(ds.col_attrs["_FakeDoublet"] == 1)[0]
+		not_doublets = np.where(knn[doublets, :].sum(axis=1) == 0)[0]
+		not_doublets = np.setdiff1d(not_doublets, doublets)
+		ok_cells = np.intersect1d(ok_cells, not_doublets)
 
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
