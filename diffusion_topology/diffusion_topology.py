@@ -9,6 +9,8 @@ from sklearn.metrics import pairwise_distances
 from sklearn.decomposition import PCA
 import graph_tool.all as gt
 from annoy import AnnoyIndex
+import networkx as nx
+import community
 from diffusion_topology import broken_stick
 
 def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
@@ -135,26 +137,54 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
 
-def block_model_graph(knn):
+def make_graph(knn, jaccard=False):
 	"""
-	From knn, make a graph-tool Graph object, a layout position list, and a stochastic blockmodel
+	From knn, make a graph-tool Graph object, a Louvain partitioning and a layout position list
 
 	Args:
-		knn (CSR sparse matrix):	knn adjacency matrix
+		knn (COO sparse matrix):	knn adjacency matrix
+		jaccard (bool):				If true, replace knn edge weights with Jaccard similarities
+
+	Returns:
+		g (graph.tool Graph):		 the Graph corresponding to the knn matrix
+		partitions (ndarray of int): Louvain partition for each node in the graph
+		sfdp (ndarray matrix):		 X,Y position for each node
 	"""
 	logging.info("Creating graph")
 	g = gt.Graph(directed=False)
-	knn = knn.tocoo()
 
 	# Keep only half the edges, so the result is undirected
 	sel = np.where(knn.row < knn.col)[0]
+	logging.info(sel.shape)
+
 	g.add_vertex(n=knn.shape[0])
-	g.add_edge_list(np.stack((knn.row[sel], knn.col[sel]), axis=1))
+	edges = np.stack((knn.row[sel], knn.col[sel]), axis=1)
+	g.add_edge_list(edges)
+	w = g.new_edge_property("double")
+	if jaccard:
+		js = []
+		knncsr = knn.tocsr()
+		for i, j in edges:
+			r = knncsr.getrow(i)
+			c = knncsr.getrow(j)
+			shared = r.minimum(c).nnz
+			total = r.maximum(c).nnz
+			js.append(shared/total)
+		w.a = np.array(js)
+	else:
+		# use the input edge weights
+		w.a = knn.data[sel]
+
 	logging.info("Creating graph layout")
-	sfdp_pos = gt.sfdp_layout(g)
-	logging.info("Fitting stochastic block model")
-	block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
-	return (g, sfdp_pos, block_state)
+	sfdp = gt.sfdp_layout(g, eweight=w).get_2d_array([0, 1]).transpose()
+
+	logging.info("Louvain partitioning")
+	partitions = community.best_partition(nx.from_scipy_sparse_matrix(knn))
+
+	return (g, partitions, sfdp)
+
+# block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
+# blocks = state.get_majority_blocks().get_array()
 
 def _block_distances(d1, d2, n_components=20):
 	# Calculate PCA keeping 20 components
@@ -302,3 +332,14 @@ def dpt(f, t, k, path_integral=True):
 			f = f.dot(t)
 		return f.A1
 
+#
+# Example of how to use diffusion pseudotime
+#
+# root = np.zeros(ds.shape[1]) # +(1.0/ds.shape[1])
+# root[0] = 1
+# t = dt.sparse_dmap(knn, sigma)
+
+# # Iterate cumulative pseudotime from the root cells
+# f = dt.dpt(root, t, 1000)
+#
+# Now f contains the probability distribution after 1000 diffusion time steps
