@@ -64,7 +64,7 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			data_tmp = pca.transform( data_tmp.T ).T
 
 			# Select significant components using broken-stick model
-			bs = broken_stick(n_genes, n_components)
+			bs = broken_stick(n_genes, min(n_components, len(current_cells_ixs) ))
 			sig = pca.explained_variance_ratio_ > bs
 			
 			if not np.any(sig):
