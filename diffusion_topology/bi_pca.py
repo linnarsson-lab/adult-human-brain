@@ -77,7 +77,7 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			if sum(sig) < n_components:
 				# Take only the significant components
 				first_non_sign = np.where(np.logical_not(sig))[0][0]
-				data_tmp = data_tmp[:, :first_non_sign]
+				data_tmp = data_tmp[:first_non_sign, : ]
 			else:
 				# take all the components
 				first_non_sign = n_components
@@ -90,22 +90,20 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			# Silhouette score is the average of (b - a) / max(a, b), calcualted for each sample
 			# (a) is mean intra-cluster distance  and (b) is the mean nearest-cluster distance  for each sample
 
-			best_labels = None
+			best_labels = np.zeros(data_tmp.shape[1])
 			best_score = -1
 			# TODO This could be parallelized 
 			for _ in range(3):
 				# Here we could use MiniBatchKMeans when n_cells > 10k
 				labels = KMeans(n_clusters=2, n_init=3, n_jobs=1).fit_predict(data_tmp.T)
-				if best_labels == None:
+				
+				# The simplest way to calculate silhouette is  score = silhouette_score(X, labels)
+				# However a cluster size resilient compuataion is:
+				scores_percell = silhouette_samples(data_tmp.T, labels)
+				score = min( np.mean(scores_percell[labels==0]), np.mean(scores_percell[labels==1]) )
+				if score > best_score:
+					best_score = score
 					best_labels = labels
-				else:
-					# The simplest way to calculate silhouette is  score = silhouette_score(X, labels)
-					# However a cluster size resilient compuataion is:
-					scores_percell = silhouette_samples(data_tmp.T, labels)
-					score = min( np.mean(scores_percell[labels==0]), np.mean(scores_percell[labels==1]) )
-					if score > best_score:
-						best_score = score
-						best_labels = labels
 			print "Proposed split (%i,%i) has best_score: %s" % (sum(best_labels==0),sum(best_labels==1), best_score)
 			ids, cluster_counts = np.unique(best_labels, return_counts=True)			
 			
