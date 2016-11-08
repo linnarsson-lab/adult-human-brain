@@ -23,11 +23,13 @@ amit
 
 
 import os
+from shutil import copyfile
+from tempfile import mktemp
 import logging
 import numpy as np
 import loompy
 
-def make_doublets(ds, cell_id_template):
+def generate_doublets(ds, cell_id_template):
 	n = int(ds.shape[1]*0.05)
 	cells = np.fromiter(range(ds.shape[1]), dtype='int')
 
@@ -57,7 +59,7 @@ def make_doublets(ds, cell_id_template):
 	ds.add_columns(doublets, dbl_attrs)
 	dblts = np.zeros(ds.shape[1])
 	dblts[-n:] = 1
-	ds.set_attr("_FakeDoublet", dblts, dtype='int',axis=1)
+	ds.set_attr("_FakeDoublet", dblts, dtype='int', axis=1)
 
 def validate_cells(ds):
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
@@ -70,18 +72,36 @@ def validate_genes(ds):
 	ds.set_attr("_Valid", valid, dtype='int', axis=0)
 
 def preprocess(loom_folder, sample_ids, out_file, make_doublets=False):
+	# Keep track of temporary copies of the loom files
+	temp_files = []
+
 	for sample_id in sample_ids:
+		logging.info("Creating temp file for " + sample_id)
+
+		# Make a temporary loom file name, track it, and copy the sample
+		fname = mktemp(suffix=".loom", dir=loom_folder)
+		temp_files.append(fname)
+		copyfile(os.path.join(loom_folder, sample_id + ".loom"), fname)
 		logging.info("Preprocessing " + sample_id)
-		ds = loompy.connect(os.path.join(loom_folder, sample_id + ".loom"))
+
+		# Connect and perform file-specific QC and validation
+		ds = loompy.connect(fname)
 		if make_doublets and not "_FakeDoublet" in ds.col_attrs:
 			logging.info("Making fake doublets")
-			make_doublets(ds, sample_id)
+			generate_doublets(ds, sample_id)
 		logging.info("Marking invalid cells")
 		validate_cells(ds)
 		ds.close()
-	logging.info("Creating joint loom file")
-	loompy.combine([os.path.join(loom_folder, s + ".loom") for s in sample_ids], out_file)
+
+	logging.info("Creating combined loom file")
+	loompy.combine(temp_files, out_file)
 	logging.info("Marking invalid genes")
 	ds = loompy.connect(out_file)
 	validate_genes(ds)
 	ds.close()
+	logging.info("Cleaning up")
+
+	# Remove the temporary loom files
+	for fname in temp_files:
+		os.remove(fname)
+	logging.info("Done")

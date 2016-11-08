@@ -6,14 +6,31 @@ from scipy import sparse
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import pairwise_distances
+from scipy.special import polygamma
 from sklearn.decomposition import PCA
 import graph_tool.all as gt
 from annoy import AnnoyIndex
 import networkx as nx
 import community
-from diffusion_topology import broken_stick
+#from diffusion_topology import broken_stick
 
-def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
+
+def broken_stick(n, k):
+	"""
+	Return a vector of the k largest expected broken stick fragments, out of n total
+
+	Remarks:
+		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
+
+	Note:	
+		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
+		In the paper a corrected method is proposed
+	
+	"""
+	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
+
+
+def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, normalize=False, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
 	"""
 	Compute knn similarity matrix for the given cells
 
@@ -24,6 +41,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 		k (int):				Number of nearest neighbours to search
 		annoy_trees (int):		Number of Annoy trees used for kNN approximation
 		n_components (int):		Number of principal components to use
+		normalize (bool):		If true, normalize by total mRNA molecule count
 		min_cells (int):		Minimum number of cells to retain as component (cluster)
 		mutual (bool): 			If true, retain only mutual nearest neighbors
 		metric (string):		Metric to use (euclidean or angular)
@@ -34,8 +52,9 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 		cells (array of int):	Selection of cells that are included in the graph
 		sigma (numpy array):	Nearest neighbor similarity for each cell
 	"""
-	if cells == None:
+	if cells is None:
 		cells = np.array(range(ds.shape[1]))
+	cells = np.intersect1d(cells, np.where(ds.col_attrs["_Valid"] == 1)[0])
 
 	# Find the totals
 	if not "_Total" in ds.col_attrs:
@@ -59,12 +78,13 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	logging.info("Computing %d PCA components", n_components)
 	pca = PCA(n_components=n_components)
 	vals = ds[:, cells_sample][genes, :]
-	vals = vals/totals[cells_sample]*median_cell
+	if normalize:
+		vals = vals/totals[cells_sample]*median_cell
 	vals = np.log(vals+1)
 	vals = vals - np.mean(vals, axis=0)
 	pca.fit(vals.transpose())
 
-	bs = broken_stick(len(cells_sample), n_components)
+	bs = broken_stick(len(genes), n_components)
 	sig = pca.explained_variance_ratio_ > bs
 	logging.info("Found %d significant principal components", np.sum(sig))
 
@@ -72,7 +92,8 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	annoy = AnnoyIndex(n_components, metric=metric)
 	for ix in cells:
 		vals = ds[:, ix][genes, np.newaxis]
-		vals = vals/totals[ix]*median_cell
+		if normalize:
+			vals = vals/totals[ix]*median_cell
 		vals = np.log(vals+1)
 		vals = vals - np.mean(vals)
 		transformed = pca.transform(vals.transpose())[0]
@@ -129,10 +150,16 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	if "_FakeDoublet" in ds.col_attrs:
 		# Find and remove cells connected to doublets
 		logging.info("Removing putative doublets")
-		doublets = np.where(ds.col_attrs["_FakeDoublet"] == 1)[0]
-		not_doublets = np.where(knn[doublets, :].sum(axis=1) == 0)[0]
-		not_doublets = np.setdiff1d(not_doublets, doublets)
+		# List all the fake doublets
+		fake_doublets = np.where(ds.col_attrs["_FakeDoublet"] == 1)[0]
+		# Cells not connected to fake doublets
+		not_doublets = np.where(knn[fake_doublets].astype('bool').astype('int').sum(axis=0) <= 3)[1]
+		# Remove actual fake doublets
+		not_doublets = np.setdiff1d(not_doublets, fake_doublets)
+		logging.info("Removing %d putative doublets", ds.shape[1] - not_doublets.shape[0])
+		# Intersect with list of ok cells
 		ok_cells = np.intersect1d(ok_cells, not_doublets)
+		logging.info("Keeping %d cells in graphh", ok_cells.shape[0])
 
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
