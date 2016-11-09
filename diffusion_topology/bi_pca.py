@@ -1,5 +1,6 @@
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.metrics.pairwise import paired_distances
 from sklearn.metrics import silhouette_score, silhouette_samples
 from scipy.special import polygamma
 from scipy.stats import mannwhitneyu
@@ -57,7 +58,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
     """
     if metric == "correlation":
         X = X - X.mean(1)[:,None]
-        X = X / sqrt( sum(X**2,1) )[:,None] # dive by unnormalized standard deviation
+        X = X / np.sqrt( sum(X**2,1) ) # divide by unnormalized standard deviation over axis=0
         from scipy.stats.stats import pearsonr
         corr_dist = lambda a,b: 1 - pearsonr(a,b)[0]
         metric_f = corr_dist
@@ -72,7 +73,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
         final_label = -np.ones(X.shape[0])
         tol = 1e-16
         # Randomly choose centroids from the dataset
-        ix = random.choice(X.shape[0],k,replace=False) 
+        ix = np.random.choice(X.shape[0],k,replace=False) 
         updated_centroids = X[ix,:].copy()
 
         # Perform EM
@@ -80,14 +81,14 @@ def kmeans(X, k, metric="correlation", n_iter=10):
             # Expectation Step - assign cell to closest centroid
             centroids = updated_centroids.copy()
             D = cdist(X, centroids, metric=metric)
-            label = argmin(D,1)
+            label = np.argmin(D,1)
 
             # Maximization step - relocate centroid to the average of the clusters
             for i in range(k):
 
                 query = (label == i)
                 if sum(query): # The cluster is not empty
-                    updated_centroids[i,:] = mean(X[query,:],0)
+                    updated_centroids[i,:] = np.mean(X[query,:],0)
                 else:
                     # Relocate the centroid to the sample that is further from al the other centroids
                     updated_centroids[i,:] = X[argmax( np.min(D,1) ), :]
@@ -98,10 +99,10 @@ def kmeans(X, k, metric="correlation", n_iter=10):
                     updated_centroids = updated_centroids - updated_centroids.mean(1)[:,None]
 
             # If all the centroids are not uppdated (within a max tolerance) Stop updating
-            if np.all(pairwise.paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
+            if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
                 break
         # Calculate inertia and keep track of the iteration with smallest inertia
-        inertia = sum( D[arange(X.shape[0]), label] )
+        inertia = sum( D[np.arange(X.shape[0]), label] )
         if inertia < best_inertia:
             final_label = label.copy()
     return final_label
