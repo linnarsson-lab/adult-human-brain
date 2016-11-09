@@ -5,8 +5,9 @@ from sklearn.metrics import silhouette_score, silhouette_samples
 from scipy.special import polygamma
 from scipy.stats import mannwhitneyu
 from statsmodels.sandbox.stats.multicomp import multipletests
+from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import cdist
-import numpy as np
+from pylab import * # CRAAAAAAZY CRAZY CRAZY SPEEDUP
 import logging
 
 def broken_stick(n, k):
@@ -31,7 +32,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
     Arguments
     ---------
     X: np.array(float)   shape=(samples, features)
-        Input data
+        Input data loaded in memory
     k: int
         Number of clusters
     metric: str or callable
@@ -58,8 +59,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
     """
     if metric == "correlation":
         X = X - X.mean(1)[:,None]
-        X = X / np.sqrt( sum(X**2,1) ) # divide by unnormalized standard deviation over axis=0
-        from scipy.stats.stats import pearsonr
+        X = X / np.sqrt( np.sum(X**2, 0) ) # divide by unnormalized standard deviation over axis=0
         corr_dist = lambda a,b: 1 - pearsonr(a,b)[0]
         metric_f = corr_dist
     else:
@@ -91,7 +91,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
                     updated_centroids[i,:] = np.mean(X[query,:],0)
                 else:
                     # Relocate the centroid to the sample that is further from al the other centroids
-                    updated_centroids[i,:] = X[argmax( np.min(D,1) ), :]
+                    updated_centroids[i,:] = X[np.argmax( np.min(D,1) ), :]
 
                 if metric == "correlation":
                     # This bit is taken from MATLAB source code.
@@ -102,7 +102,7 @@ def kmeans(X, k, metric="correlation", n_iter=10):
             if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
                 break
         # Calculate inertia and keep track of the iteration with smallest inertia
-        inertia = sum( D[np.arange(X.shape[0]), label] )
+        inertia = np.sum( D[np.arange(X.shape[0]), label] )
         if inertia < best_inertia:
             final_label = label.copy()
     return final_label
