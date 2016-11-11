@@ -24,10 +24,10 @@ def broken_stick(n, k):
 	Remarks:
 		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
 
-	Note:	
+	Note:
 		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
 		In the paper a corrected method is proposed
-	
+
 	"""
 	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
 
