@@ -1,10 +1,13 @@
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.metrics.pairwise import paired_distances
 from sklearn.metrics import silhouette_score, silhouette_samples
 from scipy.special import polygamma
 from scipy.stats import mannwhitneyu
 from statsmodels.sandbox.stats.multicomp import multipletests
-import numpy as np
+from scipy.stats.stats import pearsonr
+from scipy.spatial.distance import cdist
+from pylab import * # CRAAAAAAZY CRAZY CRAZY SPEEDUP
 import logging
 
 def broken_stick(n, k):
@@ -20,6 +23,89 @@ def broken_stick(n, k):
 	
 	"""
 	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
+
+
+
+def kmeans(X, k, metric="correlation", n_iter=10):
+    """Kmeans implementation that allows using correlation
+
+    Arguments
+    ---------
+    X: np.array(float)   shape=(samples, features)
+        Input data loaded in memory
+    k: int
+        Number of clusters
+    metric: str or callable
+        Can be:
+        - "corralation"
+        - "euclidean"
+        - In principle it also supports whatever can be passed as metric argument of sklern.pairwise.paired_distances
+        (e.g.To use cosine one needs to normalize similarly to correlation)
+
+    Returns
+    -------
+    labels: np.array(int) shape=(samples,)
+        labels of the clusters
+
+    Notes
+    -----
+
+    - The code was implemented by reading Wikipedia so it is not super-professional, it follows Llyoid alrgorythm.
+    - The normalization to do in the case of correlation distance was taken from MATLAB source.
+    - The algorythm seems very fast but I am not sure I am taking in account all the corner cases
+    - Sometimes in the E step a empty cluster migh form, this will make impossible the M step for one centroid,
+      this was solved by relocating this centroid close to the point that is farthest from all the other centroids
+    - An implementation that does not load data into memory is possible with few changes
+    """
+    if metric == "correlation":
+        X = X - X.mean(1)[:,None]
+        X = X / np.sqrt( np.sum(X**2, 0) ) # divide by unnormalized standard deviation over axis=0
+        corr_dist = lambda a,b: 1 - pearsonr(a,b)[0]
+        metric_f = corr_dist
+    else:
+        metric_f = metric
+        
+    # Start from infinite inertia
+    best_inertia = np.inf
+    # And run the algorythm n_iter times keeping track of the one with smallest intertai
+    for _ in range(n_iter):
+        # Initialize labels and tolerance
+        final_label = -np.ones(X.shape[0])
+        tol = 1e-16
+        # Randomly choose centroids from the dataset
+        ix = np.random.choice(X.shape[0],k,replace=False) 
+        updated_centroids = X[ix,:].copy()
+
+        # Perform EM
+        while True:
+            # Expectation Step - assign cell to closest centroid
+            centroids = updated_centroids.copy()
+            D = cdist(X, centroids, metric=metric)
+            label = np.argmin(D,1)
+
+            # Maximization step - relocate centroid to the average of the clusters
+            for i in range(k):
+
+                query = (label == i)
+                if sum(query): # The cluster is not empty
+                    updated_centroids[i,:] = np.mean(X[query,:],0)
+                else:
+                    # Relocate the centroid to the sample that is further from al the other centroids
+                    updated_centroids[i,:] = X[np.argmax( np.min(D,1) ), :]
+
+                if metric == "correlation":
+                    # This bit is taken from MATLAB source code.
+                    # The rationale is that the centroids should be recentered 
+                    updated_centroids = updated_centroids - updated_centroids.mean(1)[:,None]
+
+            # If all the centroids are not uppdated (within a max tolerance) Stop updating
+            if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
+                break
+        # Calculate inertia and keep track of the iteration with smallest inertia
+        inertia = np.sum( D[np.arange(X.shape[0]), label] )
+        if inertia < best_inertia:
+            final_label = label.copy()
+    return final_label
 
 def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster = 5, verbose=2):
 	'''biPCA algorythm for clustering using PCA splits
