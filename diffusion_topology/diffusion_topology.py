@@ -9,6 +9,8 @@ from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
 from sklearn.decomposition import PCA
 import graph_tool.all as gt
+import matplotlib.pyplot as plt
+from palettable.tableau import Tableau_20
 from annoy import AnnoyIndex
 import networkx as nx
 import community
@@ -30,7 +32,7 @@ def broken_stick(n, k):
 	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
 
 
-def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, normalize=False, min_cells=10, min_nnz=2, mutual=True, metric='euclidean'):
+def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, normalize=False, min_cells=10, min_nnz=2, mutual=True, metric='euclidean', filter_doublets=True):
 	"""
 	Compute knn similarity matrix for the given cells
 
@@ -64,24 +66,25 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 
 	# Compute an initial gene set
 	logging.info("Selecting genes")
-	ds.feature_selection(n_genes, method="SVR")
-	genes = np.where(np.logical_and(ds.row_attrs["_Valid"] == 1, ds.row_attrs["_Excluded"] == 0))[0]
+	with np.errstate(divide='ignore',invalid='ignore'):
+		ds.feature_selection(n_genes, method="SVR")
+	if "_Valid" in ds.row_attrs:
+		genes = np.where(np.logical_and(ds.row_attrs["_Valid"] == 1, ds.row_attrs["_Excluded"] == 0))[0]
+	else:
+		genes = np.where(ds.row_attrs["_Excluded"] == 0)[0]
 
-	# Pick a random set of (up to) 5000 cells
-	logging.info("Subsampling cells")
-	cells_sample = cells
-	if len(cells_sample) > 5000:
-		cells_sample = np.random.choice(cells_sample, size=5000, replace=False)
-	cells_sample.sort()
+	logging.info("Using %d genes", genes.shape[0])
 
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
 	pca = PCA(n_components=n_components)
-	vals = ds[:, cells_sample][genes, :]
+	logging.info("Loading subsampled data")
+	vals = ds[:, :5000][genes, :]
 	if normalize:
-		vals = vals/totals[cells_sample]*median_cell
+		vals = vals/totals[:5000]*median_cell
 	vals = np.log(vals+1)
 	vals = vals - np.mean(vals, axis=0)
+	logging.info("Fitting the PCA")
 	pca.fit(vals.transpose())
 
 	bs = broken_stick(len(genes), n_components)
@@ -147,7 +150,11 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	sizes = np.bincount(labels)
 	ok_cells = np.where((sizes > min_cells)[labels])[0]
 
-	if "_FakeDoublet" in ds.col_attrs:
+	if filter_doublets:
+		logging.warn("Doublet filtering is broken")
+		if not "_FakeDoublet" in ds.col_attrs:
+			logging.error("Cannot filter doublets, because no fake doublets were found")
+			return None
 		# Find and remove cells connected to doublets
 		logging.info("Removing putative doublets")
 		# List all the fake doublets
@@ -159,7 +166,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 		logging.info("Removing %d putative doublets", ds.shape[1] - not_doublets.shape[0])
 		# Intersect with list of ok cells
 		ok_cells = np.intersect1d(ok_cells, not_doublets)
-		logging.info("Keeping %d cells in graphh", ok_cells.shape[0])
+		logging.info("Keeping %d cells in graph", ok_cells.shape[0])
 
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
@@ -174,7 +181,7 @@ def make_graph(knn, jaccard=False):
 
 	Returns:
 		g (graph.tool Graph):		 the Graph corresponding to the knn matrix
-		partitions (ndarray of int): Louvain partition for each node in the graph
+		labels (ndarray of int): 	Louvain partition label for each node in the graph
 		sfdp (ndarray matrix):		 X,Y position for each node
 	"""
 	logging.info("Creating graph")
@@ -207,11 +214,34 @@ def make_graph(knn, jaccard=False):
 
 	logging.info("Louvain partitioning")
 	partitions = community.best_partition(nx.from_scipy_sparse_matrix(knn))
-
-	return (g, partitions, sfdp)
+	labels = np.fromiter(partitions.values(), dtype='int')
+	return (g, labels, sfdp)
 
 # block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
 # blocks = state.get_majority_blocks().get_array()
+
+def plot_clusters(knn, labels, sfdp, title=None, outfile=None):
+	fig = plt.figure(figsize=(10, 10))
+	block_colors = (np.array(Tableau_20.colors)/255)[np.mod(labels, 20)]
+	ax = fig.add_subplot(111)
+	if title is not None:
+		fig.suptitle(title, fontsize=14, fontweight='bold')
+	nx.draw(
+		nx.from_scipy_sparse_matrix(knn), 
+		pos = sfdp, 
+		node_color=block_colors, 
+		node_size=10, 
+		alpha=0.25, 
+		width=0.1, 
+		linewidths=0, 
+		cmap='prism'
+	)
+	for lbl in range(max(labels)):
+		(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
+		ax.text(x, y, str(lbl), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
+	if outfile is not None:
+		fig.savefig(outfile)
+		plt.close()
 
 def _block_distances(d1, d2, n_components=20):
 	# Calculate PCA keeping 20 components

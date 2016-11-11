@@ -71,10 +71,11 @@ def validate_genes(ds):
 	valid = np.logical_and(nnz > 20, nnz < ds.shape[1]*0.6)
 	ds.set_attr("_Valid", valid, dtype='int', axis=0)
 
-def preprocess(loom_folder, sample_ids, out_file, make_doublets=False):
+def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False, do_validate_genes=False):
 	# Keep track of temporary copies of the loom files
 	temp_files = []
-
+	n_valid = 0
+	n_total = 0
 	for sample_id in sample_ids:
 		logging.info("Creating temp file for " + sample_id)
 
@@ -86,22 +87,31 @@ def preprocess(loom_folder, sample_ids, out_file, make_doublets=False):
 
 		# Connect and perform file-specific QC and validation
 		ds = loompy.connect(fname)
+
 		if make_doublets and not "_FakeDoublet" in ds.col_attrs:
 			logging.info("Making fake doublets")
 			generate_doublets(ds, sample_id)
 		logging.info("Marking invalid cells")
 		validate_cells(ds)
+		n_valid += np.sum(ds.col_attrs["_Valid"] == 1)
+		n_total += ds.shape[1]
 		ds.close()
 
 	logging.info("Creating combined loom file")
-	loompy.combine(temp_files, out_file)
-	logging.info("Marking invalid genes")
+	loompy.combine(temp_files, out_file, key="Accession", file_attrs=attrs)
 	ds = loompy.connect(out_file)
-	validate_genes(ds)
+	if do_validate_genes:
+		logging.info("Marking invalid genes")
+		validate_genes(ds)
+	logging.info("Computing aggregate statistics")
+	with np.errstate(divide='ignore', invalid='ignore'):
+		ds.compute_stats()
 	ds.close()
-	logging.info("Cleaning up")
 
 	# Remove the temporary loom files
+	logging.info("Cleaning up")
 	for fname in temp_files:
 		os.remove(fname)
 	logging.info("Done")
+
+	return (n_valid, n_total)
