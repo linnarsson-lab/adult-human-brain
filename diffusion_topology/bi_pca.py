@@ -1,11 +1,11 @@
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans as sk_KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import paired_distances
 from sklearn.metrics import silhouette_score, silhouette_samples
 from scipy.special import polygamma
 from scipy.stats import mannwhitneyu
 from statsmodels.sandbox.stats.multicomp import multipletests
-from scipy.stats.stats import pearsonr
+from scipy.stats import pearsonr, ks_2samp, binom
 from scipy.spatial.distance import cdist
 from pylab import * # CRAAAAAAZY CRAZY CRAZY SPEEDUP
 import logging
@@ -149,12 +149,14 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			data_tmp -= data_tmp.mean(1)[:,None]
 
 			# Perform PCA
+			pca = PCA(n_components=n_components)
+
 			if current_cells_ixs.shape[0] > cell_limit:
 				selection = np.random.choice(np.arange(current_cells_ixs.shape[0]), cell_limit, replace=False)
+				pca.fit( data_tmp[:,selection].T )
 			else:
-				selection = np.arange(current_cells_ixs.shape[0])
-			pca = PCA(n_components=n_components)
-			pca.fit( data_tmp[:,selection].T )
+				pca.fit( data_tmp.T )
+			
 			data_tmp = pca.transform( data_tmp.T ).T
 
 			# Select significant components using broken-stick model
@@ -191,7 +193,7 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			# TODO This could be parallelized 
 			for _ in range(3):
 				# Here we could use MiniBatchKMeans when n_cells > 10k
-				labels = KMeans(n_clusters=2, n_init=3, n_jobs=1).fit_predict(data_tmp.T)
+				labels = sk_KMeans(n_clusters=2, n_init=3, n_jobs=1).fit_predict(data_tmp.T)
 				
 				# The simplest way to calculate silhouette is  score = silhouette_score(X, labels)
 				# However a cluster size resilient compuataion is:
@@ -235,8 +237,330 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 				running_label_id += 1
 	return cell_labels_by_depth
 
+
+def amit_biPCA(data, n_splits=10, n_components=100, cell_limit=10000, smallest_allowed = 5, verbose=2):
+	'''biPCA algorythm for clustering using PCA splits
+
+	Args
+	----
+		data : np.array (genes, cells)
+			Data is assumed to be in row molecule counts format
+			with genes already selected. 
+		n_splits : int
+			number of splits to be attempted
+		n_components: int
+			max number of principal components
+		cell_limit : int
+			the max number of cells that are used to calculate PCA, if #cells>cell_limit, 
+			a random sample of cell_limit cells will be drawn
+		smallest_allowed: int
+			the size of the smallest clsuter allowed, split that generates a cluster of this size is rejected
+		level_of_verbosity: int
+			0 for only ERRORS
+			1 for WARNINGS and ERRORS
+			2 for INFOS, WARNINGS and ERRORS
+			3 for DEBUGGING, NFOS, WARNINGS and ERRORS
+
+	Returns
+	-------
+		labels_matrix : np.array (split_depth, labels)
+			The assigned cluster at every iteration of the algorythm
+
+	'''
+
+	logger = logging.getLogger('biPCA_logger')
+	logger.setLevel([logging.ERROR,logging.WARNING,logging.INFO,logging.DEBUG][verbose])
+	ch = logging.StreamHandler()
+	formatter = logging.Formatter('%(message)s')
+	ch.setFormatter( formatter )
+	logger.handlers = []
+	logger.addHandler(ch)
+
+	n_genes, n_cells = data.shape
+	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
+	
+	# Run an iteration per level of depth
+	for i_split in range(n_splits):
+		logger.info( "Depth: %i" % i_split )
+		running_label_id = 0
+		parent_clusters = np.unique(cell_labels_by_depth[i_split, :])
+		# Consider every parent cluster and split them one by one
+		for parent in parent_clusters:
+			# Select the current cell cluster
+			logger.debug( "Log-normalize the data" )
+			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
+			data_tmp = np.log2( data[:,current_cells_ixs] + 1)
+			data_tmp -= data_tmp.mean(1)[:,None]
+
+			# Perform PCA
+			logger.debug( "Performing PCA" )
+			pca = PCA(n_components=n_components)
+			if current_cells_ixs.shape[0] > cell_limit:
+				selection = np.random.choice(np.arange(current_cells_ixs.shape[0]), cell_limit, replace=False)
+				pca.fit( data_tmp[:,selection].T )
+			else:
+				pca.fit( data_tmp.T )
+			data_tmp = pca.transform( data_tmp.T ).T # This is the pca projection from now on
+
+			# Select significant principal components by KS test, this is more conservative than broken stick
+			pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
+			for i in range(1,data_tmp.shape[0]):
+				[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
+			
+			# The following lines have been fixed and differ from the original implementation Amit
+			# Amit does: sig = pvalue_KS < 0.1
+			# This is wrong becouse one should stop after you find the first nonsignificant component
+			first_not_sign = where(pvalue_KS>0.1)[0][0]
+			sig = zeros_like(pvalue_KS,dtype=bool) 
+			sig[:first_not_sign] = True
+			
+			# If the two first pcs are not significant: don't split
+			if sum(sig)<2:
+				logger.debug( "Two first pcs are not significant: don't split." )
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+				continue
+			logger.debug('%i principal components are significant' % sum(sig))
+
+			# Drop the not significant PCs
+			data_tmp = data_tmp[sig, : ]
+
+			# Perform KMEANS clustering
+			best_labels = kmeans(data_tmp.T, k=2, metric="correlation", n_iter=10) # TODO This could be parallelized 
+			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)) )
+			ids, cluster_counts = np.unique(best_labels, return_counts=True)			
+			
+			# Check that no small cluster gets generated
+			if np.min(cluster_counts) < smallest_allowed:
+				# Reject split immediatelly and continue
+				logger.debug( "A small cluster get generated, don't split'" )
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+				continue
+			
+			# Consider only the 500 genes with top loadings
+			sum_loadings_per_gene =  np.abs(  pca.components_.T[:,:first_not_sign].sum(1) )
+			topload_gene_ixs = np.argsort(sum_loadings_per_gene)[::-1][:500]
+			
+			# Test their significance using a Binomial test
+			# I changed the Amit implementation noting that some of the line are true 
+			# only true when sum(best_labels==0) == sum(best_labels==1)
+			# For exmaple in the case of split of 75 cells in (18 and 57)
+			# binom.cdf(18,50,0.5) ~= 0.03 and binom.cdf( 57, 100, 0.500 ) ~= 0.9
+			# For more strictness consider hypergeometric
+			cells_pos_group1 = np.sum( data[ topload_gene_ixs[:,None], current_cells_ixs[ best_labels == 0 ]] > 0, 1 )
+			cells_pos_group2 = np.sum( data[ topload_gene_ixs[:,None], current_cells_ixs[ best_labels == 1 ]] > 0, 1 )
+			prob = (cells_pos_group1+cells_pos_group2) / len(current_cells_ixs)
+			pvalue_binomial1 = binom.cdf(cells_pos_group1, np.sum(best_labels == 0), prob )
+			pvalue_binomial1 = np.minimum(pvalue_binomial1, 1-pvalue_binomial1)
+			pvalue_binomial2 = binom.cdf(cells_pos_group2, np.sum(best_labels == 1), prob )
+			pvalue_binomial2 = np.minimum(pvalue_binomial2, 1-pvalue_binomial2)
+			pvalue_binomial = np.minimum(pvalue_binomial1, pvalue_binomial2)
+			rejected_null, q_values = multipletests(pvalue_binomial, 0.01, 'fdr_bh')[:2]
+
+			# Decide if we should accept the split
+			# Here instead of arbitrary threshold on shilouette I could boostrap
+			scores_percell = silhouette_samples(data_tmp.T, best_labels, "correlation")
+			s_score = np.minimum( np.mean(scores_percell[best_labels==0]), np.mean(scores_percell[best_labels==1]) )
+			if (np.sum(rejected_null) > 5) and (s_score>0.1):
+				# Accept
+				logger.debug("Spltting with significant genes: %s; silhouette-score: %s" % (np.sum(rejected_null), s_score))
+				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 0]] = running_label_id 
+				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 1]] = running_label_id + 1
+				running_label_id += 2
+			else:
+				# Reject
+				logger.debug( "Don't split. Significant genes: %s (min=5); silhouette-score: %s(min=0.01)" % (np.sum(rejected_null), s_score) )
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+
+	return cell_labels_by_depth
+
+
+
+
 def test_gene(ds, cells, gene_ix, label, group):
     b = np.log2(ds[gene_ix,:][cells]+1)[label != group]
     a = np.log2(ds[gene_ix,:][cells]+1)[label == group]
     (_,pval) = mannwhitneyu(a,b,alternative="greater")
     return pval
+
+
+__original_MATLAB_code__ = """
+function [dataout_sorted,cells_groups,cellsorder,cells_bor,gr_cells_vec] = biPCAsplit_v4(data, n_splits, n_pca, min_gr);
+
+[N,M] = size(data);
+gr_cells_vec = ones(M,n_splits+1);
+
+for i=1:n_splits
+    i
+    k = 0;
+    gr_uni = unique(gr_cells_vec(:,i));
+    for j=1:length(gr_uni);
+        cells_curr = find(gr_cells_vec(:,i)==j);
+        if length(cells_curr)>min_gr
+            datalog_tmp = cent_norm([(log2(data(:,cells_curr)+1))]);
+            if length(cells_curr)<1e4
+                [U]=pcasecon(datalog_tmp,n_pca);
+            else
+                [U]=pcasecon(datalog_tmp(:,[1:round(length(cells_curr)/1e4):length(cells_curr)]),n_pca);
+            end
+            prj = [U'*datalog_tmp]';
+            if prj~=-1
+                pks = zeros(n_pca,1);
+                for jj=2:n_pca
+                    [~,pks(jj)] = kstest2(prj(:,jj-1),prj(:,jj));
+                end
+                prj = prj(:,pks<0.1);
+                length(prj(1,:))
+                if length(prj(1,:))>2
+                    idx = zeros(length(prj(:,1)),5);
+                    for jjj=1:5;
+                        idx(:,jjj) = kmeans(prj,2,'distance','correlation');
+                        s = silhouette(prj,idx(:,jjj),'correlation');
+                        %             figure(111);
+                        %             kk=1; plot3(prj(idx==kk,1),prj(idx==kk,2),prj(idx==kk,3),'.r');hold on
+                        %             kk=2; plot3(prj(idx==kk,1),prj(idx==kk,2),prj(idx==kk,3),'.c');
+                        %             close(111)
+                        min_s(jjj) = min([mean(s(idx(:,jjj)==1)),mean(s(idx(:,jjj)==2))]);
+                        sum(s<0.1)/length(s)
+                    end
+                    [~,imin] = max(min_s);
+                    idx = idx(:,imin);
+                    [~,top_load_genes] = sort(sum(abs(U),2),'descend');
+                    top_load_genes = top_load_genes(1:500);
+                    n_gr1 = sum(data(top_load_genes,cells_curr(idx==1))>0,2);
+                    n_gr2 = sum(data(top_load_genes,cells_curr(idx==2))>0,2);
+                    %                     fold_pos = n_gr1./(n_gr1+n_gr2);
+                    %                     fold_pos(fold_pos<0.5) = 1 - fold_pos(fold_pos<0.5);
+                    %                     [fold_possort,fold_xi] = sort(fold_pos,'descend');
+                    pbin = binocdf(n_gr1,length(cells_curr),(n_gr1+n_gr2)/length(cells_curr));
+                    pbin = 2*min([pbin,1-pbin],[],2);
+                    length(fdr_proc(pbin,0.05))
+                    if min_s(imin)>0.1 & length(fdr_proc(pbin,0.01))>10
+                        gr_cells_vec(cells_curr(idx==1),i+1) = k+1;
+                        gr_cells_vec(cells_curr(idx==2),i+1) = k+2;
+                        k = k+2;
+                    else
+                        gr_cells_vec(cells_curr,i+1) = k+1;
+                        k = k+1;
+                    end
+                else
+                    gr_cells_vec(cells_curr,i+1) = k+1;
+                    k = k+1;
+                end
+            else
+                gr_cells_vec(cells_curr,i+1) = k+1;
+                k = k+1;
+            end
+        else
+            gr_cells_vec(cells_curr,i+1) = k+1;
+            k = k+1;
+        end
+    end
+end
+
+[cells_groups,cellsorder] = sort(gr_cells_vec(:,end)');
+cells_bor = find(diff(cells_groups)>0)+1;
+gr_cells_vec = gr_cells_vec(cellsorder,:);
+dataout_sorted = data(:,cellsorder);
+
+T_cells_tmp = gr_cells_vec(:,end);
+T_cells_tmp_uni = unique(T_cells_tmp);
+meanpergene = mean(data,2);%
+molenrich_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
+meangr_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
+meangrpos_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
+for jjj=1:length(T_cells_tmp_uni)
+    jjj
+    %         gr_center(jjj) = mean(find(T_cells_tmp==T_cells_tmp_uni(jjj)));
+    molenrich_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj)),2)./meanpergene;
+    meangrpos_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj))>0,2);
+end
+molenrich_mat(meanpergene==0,:) = 0;
+meangrpos_mat(meangrpos_mat<0.1) = 0;
+molenrich_mat(meanpergene==0 | isnan(meanpergene),:) = 0;
+[sc_0p5,xi0p5] = sort(molenrich_mat.*meangrpos_mat.^0.5,'descend');
+[sc_1,xi1] = sort(molenrich_mat.*meangrpos_mat.^1,'descend');
+
+num_per_power = 10;
+ind_gr_tmp_mark = [xi0p5(1:num_per_power,:);xi1(1:num_per_power,:)];%xi0(1:100,:);
+sc_gr_tmp_mark = [sc_0p5(1:num_per_power,:);sc_1(1:num_per_power,:)];
+ind_gr_tmp_mark = flipud(ind_gr_tmp_mark(:));
+sc_gr_tmp_mark = flipud(sc_gr_tmp_mark(:));
+
+[~,xi] = sortrows([ind_gr_tmp_mark,sc_gr_tmp_mark],[1,2]);
+ind_gr_tmp_mark = ind_gr_tmp_mark(xi);
+sc_gr_tmp_mark = sc_gr_tmp_mark(xi);
+[~,ia] = unique(ind_gr_tmp_mark,'last');
+ind_gr_tmp_mark = ind_gr_tmp_mark(ia);
+sc_gr_tmp_mark = sc_gr_tmp_mark(ia);
+ind_gr_tmp_mark(sc_gr_tmp_mark==0) = [];
+
+dataout_sorted = data(ind_gr_tmp_mark,cellsorder);
+
+
+% % % % % % % % % % % % % % % % % % % % % % % % % % order the blocks such
+% that similar are closer
+gr_uni = T_cells_tmp_uni;
+num_gr = length(gr_uni);
+med_exp = zeros(length(ind_gr_tmp_mark),num_gr);
+for i=1:num_gr % calculate the median expression for each group
+    med_exp(:,i) = median(dataout_sorted(:,T_cells_tmp==gr_uni(i)),2);
+end
+empty_cluster = find(sum(med_exp)==0);
+gr_cellorder = find(sum(med_exp)>0);
+med_exp = med_exp(:,gr_cellorder);
+Z = linkage(log2(med_exp+1)','average','correlation');
+D = pdist(log2(med_exp+1)','correlation');
+% D = squareform(1-corr_mat(log2(med_exp+1)));
+% Z = linkage(D,'average');
+leaforder = optimalleaforder(Z,D);
+gr_cellorder = [gr_cellorder(leaforder),empty_cluster];%1:num_gr;
+T_cells_new = zeros(size(T_cells_tmp));
+for i=1:length(gr_cellorder)
+    T_cells_new(T_cells_tmp==gr_cellorder(i)) = i;
+end
+
+[T_cells_tmp,XIX] = sort(T_cells_new);
+cellsorder = cellsorder(XIX);
+cells_groups = T_cells_tmp;
+cells_bor = find(diff(cells_groups)>0)+1;
+gr_cells_vec = gr_cells_vec(XIX,:);
+dataout_sorted = dataout_sorted(:,XIX);
+
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+
+T_cells_tmp_uni = unique(T_cells_tmp);
+meanpergene = mean(dataout_sorted,2);%
+molenrich_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
+meangr_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
+meangrpos_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
+for jjj=1:length(T_cells_tmp_uni)
+    jjj
+    %         gr_center(jjj) = mean(find(T_cells_tmp==T_cells_tmp_uni(jjj)));
+    molenrich_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj)),2)./meanpergene;
+    meangrpos_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj))>0,2);
+end
+molenrich_mat(meanpergene==0,:) = 0;
+meangrpos_mat(meangrpos_mat<0.1) = 0;
+molenrich_mat(meanpergene==0 | isnan(meanpergene),:) = 0;
+[sc_0p5,xi0p5] = sort(molenrich_mat.*meangrpos_mat.^0.5,'descend');
+[sc_1,xi1] = sort(molenrich_mat.*meangrpos_mat.^1,'descend');
+
+num_per_power = 10;
+ind_gr_tmp_mark = [xi0p5(1:num_per_power,:);xi1(1:num_per_power,:)];%xi0(1:100,:);
+sc_gr_tmp_mark = [sc_0p5(1:num_per_power,:);sc_1(1:num_per_power,:)];
+ind_gr_tmp_mark = flipud(ind_gr_tmp_mark(:));
+sc_gr_tmp_mark = flipud(sc_gr_tmp_mark(:));
+
+[~,xi] = sortrows([ind_gr_tmp_mark,sc_gr_tmp_mark],[1,2]);
+ind_gr_tmp_mark = ind_gr_tmp_mark(xi);
+sc_gr_tmp_mark = sc_gr_tmp_mark(xi);
+[~,ia] = unique(ind_gr_tmp_mark,'last');
+ind_gr_tmp_mark = ind_gr_tmp_mark(ia);
+sc_gr_tmp_mark = sc_gr_tmp_mark(ia);
+ind_gr_tmp_mark(sc_gr_tmp_mark==0) = [];
+
+dataout_sorted = dataout_sorted(ind_gr_tmp_mark,cellsorder);
+"""
