@@ -3,6 +3,25 @@ import numpy as np
 from scipy.stats import mannwhitneyu
 from scipy.special import beta,gamma,betainc
 
+def marker_genes(ds, labels, cells=None, genes=None):
+	"""
+	Amit says:
+	
+	regarding marker genes.
+	i usually rank the genes by some kind of enrichment score.
+	score1 = mean of gene within the cluster / mean of gene in all cells
+	score2 = fraction of positive cells within cluster / fraction of positive cells in all cells
+
+	enrichment score = score1 * score2^power   (where power =0.5 or 1) i usually use 1 for 10x data
+	"""
+	if cells is None:
+		cells = np.fromiter(range(ds.shape[1]))
+
+	if genes is None:
+		genes = np.fromiter(range(ds.shape[0]))
+
+	pass
+	
 def is_gene_enriched(ds, cells1, cells2, gene_name):
 	norm = ds.col_attrs["_TotalRNA"]
 	a = np.log(ds[np.where(ds.Gene == gene), :][0, cells1]+1)/norm
