@@ -78,10 +78,17 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
 	pca = PCA(n_components=n_components)
+
 	logging.info("Loading subsampled data")
-	vals = ds[:, :5000][genes, :]
+	subsample = cells
+	if len(subsample) > 5000:
+		subsample = np.random.choice(subsample, 5000, replace=False)
+	vals = np.empty((genes.shape[0],subsample.shape[0]))
+	for ix, sample in enumerate(subsample):
+		vals[:, ix] = ds[:, sample][genes]	# Loading columns one-by-one is faster than fancy indexing
+	#vals = ds[:, :5000][genes, :]
 	if normalize:
-		vals = vals/totals[:5000]*median_cell
+		vals = vals/totals[subsample]*median_cell
 	vals = np.log(vals+1)
 	vals = vals - np.mean(vals, axis=0)
 	logging.info("Fitting the PCA")
@@ -89,7 +96,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 
 	bs = broken_stick(len(genes), n_components)
 	sig = pca.explained_variance_ratio_ > bs
-	logging.info("Found %d significant principal components", np.sum(sig))
+	logging.info("Found %d significant principal components (but using all %d)", np.sum(sig), n_components)
 
 	logging.info("Creating approximate nearest neighbors model (annoy)")
 	annoy = AnnoyIndex(n_components, metric=metric)
@@ -189,7 +196,7 @@ def make_graph(knn, jaccard=False):
 
 	# Keep only half the edges, so the result is undirected
 	sel = np.where(knn.row < knn.col)[0]
-	logging.info(sel.shape)
+	logging.info("Graph has %d edges", sel.shape[0])
 
 	g.add_vertex(n=knn.shape[0])
 	edges = np.stack((knn.row[sel], knn.col[sel]), axis=1)
@@ -209,12 +216,14 @@ def make_graph(knn, jaccard=False):
 		# use the input edge weights
 		w.a = knn.data[sel]
 
-	logging.info("Creating graph layout")
-	sfdp = gt.sfdp_layout(g, eweight=w).get_2d_array([0, 1]).transpose()
-
 	logging.info("Louvain partitioning")
 	partitions = community.best_partition(nx.from_scipy_sparse_matrix(knn))
 	labels = np.fromiter(partitions.values(), dtype='int')
+
+	logging.info("Creating graph layout")
+	label_prop = g.new_vertex_property("int", vals=labels)
+	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001).get_2d_array([0, 1]).transpose()
+
 	return (g, labels, sfdp)
 
 # block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
