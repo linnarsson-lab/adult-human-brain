@@ -221,7 +221,7 @@ def make_graph(knn, jaccard=False):
 	labels = np.fromiter(partitions.values(), dtype='int')
 
 	logging.info("Creating graph layout")
-	label_prop = g.new_vertex_property("int", vals=labels)
+	#label_prop = g.new_vertex_property("int", vals=labels)
 	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001).get_2d_array([0, 1]).transpose()
 
 	return (g, labels, sfdp)
@@ -247,7 +247,7 @@ def plot_clusters(knn, labels, sfdp, title=None, outfile=None):
 	)
 	for lbl in range(max(labels)):
 		(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
-		ax.text(x, y, str(lbl), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
+		ax.text(x, y, str(lbl + 1), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
 	if outfile is not None:
 		fig.savefig(outfile)
 		plt.close()

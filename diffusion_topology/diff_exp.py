@@ -1,6 +1,8 @@
 
 import numpy as np
-from scipy.special import beta, gamma, betainc
+from scipy.special import beta, betainc, betaln
+from math import exp, lgamma, log
+import logging
 
 def expression_patterns(ds, labels, pep, cells=None):
 	"""
@@ -42,14 +44,18 @@ def expression_patterns(ds, labels, pep, cells=None):
 		for lbl in range(n_labels):
 			if mu0 == 0:
 				score1[lbl] = 0
+			else:
+				score1[lbl] = np.mean(data[np.where(labels == lbl)][0])/mu0
+
+			if f0 == 0:
 				score2[lbl] = 0
-			score1[lbl] = np.mean(data[np.where(labels == lbl)][0])/mu0
-			score2[lbl] = np.count_nonzero(data[np.where(labels == lbl)])/f0
+			else:
+				score2[lbl] = np.count_nonzero(data[np.where(labels == lbl)])/f0
 		enrichment[row, :] = score1 * score2
 		trinary[row, :] = betabinomial_trinarize_array(data, labels, pep)
 	return (enrichment, trinary)
 
-def p_half(k, n):
+def p_half(k, n, f):
 	"""
 	Return probability that at least half the cells express, if we have observed k of n cells expressing
 
@@ -62,8 +68,6 @@ def p_half(k, n):
 
 			p|k,n = 1-(betainc(1+k, 1-k+n, 0.5)*gamma(2+n)/(gamma(1+k)*gamma(1-k+n))/beta(1+k, 1-k+n)
 
-		We calculate this and compare with local_fdr, setting the binary pattern to 1 if p > local_fdr
-
 	Note:
 		The formula was derived in Mathematica by computing
 
@@ -71,9 +75,24 @@ def p_half(k, n):
 
 		and then replacing f by 0.5
 	"""
-	return 1-(betainc(1+k, 1-k+n, 0.5)*beta(1+k, 1-k+n)*gamma(2+n)/(gamma(1+k)*gamma(1-k+n)))
 
-def betabinomial_trinarize_array(array, labels, pep):
+	# These are the prior hyperparameters beta(a,b)
+	a = 1.5
+	b = 2
+
+	# We really want to calculate this:
+	# p = 1-(betainc(a+k, b-k+n, 0.5)*beta(a+k, b-k+n)*gamma(a+b+n)/(gamma(a+k)*gamma(b-k+n)))
+	#
+	# But it's numerically unstable, so we need to work on log scale (and special-case the incomplete beta)
+
+	incb = betainc(a+k, b-k+n, f)
+	if incb == 0:
+		p = 1
+	else:
+		p = 1-exp(log(incb)+betaln(a+k, b-k+n)+lgamma(a+b+n)-lgamma(a+k)-lgamma(b-k+n))
+	return p
+
+def betabinomial_trinarize_array(array, labels, pep, f):
 	"""
 	Trinarize a vector, grouped by labels, using a beta binomial model
 
@@ -88,20 +107,20 @@ def betabinomial_trinarize_array(array, labels, pep):
 	Remarks:
 		We calculate probability p that at least half the cells express (in each group),
 		and compare with pep, setting the binary pattern to 1 if p > pep,
-		-1 if p > (1 - pep) and 0 otherwise.
+		-1 if p < (1 - pep) and 0 otherwise.
 	"""
 
 	n_labels = np.max(labels) + 1
 	n_by_label = np.bincount(labels)
 	k_by_label = np.zeros(n_labels)
 	for lbl in range(n_labels):
-		k_by_label[lbl] = np.count_nonzero(array[lbl])
+		k_by_label[lbl] = np.count_nonzero(array[np.where(labels == lbl)[0]])
 
 	vfunc = np.vectorize(p_half)
-	ps = vfunc(k_by_label, n_by_label)
+	ps = vfunc(k_by_label, n_by_label, f)
 
-	expr_by_label = np.zeros(n_labels)
-	expr_by_label[np.where(ps > pep)[0]] = 1
-	expr_by_label[np.where(ps > (1-pep))[0]] = -1
+	expr_by_label = np.zeros(n_labels)+0.5
+	expr_by_label[np.where(ps > (1-pep))[0]] = 1
+	expr_by_label[np.where(ps < pep)[0]] = 0
 
 	return expr_by_label
