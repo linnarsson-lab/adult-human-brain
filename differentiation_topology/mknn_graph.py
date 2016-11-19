@@ -9,27 +9,10 @@ from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
 from sklearn.decomposition import PCA
 import graph_tool.all as gt
-import matplotlib.pyplot as plt
-from palettable.tableau import Tableau_20
 from annoy import AnnoyIndex
 import networkx as nx
 import community
-#from diffusion_topology import broken_stick
-
-
-def broken_stick(n, k):
-	"""
-	Return a vector of the k largest expected broken stick fragments, out of n total
-
-	Remarks:
-		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
-
-	Note:
-		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
-		In the paper a corrected method is proposed
-
-	"""
-	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
+import differentiation_topology as dt
 
 
 def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, normalize=False, min_cells=10, min_nnz=2, mutual=True, metric='euclidean', filter_doublets=True):
@@ -94,7 +77,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	logging.info("Fitting the PCA")
 	pca.fit(vals.transpose())
 
-	bs = broken_stick(len(genes), n_components)
+	bs = dt.broken_stick(len(genes), n_components)
 	sig = pca.explained_variance_ratio_ > bs
 	logging.info("Found %d significant principal components (but using all %d)", np.sum(sig), n_components)
 
@@ -156,6 +139,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	(_, labels) = sparse.csgraph.connected_components(knn, directed='False')
 	sizes = np.bincount(labels)
 	ok_cells = np.where((sizes > min_cells)[labels])[0]
+	logging.info("Small components removed (%d cells)", cells.shape[0] - ok_cells.shape[0])
 
 	if filter_doublets:
 		logging.warn("Doublet filtering is broken")
@@ -229,28 +213,6 @@ def make_graph(knn, jaccard=False):
 # block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
 # blocks = state.get_majority_blocks().get_array()
 
-def plot_clusters(knn, labels, sfdp, title=None, outfile=None):
-	fig = plt.figure(figsize=(10, 10))
-	block_colors = (np.array(Tableau_20.colors)/255)[np.mod(labels, 20)]
-	ax = fig.add_subplot(111)
-	if title is not None:
-		fig.suptitle(title, fontsize=14, fontweight='bold')
-	nx.draw(
-		nx.from_scipy_sparse_matrix(knn), 
-		pos = sfdp, 
-		node_color=block_colors, 
-		node_size=10, 
-		alpha=0.25, 
-		width=0.1, 
-		linewidths=0, 
-		cmap='prism'
-	)
-	for lbl in range(max(labels)):
-		(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
-		ax.text(x, y, str(lbl + 1), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
-	if outfile is not None:
-		fig.savefig(outfile)
-		plt.close()
 
 def sparse_dmap(m, sigma):
 	"""

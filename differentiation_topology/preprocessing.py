@@ -30,7 +30,7 @@ import numpy as np
 import loompy
 
 def generate_doublets(ds, cell_id_template):
-	n = int(ds.shape[1]*0.05)
+	n = int(ds.shape[1]*0.01)
 	cells = np.fromiter(range(ds.shape[1]), dtype='int')
 
 	# Create doublets
@@ -63,7 +63,7 @@ def generate_doublets(ds, cell_id_template):
 
 def validate_cells(ds):
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
-	valid = np.logical_and(np.logical_and(mols > 600, (mols/genes) > 1.2), np.logical_and(mols < 20000, genes > 500)).astype('int')
+	valid = np.logical_and(np.logical_and(mols >= 600, (mols/genes) >= 1.2), np.logical_and(mols <= 20000, genes >= 500)).astype('int')
 	ds.set_attr("_Valid", valid, dtype='int', axis=1)
 
 def validate_genes(ds):

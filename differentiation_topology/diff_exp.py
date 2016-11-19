@@ -1,37 +1,42 @@
 
-import numpy as np
-from scipy.special import beta, betainc, betaln
 from math import exp, lgamma, log
 import logging
+import numpy as np
+from scipy.special import beta, betainc, betaln
 
-def expression_patterns(ds, labels, pep, cells=None):
+def expression_patterns(ds, labels, pep, f, cells=None):
 	"""
 	Derive enrichment and trinary scores for all genes
 
 	Args:
 		ds (LoomConnection):	Dataset
 		labels (numpy array):	Cluster labels (one per cell)
-		cells (numpy array):	List of cells that have labels
+		pep (float):			Desired posterior error probability
+		f (float):				Fraction required for a gene to be considered 'expressed'
+		cells (nump array):		Indices of cells to include
 
 	Returns:
 		enrichment (numpy 2d array):	Array of (n_genes, n_labels)
 		trinary (numpy 2d array):		Array of (n_genes, n_labels)
 
 	Remarks:
+		If the cells argument is provided, the labels should include only those cells. That is,
+		labels.shape[0] == cells.shape[0].
 
-	Amit says,
-	regarding marker genes.
-	i usually rank the genes by some kind of enrichment score.
-	score1 = mean of gene within the cluster / mean of gene in all cells
-	score2 = fraction of positive cells within cluster / fraction of positive cells in all cells
+		Amit says,
+		regarding marker genes.
+		i usually rank the genes by some kind of enrichment score.
+		score1 = mean of gene within the cluster / mean of gene in all cells
+		score2 = fraction of positive cells within cluster / fraction of positive cells in all cells
 
-	enrichment score = score1 * score2^power   (where power == 0.5 or 1) i usually use 1 for 10x data
+		enrichment score = score1 * score2^power   (where power == 0.5 or 1) i usually use 1 for 10x data
 	"""
 
 	n_labels = np.max(labels) + 1
 
 	enrichment = np.empty((ds.shape[0], n_labels))
-	trinary = np.empty((ds.shape[0], n_labels))
+	trinary_pat = np.empty((ds.shape[0], n_labels))
+	trinary_prob = np.empty((ds.shape[0], n_labels))
 	for row in range(ds.shape[0]):
 		if cells is None:
 			data = ds[row, :]
@@ -52,8 +57,8 @@ def expression_patterns(ds, labels, pep, cells=None):
 			else:
 				score2[lbl] = np.count_nonzero(data[np.where(labels == lbl)])/f0
 		enrichment[row, :] = score1 * score2
-		trinary[row, :] = betabinomial_trinarize_array(data, labels, pep)
-	return (enrichment, trinary)
+		trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
+	return (enrichment, trinary_prob, trinary_pat)
 
 def p_half(k, n, f):
 	"""
@@ -123,4 +128,4 @@ def betabinomial_trinarize_array(array, labels, pep, f):
 	expr_by_label[np.where(ps > (1-pep))[0]] = 1
 	expr_by_label[np.where(ps < pep)[0]] = 0
 
-	return expr_by_label
+	return (ps, expr_by_label)

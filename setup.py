@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
-exec(open('diffusion_topology/_version.py').read())
+exec(open('differentiation_topology/_version.py').read())
 
 setup(
-    name = "diffusion-topology",
+    name = "differentiation-topology",
     version = __version__,
     packages = find_packages(),
     install_requires = [
@@ -17,8 +17,7 @@ setup(
     # metadata
     author = "Linnarsson Lab",
     author_email = "sten.linnarsson@ki.se",
-    description = "Diffusion topology algorithm",
+    description = "Differentiation topology algorithm",
     license = "MIT",
-    url = "https://github.com/linnarsson-lab/diffusion-topology",
+    url = "https://github.com/linnarsson-lab/differentiation-topology",
 )
-
