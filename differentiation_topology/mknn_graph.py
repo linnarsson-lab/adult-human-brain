@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 import graph_tool.all as gt
 from annoy import AnnoyIndex
 import networkx as nx
@@ -60,22 +60,27 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
-	pca = PCA(n_components=n_components)
+	pca = IncrementalPCA(n_components=n_components)
 
-	logging.info("Loading subsampled data")
-	subsample = cells
-	if len(subsample) > 5000:
-		subsample = np.random.choice(subsample, 5000, replace=False)
-	vals = np.empty((genes.shape[0],subsample.shape[0]))
-	for ix, sample in enumerate(subsample):
-		vals[:, ix] = ds[:, sample][genes]	# Loading columns one-by-one is faster than fancy indexing
-	#vals = ds[:, :5000][genes, :]
-	if normalize:
-		vals = vals/totals[subsample]*median_cell
-	vals = np.log(vals+1)
-	vals = vals - np.mean(vals, axis=0)
-	logging.info("Fitting the PCA")
-	pca.fit(vals.transpose())
+	cols_per_chunk = 5000
+	logging.info("Fitting cells in batches of %d", cols_per_chunk)		
+	ix = 0
+	while ix < ds.shape[1]:
+		cols_per_chunk = min(ds.shape[1] - ix, cols_per_chunk)
+		selection = cells - ix
+		# Pick out the cells that are in this batch
+		selection = selection[np.where(np.logical_and(selection >= 0, selection < ix + cols_per_chunk))[0]]
+		if selection.shape[0] == 0:
+			continue
+		# Load the whole chunk from the file, then extract genes and cells using fancy indexing
+		vals = ds[:, ix:ix + cols_per_chunk][genes, :][:, selection]
+		if normalize:
+			vals = vals/totals[selection + ix]*median_cell
+		vals = np.log(vals+1)
+		vals = vals - np.mean(vals, axis=0)
+		pca.partial_fit(vals.transpose())
+
+		ix = ix + cols_per_chunk
 
 	bs = dt.broken_stick(len(genes), n_components)
 	sig = pca.explained_variance_ratio_ > bs
@@ -91,6 +96,27 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 		vals = vals - np.mean(vals)
 		transformed = pca.transform(vals.transpose())[0]
 		annoy.add_item(ix, transformed)
+
+	# cols_per_chunk = 5000
+	# ix = 0
+	# while ix < ds.shape[1]:
+	# 	cols_per_chunk = min(ds.shape[1] - ix, cols_per_chunk)
+	# 	selection = cells - ix
+	# 	# Pick out the cells that are in this batch
+	# 	selection = selection[np.where(np.logical_and(selection >= 0, selection < ix + cols_per_chunk))[0]]
+	# 	if selection.shape[0] == 0:
+	# 		continue
+	# 	# Load the whole chunk from the file, then extract genes and cells using fancy indexing
+	# 	vals = ds[:, ix:ix + cols_per_chunk][genes, :][:, selection]
+	# 	if normalize:
+	# 		vals = vals/totals[selection + ix]*median_cell
+	# 	vals = np.log(vals+1)
+	# 	vals = vals - np.mean(vals, axis=0)
+	# 	transformed = pca.transform(vals.transpose())
+	# 	for col in range(transformed.shape[0]):
+	# 		annoy.add_item(ix+col, transformed[col, :])
+
+	# 	ix = ix + cols_per_chunk
 
 	annoy.build(annoy_trees)
 
@@ -141,23 +167,23 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	ok_cells = np.where((sizes > min_cells)[labels])[0]
 	logging.info("Small components removed (%d cells)", cells.shape[0] - ok_cells.shape[0])
 
-	if filter_doublets:
-		logging.warn("Doublet filtering is broken")
-		if not "_FakeDoublet" in ds.col_attrs:
-			logging.error("Cannot filter doublets, because no fake doublets were found")
-			return None
-		# Find and remove cells connected to doublets
-		logging.info("Removing putative doublets")
-		# List all the fake doublets
-		fake_doublets = np.where(ds.col_attrs["_FakeDoublet"] == 1)[0]
-		# Cells not connected to fake doublets
-		not_doublets = np.where(knn[fake_doublets].astype('bool').astype('int').sum(axis=0) <= 3)[1]
-		# Remove actual fake doublets
-		not_doublets = np.setdiff1d(not_doublets, fake_doublets)
-		logging.info("Removing %d putative doublets", ds.shape[1] - not_doublets.shape[0])
-		# Intersect with list of ok cells
-		ok_cells = np.intersect1d(ok_cells, not_doublets)
-		logging.info("Keeping %d cells in graph", ok_cells.shape[0])
+	# if filter_doublets:
+	# 	logging.warn("Doublet filtering is broken")
+	# 	if not "_FakeDoublet" in ds.col_attrs:
+	# 		logging.error("Cannot filter doublets, because no fake doublets were found")
+	# 		return None
+	# 	# Find and remove cells connected to doublets
+	# 	logging.info("Removing putative doublets")
+	# 	# List all the fake doublets
+	# 	fake_doublets = np.where(ds.col_attrs["_FakeDoublet"] == 1)[0]
+	# 	# Cells not connected to fake doublets
+	# 	not_doublets = np.where(knn[fake_doublets].astype('bool').astype('int').sum(axis=0) <= 3)[1]
+	# 	# Remove actual fake doublets
+	# 	not_doublets = np.setdiff1d(not_doublets, fake_doublets)
+	# 	logging.info("Removing %d putative doublets", ds.shape[1] - not_doublets.shape[0])
+	# 	# Intersect with list of ok cells
+	# 	ok_cells = np.intersect1d(ok_cells, not_doublets)
+	# 	logging.info("Keeping %d cells in graph", ok_cells.shape[0])
 
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)

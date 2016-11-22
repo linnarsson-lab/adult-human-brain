@@ -47,15 +47,13 @@ def expression_patterns(ds, labels, pep, f, cells=None):
 		score1 = np.empty(n_labels)
 		score2 = np.empty(n_labels)
 		for lbl in range(n_labels):
-			if mu0 == 0:
+			selection = data[np.where(labels == lbl)[0]]
+			if mu0 == 0 or f0 == 0:
 				score1[lbl] = 0
-			else:
-				score1[lbl] = np.mean(data[np.where(labels == lbl)][0])/mu0
-
-			if f0 == 0:
 				score2[lbl] = 0
 			else:
-				score2[lbl] = np.count_nonzero(data[np.where(labels == lbl)])/f0
+				score1[lbl] = np.mean(selection)/mu0
+				score2[lbl] = np.count_nonzero(selection)/f0
 		enrichment[row, :] = score1 * score2
 		trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
 	return (enrichment, trinary_prob, trinary_pat)

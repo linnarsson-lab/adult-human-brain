@@ -54,8 +54,8 @@ class AutoAnnotator(object):
 					except ValueError as e:
 						logging.error(file + ": " + str(e))
 						errors = True
-
-		raise ValueError("Error loading cell tag definitions")
+		if errors:
+			raise ValueError("Error loading cell tag definitions")
 
 	def annotate(self, ds, trinaries):
 		"""
@@ -66,10 +66,10 @@ class AutoAnnotator(object):
 			for cluster in range(trinaries.shape[1]):
 				p = 1
 				for pos in tag.positives:
-					index = np.where(ds.Gene, pos)[0][0]
+					index = np.where(ds.Gene == pos)[0][0]
 					p = p*trinaries[index, cluster]
 				for neg in tag.negatives:
-					index = np.where(ds.Gene, neg)[0][0]
-					p = p*-trinaries[index, cluster]
+					index = np.where(ds.Gene == neg)[0][0]
+					p = p*(1-trinaries[index, cluster])
 				annotations[ix, cluster] = p
 		return (self.tags, annotations)

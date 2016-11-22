@@ -55,8 +55,8 @@ def process_samples(work, return_result=False):
 	ds = loompy.connect(fname)
 
 	# MKNN graph and initial clustering
-	logging.info("Generating KNN graph")
-	(knn, genes, cells, sigma) = dt.knn_similarities(ds, cells=None, k=50, n_components = 100, min_cells=10, mutual=True, metric='euclidean', annoy_trees=50, n_genes=1000, filter_doublets=False)
+	logging.info("Generating MKNN graph")
+	(knn, genes, cells, sigma) = dt.knn_similarities(ds, cells=None, k=50, n_genes=1000, n_components = 100, min_cells=10, mutual=True, metric='euclidean', annoy_trees=50, filter_doublets=False)
 	logging.info("Layout and Louvain-Jaccard clustering (1st round)")
 	(g, labels, sfdp) = dt.make_graph(knn[cells, :][:, cells].tocoo(), jaccard=True)
 
@@ -65,6 +65,18 @@ def process_samples(work, return_result=False):
 	g_pagerank = gt.pagerank(g).get_array()
 	inliers = np.where(g_pagerank > np.percentile(g_pagerank, 2.5))[0]
 	cells = cells[inliers]
+
+	# Remove nodes with very long edges
+	# logging.info("Removing stretched edges")
+	# knn_filtered = knn[cells, :][:, cells]
+	# v1 = sfdp[knn_filtered.row]
+	# v2 = sfdp[knn_filtered.col]
+	# edge_lengths = np.sqrt(np.power(v2[:, 0] - v1[:, 0], 2) + np.power(v2[:, 1] - v1[:, 1], 2))
+	# mean_edge_length = np.zeros(knn_filtered.shape[0])
+	# for ix in range(knn_filtered.shape[0]):
+	# 	mean_edge_length[ix] = np.mean(edge_lengths[np.where(knn_filtered.row == ix)[0]])
+	# inliers = np.where(mean_edge_length > np.percentile(mean_edge_length, 2.5))[0]
+	# cells = cells[inliers]
 
 	logging.info("Layout and Louvain-Jaccard clustering (2nd round)")
 	(g, labels, sfdp) = dt.make_graph(knn[cells, :][:, cells].tocoo(), jaccard=True)
@@ -89,25 +101,28 @@ def process_samples(work, return_result=False):
 
 	# Compute marker enrichment and trinarize
 	logging.info("Marker enrichment and trinarization")
-	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels[cells], 0.95, 0.2, cells)
+	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels, 0.05, 0.2, cells)
 	with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_diffexpr.tab"), "w") as f:
 		f.write("Gene\t")
+		f.write("Valid\t")
 		for ix in range(enrichment.shape[1]):
-			f.write("Enr_" + str(ix) + "\t")
+			f.write("Enr_" + str(ix+1) + "\t")
 		for ix in range(trinary_pat.shape[1]):
-			f.write("Trin_" + str(ix) + "\t")
+			f.write("Trin_" + str(ix+1) + "\t")
 		for ix in range(trinary_prob.shape[1]):
-			f.write("Prob_" + str(ix) + "\t")
+			f.write("Prob_" + str(ix+1) + "\t")
 		f.write("\n")
 
 		for row in range(enrichment.shape[0]):
+			f.write(ds.Gene[row] + "\t")
+			f.write(("1" if (ds.row_attrs["_Excluded"][row] == 0 and ds.row_attrs["_Valid"][row] == 1) else "0") + "\t")
 			for ix in range(enrichment.shape[1]):
 				f.write(str(enrichment[row, ix]) + "\t")
 			for ix in range(trinary_pat.shape[1]):
 				f.write(str(trinary_pat[row, ix]) + "\t")
 			for ix in range(trinary_prob.shape[1]):
-				f.write(str(trinary_prob) + "\t")
-		f.write("\n")
+				f.write(str(trinary_prob[row, ix]) + "\t")
+			f.write("\n")
 	ds.close()
 
 	# Auto-annotation
@@ -123,7 +138,7 @@ def process_samples(work, return_result=False):
 			f.write(str(tag) + "\t")
 			for j in range(annotations.shape[1]):
 				f.write(str(annotations[ix, j])+"\t")
-		f.write("\n")
+			f.write("\n")
 
 	# Return the results of the last tissue, for debugging purposes (in case you want to replot etc)
 	logging.info("Done")
