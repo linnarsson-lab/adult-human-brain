@@ -39,6 +39,7 @@ config = {
 		"search_k_factor": 10,
 		"filter_doublets": False,
 		"outlier_percentile": 2.5,
+		"edge_percentile": 0.5,
 		"louvain_resolution": 1,
 		"edge_weights": "jaccard", # or "euclidean"
 		"cooling_step": 0.95
@@ -112,25 +113,33 @@ def process_one(config, return_result=False):
 		logging.info("Removing outliers")
 		g_pagerank = gt.pagerank(g).get_array()
 		inliers = np.where(g_pagerank > np.percentile(g_pagerank, config["graph"]["outlier_percentile"]))[0]
-		cells = cells[inliers]
 
 		# Remove nodes with very long edges
-		# logging.info("Removing stretched edges")
-		# knn_filtered = knn[cells, :][:, cells]
-		# v1 = sfdp[knn_filtered.row]
-		# v2 = sfdp[knn_filtered.col]
-		# edge_lengths = np.sqrt(np.power(v2[:, 0] - v1[:, 0], 2) + np.power(v2[:, 1] - v1[:, 1], 2))
-		# mean_edge_length = np.zeros(knn_filtered.shape[0])
-		# for ix in range(knn_filtered.shape[0]):
-		# 	mean_edge_length[ix] = np.mean(edge_lengths[np.where(knn_filtered.row == ix)[0]])
-		# inliers = np.where(mean_edge_length > np.percentile(mean_edge_length, 2.5))[0]
-		# cells = cells[inliers]
+		logging.info("Removing stretched edges")
+		knn_filtered = knn[cells, :][:, cells].tocoo()
+		v1 = sfdp[knn_filtered.row]
+		v2 = sfdp[knn_filtered.col]
+		edge_lengths = np.sqrt(np.power(v2[:, 0] - v1[:, 0], 2) + np.power(v2[:, 1] - v1[:, 1], 2))
+		mean_edge_length = np.zeros(knn_filtered.shape[0])
+		for ix in range(knn_filtered.shape[0]):
+			mean_edge_length[ix] = np.mean(edge_lengths[np.where(knn_filtered.row == ix)[0]])
+		inliers2 = np.where(mean_edge_length > np.percentile(mean_edge_length, config["graph"]["edge_percentile"]))[0]
+
+		# Remove very small L-J clusters
+		sizes = np.bincount(labels)
+		inliers3 = np.where((sizes > config["graph"]["min_cells"])[labels])[0]
+
+		# Collect all the ok cells
+		cells = cells[np.intersect1d(np.intersect1d(inliers, inliers2), inliers3)]
 
 		logging.info("Layout and Louvain-Jaccard clustering (2nd round)")
 		(g, labels, sfdp) = dt.make_graph(knn[cells, :][:, cells].tocoo(), jaccard=True, cooling_step=config["graph"]["cooling_step"])
 
 		# Save the graph layout to the file
 		logging.info("Saving attributes to the loom file")
+		valids = np.zeros(ds.shape[1])
+		valids[cells] = 1
+		ds.set_attr("_Valid", valids, axis=1, dtype="int")
 		x = np.zeros(ds.shape[1])
 		x[cells] = sfdp[:, 0]
 		y = np.zeros(ds.shape[1])
@@ -146,11 +155,12 @@ def process_one(config, return_result=False):
 		g.save(os.path.join(build_dir, tissue + ".graphml.gz"))
 	else:
 		# Load (g, labels, sfdp) from the build_dir 
-		g = gt.load(os.path.join(build_dir, tissue + ".graphml.gz"))
+		g = gt.load_graph(os.path.join(build_dir, tissue + ".graphml.gz"))
 		labels = ds.col_attrs["Louvain_Jaccard"]
 		x = ds.col_attrs["SFDP_X"]
 		y = ds.col_attrs["SFDP_Y"]
 		sfdp = np.vstack((x,y)).transpose()
+		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 
 	# Compute marker enrichment and trinarize
 	# MKNN graph and initial clustering
@@ -187,10 +197,11 @@ def process_one(config, return_result=False):
 		logging.info("Auto-annotating cell types and states")
 		aa = dt.AutoAnnotator(ds)
 		(tags, annotations) = aa.annotate(ds, trinary_prob)
+		sizes = np.bincount(labels)
 		with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_annotations.tab"), "w") as f:
 			f.write("\t")
 			for j in range(annotations.shape[1]):
-				f.write(str(j + 1) + "\t")
+				f.write(str(j + 1) + " (" + str(sizes[j]) + ")\t")
 			f.write("\n")
 			for ix, tag in enumerate(tags):
 				f.write(str(tag) + "\t")
@@ -200,7 +211,7 @@ def process_one(config, return_result=False):
 
 		# Plot the graph colored by Louvain cluster
 		logging.info("Plotting")
-		title = tissue + " (" + str(n_valid) + "/" + str(n_total) + " cells)"
+		title = tissue + " (" + str(cells.shape[0]) + "/" + str(n_total) + " cells)"
 		dt.plot_clusters(knn[:,cells][cells, :], labels, sfdp, tags, annotations, title=title, outfile=os.path.join(build_dir, tissue.replace(" ", "_")))
 
 	# Return the results of the last tissue, for debugging purposes (in case you want to replot etc)
@@ -238,7 +249,7 @@ def plot_clusters(knn, labels, sfdp, tags, annotations, title=None, outfile=None
 			text = str(lbl + 1)
 		ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
 	if outfile is not None:
-		fig.savefig(outfile + "_annotated.png")
+		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
 
 	# Plot cluster labels
@@ -261,7 +272,7 @@ def plot_clusters(knn, labels, sfdp, tags, annotations, title=None, outfile=None
 		(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
 		ax.text(x, y, str(lbl + 1), fontsize=6, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
 	if outfile is not None:
-		fig.savefig(outfile + "_clusters.png")
+		fig.savefig(outfile + "_clusters.pdf")
 		plt.close()
 
 	# Plot MKNN edges only
@@ -280,5 +291,5 @@ def plot_clusters(knn, labels, sfdp, tags, annotations, title=None, outfile=None
 		(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
 		ax.text(x, y, str(lbl + 1), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
 	if outfile is not None:
-		fig.savefig(outfile + "_mknn.png")
+		fig.savefig(outfile + "_mknn.pdf")
 		plt.close()
