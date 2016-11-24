@@ -15,28 +15,32 @@ import community
 import differentiation_topology as dt
 
 
-def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_components=200, normalize=False, min_cells=10, min_nnz=2, mutual=True, metric='euclidean', filter_doublets=True):
+def knn_similarities(ds, config):
 	"""
 	Compute knn similarity matrix for the given cells
 
 	Args:
 		ds (LoomConnecton):		Loom file
-		cells (array of int):	Selection of cells that should be considered for the graph
-		n_genes (int):			Number of genes to select
-		k (int):				Number of nearest neighbours to search
-		annoy_trees (int):		Number of Annoy trees used for kNN approximation
-		n_components (int):		Number of principal components to use
-		normalize (bool):		If true, normalize by total mRNA molecule count
-		min_cells (int):		Minimum number of cells to retain as component (cluster)
-		mutual (bool): 			If true, retain only mutual nearest neighbors
-		metric (string):		Metric to use (euclidean or angular)
-
+		config (dict):			A graph config dictionary
 	Returns:
 		knn (sparse matrix):	Matrix of similarities of k nearest neighbors
 		genes (array of int):	Selection of genes that was used for the graph
 		cells (array of int):	Selection of cells that are included in the graph
 		sigma (numpy array):	Nearest neighbor similarity for each cell
 	"""
+	cells = config["cells"]
+	n_genes = config["n_genes"]
+	k = config["k"]
+	n_trees = config["n_trees"]
+	search_k = config["search_k_factor"]*config["k"]*config["n_trees"]
+	n_components = config["n_components"]
+	normalize = config["normalize"]
+	standardize = config["standardize"]
+	min_cells = config["min_cells"]
+	mutual = config["mutual"]
+	metric = config["metric"]
+	filter_doublets = config["filter_doublets"]
+
 	if cells is None:
 		cells = np.array(range(ds.shape[1]))
 	cells = np.intersect1d(cells, np.where(ds.col_attrs["_Valid"] == 1)[0])
@@ -78,6 +82,8 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 			vals = vals/totals[selection + ix]*median_cell
 		vals = np.log(vals+1)
 		vals = vals - np.mean(vals, axis=0)
+		if standardize:
+			vals = vals/np.std(vals, axis=0)
 		pca.partial_fit(vals.transpose())
 
 		ix = ix + cols_per_chunk
@@ -94,6 +100,8 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 			vals = vals/totals[ix]*median_cell
 		vals = np.log(vals+1)
 		vals = vals - np.mean(vals)
+		if standardize:
+			vals = vals/np.std(vals, axis=0)
 		transformed = pca.transform(vals.transpose())[0]
 		annoy.add_item(ix, transformed)
 
@@ -118,7 +126,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 
 	# 	ix = ix + cols_per_chunk
 
-	annoy.build(annoy_trees)
+	annoy.build(n_trees)
 
 	# Compute kNN and similarities for each cell, in sparse matrix IJV format
 	logging.info("Computing mutual nearest neighbors")
@@ -129,7 +137,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	V = np.empty(d*k)
 	sigma = np.empty((d,), dtype='float64') # The local kernel width
 	for i in range(d):
-		(nn, w) = annoy.get_nns_by_item(i, k, include_distances=True)
+		(nn, w) = annoy.get_nns_by_item(i, k, include_distances=True, search_k=search_k)
 		w = np.array(w)
 		I[i*k:(i+1)*k] = [i]*k
 		J[i*k:(i+1)*k] = nn
@@ -188,7 +196,7 @@ def knn_similarities(ds,  cells=None, n_genes=1000, k=50, annoy_trees=50, n_comp
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
 
-def make_graph(knn, jaccard=False):
+def make_graph(knn, jaccard=False, cooling_step=0.95):
 	"""
 	From knn, make a graph-tool Graph object, a Louvain partitioning and a layout position list
 
@@ -197,9 +205,9 @@ def make_graph(knn, jaccard=False):
 		jaccard (bool):				If true, replace knn edge weights with Jaccard similarities
 
 	Returns:
-		g (graph.tool Graph):		 the Graph corresponding to the knn matrix
+		g (graph.tool Graph):		the Graph corresponding to the knn matrix
 		labels (ndarray of int): 	Louvain partition label for each node in the graph
-		sfdp (ndarray matrix):		 X,Y position for each node
+		sfdp (ndarray matrix):		X,Y position for each node
 	"""
 	logging.info("Creating graph")
 	g = gt.Graph(directed=False)
@@ -232,7 +240,7 @@ def make_graph(knn, jaccard=False):
 
 	logging.info("Creating graph layout")
 	#label_prop = g.new_vertex_property("int", vals=labels)
-	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001).get_2d_array([0, 1]).transpose()
+	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001, cooling_step=cooling_step).get_2d_array([0, 1]).transpose()
 
 	return (g, labels, sfdp)
 
