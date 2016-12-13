@@ -105,7 +105,8 @@ def betabinomial_trinarize_array(array, labels, pep, f):
 		pep (float):				The desired posterior error probability (PEP)
 
 	Returns:
-		expr_by_label (ndarray of ints): The trinarized expression pattern (one per label)
+		ps (ndarray of float):		The posterior probability of expression in at least a fraction f
+		expr_by_label (ndarray of float): The trinarized expression pattern (one per label)
 
 	Remarks:
 		We calculate probability p that at least half the cells express (in each group),

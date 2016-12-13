@@ -4,7 +4,7 @@ import loompy
 import numpy as np
 from scipy import sparse
 from sklearn.metrics.pairwise import pairwise_distances
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import NearestNeighbors, BallTree
 from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
 from sklearn.decomposition import PCA, IncrementalPCA
@@ -14,53 +14,34 @@ import networkx as nx
 import community
 import differentiation_topology as dt
 
-
-def knn_similarities(ds, config):
+def knn_similarities(ds, config, cells, genes):
 	"""
 	Compute knn similarity matrix for the given cells
 
 	Args:
-		ds (LoomConnecton):		Loom file
+		ds (LoomConnection):	Loom file
 		config (dict):			A graph config dictionary
+		cells (array of int):	Selection of cells that will be included in the graph
+		genes (array of int):	Selection of genes that will be used for the graph
+
 	Returns:
 		knn (sparse matrix):	Matrix of similarities of k nearest neighbors
-		genes (array of int):	Selection of genes that was used for the graph
-		cells (array of int):	Selection of cells that are included in the graph
 		sigma (numpy array):	Nearest neighbor similarity for each cell
 	"""
-	cells = config["cells"]
 	n_genes = config["n_genes"]
 	k = config["k"]
+	kth = config["kth"]
+	use_radius = config["use_radius"]
 	n_trees = config["n_trees"]
 	search_k = config["search_k_factor"]*config["k"]*config["n_trees"]
 	n_components = config["n_components"]
+	stitch = config["stitch_components"]
 	normalize = config["normalize"]
 	standardize = config["standardize"]
 	min_cells = config["min_cells"]
 	mutual = config["mutual"]
 	metric = config["metric"]
 	filter_doublets = config["filter_doublets"]
-
-	if cells is None:
-		cells = np.array(range(ds.shape[1]))
-	cells = np.intersect1d(cells, np.where(ds.col_attrs["_Valid"] == 1)[0])
-
-	# Find the totals
-	if not "_Total" in ds.col_attrs:
-		ds.compute_stats()
-	totals = ds.col_attrs["_Total"]
-	median_cell = np.median(totals)
-
-	# Compute an initial gene set
-	logging.info("Selecting genes")
-	with np.errstate(divide='ignore',invalid='ignore'):
-		ds.feature_selection(n_genes, method="SVR")
-	if "_Valid" in ds.row_attrs:
-		genes = np.where(np.logical_and(ds.row_attrs["_Valid"] == 1, ds.row_attrs["_Excluded"] == 0))[0]
-	else:
-		genes = np.where(ds.row_attrs["_Excluded"] == 0)[0]
-
-	logging.info("Using %d genes", genes.shape[0])
 
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing %d PCA components", n_components)
@@ -94,16 +75,17 @@ def knn_similarities(ds, config):
 
 	logging.info("Creating approximate nearest neighbors model (annoy)")
 	annoy = AnnoyIndex(n_components, metric=metric)
-	for ix in cells:
-		vals = ds[:, ix][genes, np.newaxis]
+	transformed = np.zeros((cells.shape[0],n_components))
+	for ix, cell in enumerate(cells):
+		vals = ds[:, cell][genes, np.newaxis]
 		if normalize:
-			vals = vals/totals[ix]*median_cell
+			vals = vals/totals[cell]*median_cell
 		vals = np.log(vals+1)
 		vals = vals - np.mean(vals)
 		if standardize:
 			vals = vals/np.std(vals, axis=0)
-		transformed = pca.transform(vals.transpose())[0]
-		annoy.add_item(ix, transformed)
+		transformed[ix,:] = pca.transform(vals.transpose())[0]
+		annoy.add_item(cell, transformed[ix,:])
 
 	# cols_per_chunk = 5000
 	# ix = 0
@@ -130,7 +112,6 @@ def knn_similarities(ds, config):
 
 	# Compute kNN and similarities for each cell, in sparse matrix IJV format
 	logging.info("Computing mutual nearest neighbors")
-	kth = int(max(k/10, 1))
 	d = ds.shape[1]
 	I = np.empty(d*k)
 	J = np.empty(d*k)
@@ -143,6 +124,21 @@ def knn_similarities(ds, config):
 		J[i*k:(i+1)*k] = nn
 		V[i*k:(i+1)*k] = w
 		sigma[i] = w[kth-1]
+
+	if use_radius:
+		# Compute a radius neighborhood based on the average local kernel width (sigma)
+		radius = np.mean(sigma)
+		logging.info("Mean distance to kth neighbor: " + str(radius))
+		logging.info("Computing radius neighbors")
+		ball_tree = BallTree(transformed)
+		(J, V) = ball_tree.query_radius(transformed, r=radius, return_distance=True)
+		I = []
+		for ix,rn in enumerate(J):
+			I.extend([ix]*rn.shape[0])
+		J = np.concatenate(J).ravel()
+		V = np.concatenate(V).ravel()
+		I = np.array(I)
+
 
 	# k nearest neighbours
 	knn = sparse.coo_matrix((V, (I, J)), shape=(d, d))

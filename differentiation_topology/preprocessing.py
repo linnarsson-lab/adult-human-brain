@@ -64,12 +64,12 @@ def generate_doublets(ds, cell_id_template):
 def validate_cells(ds):
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 	valid = np.logical_and(np.logical_and(mols >= 600, (mols/genes) >= 1.2), np.logical_and(mols <= 20000, genes >= 500)).astype('int')
-	ds.set_attr("_Valid", valid, dtype='int', axis=1)
+	ds.set_attr("_Valid", valid, axis=1)
 
 def validate_genes(ds):
 	nnz = ds.map(np.count_nonzero, axis=0)
 	valid = np.logical_and(nnz > 20, nnz < ds.shape[1]*0.6)
-	ds.set_attr("_Valid", valid, dtype='int', axis=0)
+	ds.set_attr("_Valid", valid, axis=0)
 
 def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False, do_validate_genes=False):
 	# Keep track of temporary copies of the loom files

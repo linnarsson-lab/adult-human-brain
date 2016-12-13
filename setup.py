@@ -10,7 +10,7 @@ setup(
         'loompy',
         'numpy',
         'scikit-learn',
-        'scipy<=0.17.1',
+        'scipy',
         'annoy'
     ],
 
