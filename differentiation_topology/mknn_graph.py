@@ -192,53 +192,7 @@ def knn_similarities(ds, config, cells, genes):
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
 
-def make_graph(knn, jaccard=False, cooling_step=0.95):
-	"""
-	From knn, make a graph-tool Graph object, a Louvain partitioning and a layout position list
 
-	Args:
-		knn (COO sparse matrix):	knn adjacency matrix
-		jaccard (bool):				If true, replace knn edge weights with Jaccard similarities
-
-	Returns:
-		g (graph.tool Graph):		the Graph corresponding to the knn matrix
-		labels (ndarray of int): 	Louvain partition label for each node in the graph
-		sfdp (ndarray matrix):		X,Y position for each node
-	"""
-	logging.info("Creating graph")
-	g = gt.Graph(directed=False)
-
-	# Keep only half the edges, so the result is undirected
-	sel = np.where(knn.row < knn.col)[0]
-	logging.info("Graph has %d edges", sel.shape[0])
-
-	g.add_vertex(n=knn.shape[0])
-	edges = np.stack((knn.row[sel], knn.col[sel]), axis=1)
-	g.add_edge_list(edges)
-	w = g.new_edge_property("double")
-	if jaccard:
-		js = []
-		knncsr = knn.tocsr()
-		for i, j in edges:
-			r = knncsr.getrow(i)
-			c = knncsr.getrow(j)
-			shared = r.minimum(c).nnz
-			total = r.maximum(c).nnz
-			js.append(shared/total)
-		w.a = np.array(js)
-	else:
-		# use the input edge weights
-		w.a = knn.data[sel]
-
-	logging.info("Louvain partitioning")
-	partitions = community.best_partition(nx.from_scipy_sparse_matrix(knn))
-	labels = np.fromiter(partitions.values(), dtype='int')
-
-	logging.info("Creating graph layout")
-	#label_prop = g.new_vertex_property("int", vals=labels)
-	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001, cooling_step=cooling_step).get_2d_array([0, 1]).transpose()
-
-	return (g, labels, sfdp)
 
 # block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
 # blocks = state.get_majority_blocks().get_array()

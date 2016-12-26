@@ -44,9 +44,11 @@ def expression_patterns(ds, labels, pep, f, cells=None):
 			data = ds[row, :][cells]
 		mu0 = np.mean(data)
 		f0 = np.count_nonzero(data)
-		score1 = np.empty(n_labels)
-		score2 = np.empty(n_labels)
+		score1 = np.zeros(n_labels)
+		score2 = np.zeros(n_labels)
 		for lbl in range(n_labels):
+			if np.sum(labels == lbl) == 0:
+				continue
 			selection = data[np.where(labels == lbl)[0]]
 			if mu0 == 0 or f0 == 0:
 				score1[lbl] = 0
@@ -95,7 +97,7 @@ def p_half(k, n, f):
 		p = 1-exp(log(incb)+betaln(a+k, b-k+n)+lgamma(a+b+n)-lgamma(a+k)-lgamma(b-k+n))
 	return p
 
-def betabinomial_trinarize_array(array, labels, pep, f):
+def betabinomial_trinarize_array(array, labels, pep, f, n_labels=None):
 	"""
 	Trinarize a vector, grouped by labels, using a beta binomial model
 
@@ -114,10 +116,13 @@ def betabinomial_trinarize_array(array, labels, pep, f):
 		-1 if p < (1 - pep) and 0 otherwise.
 	"""
 
-	n_labels = np.max(labels) + 1
-	n_by_label = np.bincount(labels)
+	if n_labels is None:
+		n_labels = np.max(labels) + 1
+	n_by_label = np.bincount(labels, minlength=n_labels)
 	k_by_label = np.zeros(n_labels)
 	for lbl in range(n_labels):
+		if np.sum(labels == lbl) == 0:
+			continue
 		k_by_label[lbl] = np.count_nonzero(array[np.where(labels == lbl)[0]])
 
 	vfunc = np.vectorize(p_half)
