@@ -13,7 +13,7 @@ setup(
         'scikit-learn',
         'scipy',
         'annoy',
-        'pygraphviz-1.4rc1'
+        'numpy-groupies'
     ],
 
     # metadata

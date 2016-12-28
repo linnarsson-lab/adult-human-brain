@@ -8,4 +8,5 @@ from .pipeline import process_many, process_one, plot_clusters, get_default_conf
 from .cytograph import cytograph
 from .corex import Corex
 from .prommt import ProMMT
+from .facet_learning import Facet, FacetLearning
 from ._version import __version__

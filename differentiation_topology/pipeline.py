@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from palettable.tableau import Tableau_20
 import loompy
-import graph_tool.all as gt
+#import graph_tool.all as gt
 import networkx as nx
 import differentiation_topology as dt
 
@@ -19,7 +19,7 @@ config = {
 	"entrypoint": "preprocessing",
 	"tissue": "Dentate gyrus",
 	"samples": ["10X43_1", "10X46_1"],
-	
+
 	"preprocessing": {
 		"do_validate_genes": True,
 		"make_doublets": False
@@ -66,7 +66,8 @@ config = {
 	}
 }
 
-def get_default_config():
+
+def get_default_config(x):
 	return copy.deepcopy(config)
 
 

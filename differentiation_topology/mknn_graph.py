@@ -8,10 +8,10 @@ from sklearn.neighbors import NearestNeighbors, BallTree
 from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
 from sklearn.decomposition import PCA, IncrementalPCA
-import graph_tool.all as gt
+#import graph_tool.all as gt
 from annoy import AnnoyIndex
 import networkx as nx
-import community
+#import community
 import differentiation_topology as dt
 
 def knn_similarities(ds, config, cells, genes):

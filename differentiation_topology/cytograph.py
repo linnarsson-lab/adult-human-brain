@@ -21,14 +21,14 @@ from sklearn.preprocessing import scale
 from sklearn.svm import SVR
 from annoy import AnnoyIndex
 import networkx as nx
-import community
+# import community
 import differentiation_topology as dt
 
 colors20 = np.array(Tableau_20.mpl_colors)
 
 default_config = {
 	"sample_dir": "/Users/Sten/loom-datasets/Whole brain/",
-	"build_dir": None,
+	"build_dir": "/Users/Sten/builds/build_20161127_180745",
 	"tissue": "Dentate gyrus",
 	"samples": ["10X43_1", "10X46_1"],
 
@@ -36,20 +36,24 @@ default_config = {
 		"do_validate_genes": True,
 		"make_doublets": False
 	},
-	"cytograph": {
-		"cache_n_columns": 5000,
-		"n_components": 100,
-		"min_components": 2,
-		"min_cells": 10,
+	"knn": {
 		"k": 50,
 		"n_trees": 50,
-		"n_genes": 1000,
+		"mutual": True,
+		"min_cells": 10
+	},
+	"louvain_jaccard": {
+		"cache_n_columns": 5000,
+		"n_components": 50,
+		"n_genes": 2000,
 		"normalize": True,
-		"standardize": True,
-		"trinarize_f": 0.2,
-		"trinarize_pep": 0.05,
-		"min_diff_genes": 5,
-		"level1_n_clusters": 10
+		"standardize": False
+	},
+	"prommt": {
+		"n_genes": 1000,
+		"n_S": 100,
+		"k": 5,
+		"max_iter": 100
 	},
 	"annotation": {
 		"pep": 0.05,
@@ -59,11 +63,7 @@ default_config = {
 }
 
 
-def get_default_config() -> Dict:
-	return copy.deepcopy(default_config)
-
-
-def cytograph(config: Dict) -> Any:
+def cytograph(config: Dict = default_config) -> Any:
 	skip_preprocessing = False
 	if config["build_dir"] is None:
 		config["build_dir"] = "build_" + datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -100,28 +100,69 @@ def cytograph(config: Dict) -> Any:
 	transformed = pca_projection(ds, cells, config["louvain_jaccard"])
 	logging.info("Generating mutual KNN graph")
 	(knn, ok_cells) = make_knn(transformed, ds.shape[1], cells, config["knn"])
-	logging.info("Layout and Louvain-Jaccard clustering")
-	# (g, lj_labels, sfdp) = louvain_jaccard(knn[ok_cells, :][:, ok_cells].tocoo(), jaccard=True)
 
-	# corex_outs = corex(ds, cells)
-	# corex_labels = corex.outs[1].clusters
+	# logging.info("ProMMT clustering")
+	# labels = prommt(ds, ok_cells, config["prommt"])
+	# n_labels = max(labels) + 1
+	# logging.info("Found %d clusters", n_labels)
 
-	labels = prommt(ds, ok_cells, config["prommt"])
-
-	n_labels = max(labels) + 1
-	logging.info("Found %d clusters", n_labels)
+	logging.info("Facet learning")
+	labels = facets(ds, cells)
+	logging.info(labels.shape)
+	n_labels = np.max(labels, axis=0) + 1
+	logging.info("Found " + str(n_labels) + " clusters")
+	# Make labels for excluded cells == -1
+	labels_all = np.zeros((ds.shape[1], labels.shape[1]), dtype='int') + -1
+	labels_all[cells, :] = labels
 
 	# Layout
+	logging.info("t-SNE layout")
 	tsne = TSNE().fit_transform(transformed)
-
-	# Make labels for excluded cells == -1
-	labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-	labels_all[ok_cells] = labels
+	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne, axis=0)
+	tsne_all[cells] = tsne
 
 	logging.info("Marker enrichment and trinarization")
 	f = config["annotation"]["f"]
 	pep = config["annotation"]["pep"]
-	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels, pep, f, ok_cells)
+	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[ok_cells, 2] + 1, pep, f, ok_cells)
+	save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
+
+	# Auto-annotation
+	logging.info("Auto-annotating cell types and states")
+	aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
+	(tags, annotations) = aa.annotate(ds, trinary_prob)
+	sizes = np.bincount(labels_all[:, 2] + 1)
+	save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
+
+	logging.info("Plotting clusters on mutual-KNN graph")
+	for i in range(labels.shape[1]):
+		pl = False
+		if i == 2:
+			pl = True
+		plot_clusters(knn, labels_all[:, i] + 1, tsne_all, tags, annotations, title=tissue, plt_labels=pl, outfile=os.path.join(build_dir, tissue + "_" + str(i)))
+
+	logging.info("Saving attributes")
+	ds.set_attr("tSNE_X", tsne_all[:, 0], axis=1)
+	ds.set_attr("tSNE_Y", tsne_all[:, 1], axis=1)
+	ds.set_attr("Louvain_Jaccard", labels_all, axis=1)
+	logging.info("Done.")
+	return (knn, tsne_all, labels_all, ok_cells, tags, annotations, enrichment, trinary_pat, trinary_prob)
+
+
+def save_auto_annotation(build_dir: str, tissue: str, sizes: np.ndarray, annotations: np.ndarray, tags: np.ndarray) -> None:
+	with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_annotations.tab"), "w") as f:
+		f.write("\t")
+		for j in range(annotations.shape[1]):
+			f.write(str(j + 1) + " (" + str(sizes[j]) + ")\t")
+		f.write("\n")
+		for ix, tag in enumerate(tags):
+			f.write(str(tag) + "\t")
+			for j in range(annotations.shape[1]):
+				f.write(str(annotations[ix, j]) + "\t")
+			f.write("\n")
+
+
+def save_diff_expr(ds: loompy.LoomConnection, build_dir: str, tissue: str, enrichment: np.ndarray, trinary_pat: np.ndarray, trinary_prob: np.ndarray) -> None:
 	with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_diffexpr.tab"), "w") as f:
 		f.write("Gene\t")
 		f.write("Valid\t")
@@ -149,31 +190,36 @@ def cytograph(config: Dict) -> Any:
 				f.write(str(trinary_prob[row, ix]) + "\t")
 			f.write("\n")
 
-	# Auto-annotation
-	logging.info("Auto-annotating cell types and states")
-	aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
-	(tags, annotations) = aa.annotate(ds, trinary_prob)
-	sizes = np.bincount(labels)
-	with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_annotations.tab"), "w") as f:
-		f.write("\t")
-		for j in range(annotations.shape[1]):
-			f.write(str(j + 1) + " (" + str(sizes[j]) + ")\t")
-		f.write("\n")
-		for ix, tag in enumerate(tags):
-			f.write(str(tag) + "\t")
-			for j in range(annotations.shape[1]):
-				f.write(str(annotations[ix, j]) + "\t")
-			f.write("\n")
 
-	logging.info("Plotting clusters on mutual-KNN graph")
-	plot_clusters(knn, labels_all, tsne, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue))
+def facets(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict={"n_genes": 5000}) -> np.ndarray:
+	n_genes = config["n_genes"]
 
-	logging.info("Saving attributes")
-	ds.set_attr("tSNE_X", tsne[:, 0], axis=1)
-	ds.set_attr("tSNE_Y", tsne[:, 1], axis=1)
-	ds.set_attr("Louvain_Jaccard", labels_all, axis=1)
-	logging.info("Done.")
-	return (knn, tsne, labels_all, ok_cells, tags, annotations, enrichment, trinary_pat, trinary_prob)
+	# Compute an initial gene set
+	logging.info("Selecting genes for Facet Learning")
+	with np.errstate(divide='ignore', invalid='ignore'):
+		(genes, _, _) = feature_selection(ds, n_genes, cells)
+	facet_genes = np.where(np.in1d(ds.Gene, ["Xist", "Tsix", "Top2a", "Cdk1", "Plk1", "Cenpe"]))[0]
+	genes = np.union1d(genes, facet_genes)
+
+	logging.info("Loading data (in batches)")
+	m = np.zeros((cells.shape[0], genes.shape[0]), dtype='int')
+	j = 0
+	for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=5000):
+		vals = vals[genes, :].transpose()
+		n_cells_in_batch = selection.shape[0]
+		m[j:j + n_cells_in_batch, :] = vals
+		j += n_cells_in_batch
+
+	logging.info("Facet learning with three facets")
+
+	# Get indexes for genes
+	def gix(names: List[str]) -> List[int]:
+		return [np.where(ds.Gene[genes] == n)[0][0] for n in names]
+	f0 = dt.Facet("sex", k=2, n_genes=10, genes=gix(["Xist", "Tsix"]), adaptive=False)
+	f1 = dt.Facet("cell cycle", k=2, n_genes=20, genes=gix(["Top2a", "Cdk1", "Plk1", "Cenpe"]), adaptive=False)
+	f2 = dt.Facet("cell type", k=15, n_genes=100, genes=[], adaptive=True)
+	labels = dt.FacetLearning([f0, f1, f2], r=2, max_iter=100).fit_transform(m)
+	return labels
 
 
 def prommt(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.ndarray:
@@ -200,6 +246,7 @@ def prommt(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.nda
 	labels = dt.ProMMT(n_S=n_S, k=k, max_iter=max_iter).fit_transform(m)
 	return labels
 
+def sfdp(knn, )
 
 class Normalizer(object):
 	def __init__(self, ds: loompy.LoomConnection, config: Dict, mu: np.ndarray = None, sd: np.ndarray = None) -> None:
@@ -242,7 +289,7 @@ class Normalizer(object):
 		return c
 
 
-def pca_projection(ds, cells: np.ndarray, config: Dict) -> np.ndarray:
+def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.ndarray:
 	"""
 	Memory-efficient PCA projection of the dataset
 
@@ -288,7 +335,7 @@ def pca_projection(ds, cells: np.ndarray, config: Dict) -> np.ndarray:
 	return transformed
 
 
-def make_knn(m, d: int, cells: np.ndarray, config: Dict) -> Tuple[sparse.coo_matrix, np.ndarray]:
+def make_knn(m: np.ndarray, d: int, cells: np.ndarray, config: Dict) -> Tuple[sparse.coo_matrix, np.ndarray]:
 	k = config["k"]
 	n_trees = config["n_trees"]
 	mutual = config["mutual"]
@@ -343,7 +390,7 @@ def make_knn(m, d: int, cells: np.ndarray, config: Dict) -> Tuple[sparse.coo_mat
 	return (knn, ok_cells)
 
 
-def feature_selection(ds, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	Fits a noise model (CV vs mean)
 
@@ -385,7 +432,7 @@ def feature_selection(ds, n_genes: int, cells: np.ndarray = None, cache: np.ndar
 	return (top_genes, mu, std)
 
 
-def louvain_jaccard(knn: sparse.coo_matrix, jaccard: bool = False, cooling_step: float = 0.95) -> Tuple[gt.Graph, np.ndarray, np.ndarray]:
+def louvain_jaccard(knn: sparse.coo_matrix, jaccard: bool = False, cooling_step: float = 0.95) -> Tuple[Any, np.ndarray, np.ndarray]:
 	"""
 	From knn, make a graph-tool Graph object, a Louvain partitioning and a layout position list
 
@@ -434,29 +481,26 @@ def louvain_jaccard(knn: sparse.coo_matrix, jaccard: bool = False, cooling_step:
 	return (g, labels, sfdp)
 
 
-def plot_clusters(knn, labels, sfdp, tags, annotations, title=None, plt_labels=True, outfile=None):
+def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, plt_labels: bool = True, outfile: str = None) -> None:
 	# Plot auto-annotation
 	fig = plt.figure(figsize=(10, 10))
-	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
+	g = nx.from_scipy_sparse_matrix(knn)
 	ax = fig.add_subplot(111)
+
+	# Draw the KNN graph first, with gray transparent edges
 	if title is not None:
 		plt.title(title, fontsize=14, fontweight='bold')
-	nx.draw(
-		nx.from_scipy_sparse_matrix(knn),
-		pos=sfdp,
-		node_color=block_colors,
-		node_size=10,
-		alpha=0.5,
-		width=0.1,
-		linewidths=0,
-		cmap='prism'
-	)
+	nx.draw_networkx_edges(g, pos=pos, alpha=0.5, width=0.1, edge_color='gray')
+
+	# Then draw the nodes, colored by label
+	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
+	nx.draw(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, width=0.1, linewidths=0)
 	if plt_labels:
 		for lbl in range(max(labels) + 1):
 			if np.sum(labels == lbl) == 0:
 				continue
-			(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
-			text_labels = []
+			(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
+			text_labels = ["#" + str(lbl + 1)]
 			for ix, a in enumerate(annotations[:, lbl]):
 				if a >= 0.5:
 					text_labels.append(tags[ix].abbreviation)
@@ -469,50 +513,5 @@ def plot_clusters(knn, labels, sfdp, tags, annotations, title=None, plt_labels=T
 		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
 
-	# Plot cluster labels
-	fig = plt.figure(figsize=(10, 10))
-	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
-	ax = fig.add_subplot(111)
-	if title is not None:
-		plt.title(title, fontsize=14, fontweight='bold')
-	nx.draw(
-		nx.from_scipy_sparse_matrix(knn),
-		pos=sfdp,
-		node_color=block_colors,
-		node_size=10,
-		alpha=0.5,
-		width=0.1,
-		linewidths=0,
-		cmap='prism'
-	)
-	if plt_labels:
-		for lbl in range(max(labels) + 1):
-			if np.sum(labels == lbl) == 0:
-				continue
-			(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
-			ax.text(x, y, str(lbl + 1), fontsize=6, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
-	if outfile is not None:
-		fig.savefig(outfile + "_clusters.pdf")
-		plt.close()
-
-	# Plot MKNN edges only
-	fig = plt.figure(figsize=(10, 10))
-	ax = fig.add_subplot(111)
-	if title is not None:
-		plt.title(title, fontsize=14, fontweight='bold')
-	nx.draw(
-		nx.from_scipy_sparse_matrix(knn),
-		pos=sfdp,
-		width=0.1,
-		linewidths=0.1,
-		nodelist=[]
-	)
-	if plt_labels:
-		for lbl in range(max(labels) + 1):
-			if np.sum(labels == lbl) == 0:
-				continue
-			(x, y) = sfdp[np.where(labels == lbl)[0]].mean(axis=0)
-			ax.text(x, y, str(lbl + 1), fontsize=9, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
-	if outfile is not None:
-		fig.savefig(outfile + "_mknn.pdf")
-		plt.close()
+if __name__ == "__main__":
+	result = cytograph()

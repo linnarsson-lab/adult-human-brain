@@ -1,10 +1,13 @@
 
 from math import exp, lgamma, log
 import logging
+from typing import *
 import numpy as np
 from scipy.special import beta, betainc, betaln
+import loompy
 
-def expression_patterns(ds, labels, pep, f, cells=None):
+
+def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	Derive enrichment and trinary scores for all genes
 
@@ -54,13 +57,14 @@ def expression_patterns(ds, labels, pep, f, cells=None):
 				score1[lbl] = 0
 				score2[lbl] = 0
 			else:
-				score1[lbl] = np.mean(selection)/mu0
-				score2[lbl] = np.count_nonzero(selection)/f0
+				score1[lbl] = np.mean(selection) / mu0
+				score2[lbl] = np.count_nonzero(selection) / f0
 		enrichment[row, :] = score1 * score2
 		trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
 	return (enrichment, trinary_prob, trinary_pat)
 
-def p_half(k, n, f):
+
+def p_half(k: int, n: int, f: float) -> float:
 	"""
 	Return probability that at least half the cells express, if we have observed k of n cells expressing
 
@@ -90,14 +94,15 @@ def p_half(k, n, f):
 	#
 	# But it's numerically unstable, so we need to work on log scale (and special-case the incomplete beta)
 
-	incb = betainc(a+k, b-k+n, f)
+	incb = betainc(a + k, b - k + n, f)
 	if incb == 0:
-		p = 1
+		p = 1.0
 	else:
-		p = 1-exp(log(incb)+betaln(a+k, b-k+n)+lgamma(a+b+n)-lgamma(a+k)-lgamma(b-k+n))
+		p = 1.0 - exp(log(incb) + betaln(a + k, b - k + n) + lgamma(a + b + n) - lgamma(a + k) - lgamma(b - k + n))
 	return p
 
-def betabinomial_trinarize_array(array, labels, pep, f, n_labels=None):
+
+def betabinomial_trinarize_array(array: np.ndarray, labels: np.ndarray, pep: float, f: float, n_labels: int = None) -> Tuple[np.ndarray, np.ndarray]:
 	"""
 	Trinarize a vector, grouped by labels, using a beta binomial model
 
@@ -128,8 +133,8 @@ def betabinomial_trinarize_array(array, labels, pep, f, n_labels=None):
 	vfunc = np.vectorize(p_half)
 	ps = vfunc(k_by_label, n_by_label, f)
 
-	expr_by_label = np.zeros(n_labels)+0.5
-	expr_by_label[np.where(ps > (1-pep))[0]] = 1
+	expr_by_label = np.zeros(n_labels) + 0.5
+	expr_by_label[np.where(ps > (1 - pep))[0]] = 1
 	expr_by_label[np.where(ps < pep)[0]] = 0
 
 	return (ps, expr_by_label)

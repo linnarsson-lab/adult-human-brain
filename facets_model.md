@@ -13,7 +13,7 @@ What we would like to see instead is a partitioning of cells along multiple inde
 
 ### A facets model of gene expression
 
-In order to account for the multiple facets of single cells, we introduce a model that simultaneously (1) discovers sets of genes salient to each of several facets, (2) clusters cells along the dimension of each facet. This probabilistic model automatically and simultaneously partitions cells along multiple facets. For example, it can simultaneously infer the sex, cell cycle state and type of each cell, as well as the most salient genes indicative of each. The model is strongly inspired by the clustering algortihm ProMMT (REF, Kenneth Harris) and ProMMT can be seen as a special case of facet learning where there is only one facet. 
+In order to account for the multiple facets of single cells, we introduce a model that simultaneously (1) discovers sets of genes salient to each of several facets, (2) clusters cells along the dimension of each facet. This probabilistic model automatically and simultaneously partitions cells along multiple facets. For example, it can simultaneously infer the sex, cell cycle state and type of each cell, as well as the most salient genes indicative of each. The model is based on the clustering algorithm ProMMT (REF, Kenneth Harris) and ProMMT can be seen as a special case of facet learning where there is only one facet. 
 
 We model gene expression as a mixture of negative binomial distributions. The probability of observing an expression profile $x_c$ when a cell c is assigned to cluster $k_{c,i}$ of facet $i$ is:
 
@@ -33,8 +33,9 @@ Genes that are assigned to a facet are modelled with one mean per cluster of tha
 
 Note that each gene is assigned to at most one facet, and that facets are thus mutually exclusive. For example, in this model a gene cannot be simultaneously assigned to *cell cycle* and *neuronal activity*. 
 
-In order to force the model to learn salient genes and to partition the cells according to real differences in expression of those salient genes, the model must be regularized. We do this by allowing only a limited number of genes to participate in facets, i.e. by limiting the total size (cardinality) of the sets $S_i$. The effect is to create a competition where only the genes that gain the most by being modelled by cluster-specific expression patterns are allowed to contribute. This biases the clustering towards binary-like differences, rather than graded differences.
+In order to force the model to learn salient genes and to partition the cells according to real differences in expression of those salient genes, the model must be regularized. ProMMT does this by limiting the total size (cardinality) of the sets $S_i$. The effect is to create a competition where only the genes that gain the most by being modelled by cluster-specific expression patterns are allowed to contribute. This biases the clustering towards binary-like differences, rather than graded differences.
 
+However, extending the model to more than one facet, we must also regularize the contribution of genes to each of the facets. Without regularization, nothing prevents the model from assigning the same genes to all facets, which will lead to identical clustering of cells along all facets. Our goal is instead to discover *distinct* facets, that cover different aspects of gene expression. To achieve this, facet learning regularizes the likelihoods by penalizing genes that are good fits to multiple facets, and promoting genes that fit one facet much better than any of the others.
 
 ### Learning facets from data
 
@@ -62,17 +63,23 @@ First, for each facet $i$, we calculate the log-likelihood gain obtained when a 
 
 $$
 
-Y_{g,i} = \sum_c{x_{c,g}(log(p_{g,k})-log(p_{g,0})) + r (log(1 - p_{g,k}) - log(1 - p_{g,0}))}
+y_{g,i} = \sum_c{x_{c,g}(log(p_{g,k})-log(p_{g,0})) + r (log(1 - p_{g,k}) - log(1 - p_{g,0}))}
 
 $$
 
 This expression simply adds the log-likelihood estimates obtained when the gene is allowed to vary by clusters and subtracts the estimate obtained without using clusters, for each cell $c$. Note that this expression can be calcuated independently for each gene. 
 
-*Constraints on gene assignment*
+*Facet regularization*
 
-The maximum likelihood fit would be obtained by selecting the set of genes for which the likelihood gain is greatest. However, recall that facets are mutually exclusive, so that each gene can only be assigned to a single facet. To account for these constraints, genes must be allocated to facets in mutually exclusive combinations such that the overall likelihood gain is maximized. This can be achieved by solving the *generalized assignment problem*, which is unfortunately known to be NP-hard. However there are greedy approximate algorithms that work well in practice. Here, we use the fully polynomial-time approximation scheme (FPTAS) to solve a Knapsack problem for each facet individually, then a greedy algorithm to reassign genes to facets. See https://github.com/madcat1991/knapsack and https://en.wikipedia.org/wiki/Knapsack_problem
+The maximum likelihood fit would be obtained by selecting the set of genes for which the likelihood gain is greatest, independently for each facet. But this would lead eventually to the same genes being assigned to all facets, and to discovering the same clusters for all facets. 
 
-As a result, each M step results in the reassignment of genes to facets such that the likelihood is maximally improved, given the current assignment of cells to clusters.
+In order to discover truly distinct facets, we regularize the likelihood by subtracting the log-likelihood gain for all other facets $j \neq i$, with regularization factor $\alpha$:
+
+$$
+\hat{y}_{g,i}=y_{g,i}-\alpha\sum_{j \neq i}{y_{g,j}}
+$$
+
+With $\alpha=0$, each M step results in the reassignment of genes to facets such that the total likelihood is maximally improved, given the current assignment of cells to clusters. With $\alpha>0$, increasing weight is given to reassignments that prefer genes that are specific to each facet. Typical values for $\alpha$ are $0$, $1$ and $1/i$. 
 
 ### Learning the number of clusters
 
@@ -85,35 +92,3 @@ We have observed that genes are often expressed in ways that suggest a grammatic
 To learn these kinds of structures, we introduce the *nested* facet. A nested facet applies only to a single cluster defined by another facet. For example, this might be used to model neurotransmitter genes, which are active only in neurons. That is, the facet for neurotransmitters would apply only to cells clustered as 'neurons' by another facet.
 
 Thus at the top level we have a set of independent facets. Each independent facet is associated with a zero or more nested facets. 
-
-The complete model for the adolescent mouse brain could be defined as follows in JSON syntax:
-
-```
-model {
-    name: 'adolescent mouse brain',
-    facets: [
-        { 
-            name: 'cell cycle',
-            k: 5,
-            clamped: ['Cdk1', 'Top2a']
-        },
-        {
-            name: 'sex',
-            k: 2,
-            clamped: ['Xist', 'Tsix']
-        },
-        {
-            name: 'cell type',
-            k: [5, 25],
-            nested: [
-                {
-                    where: ['Stmn3 > 0.1'],
-                    name: 'neurotransmitter',
-                    k: 8,
-                    clamped: ['Gad1', 'Gad2', 'Tph2', ...]
-                }
-            ]
-        }
-    ]
-}
-```
