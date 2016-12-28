@@ -1,9 +1,21 @@
 
 import numpy as np
-import copy
+from copy import copy
 import logging
 from typing import *
 from numpy_groupies import aggregate_numba as agg
+
+
+# TODO: Bregman divergence
+
+# px = x./(x + r); % negbin parameter for x
+# py = y./(y + r); % negbin parameter for y
+
+# bxy = x.*(log(px)-log(py)) + r*(log(1-px)-log(1-py));
+
+# Note this is undefined if x or y=0, so you really need to compute image011.png, where image012.png is a
+# regularization factor (0.1 seems to work well). The parameter r measures the amount of variability,
+# 2 seems to work well for your data.
 
 
 class Facet:
@@ -28,6 +40,7 @@ class Facet:
 		self.S = None  # type: np.ndarray
 		self.pi_k = None  # type: np.ndarray
 		self.y_g = None  # type: np.ndarray
+		self.BIC = None  # type: np.ndarray
 
 
 class FacetLearning:
@@ -45,18 +58,31 @@ class FacetLearning:
 		self.r = r
 		self.alpha = alpha
 		self.max_iter = max_iter
+		self.n_split_tries = 10
 
 	def fit(self, X: np.ndarray) -> None:
+		n_cells = X.shape[0]
 		for facet in self.facets:
-			facet.labels = np.random.randint(facet.k, size=X.shape[0])
+			if facet.labels is None:
+				facet.labels = np.random.randint(facet.k, size=X.shape[0])
 			facet.S = np.random.choice(X.shape[1], size=facet.n_genes, replace=False)
 			if len(facet.genes) > 0:
 				facet.S[:len(facet.genes)] = facet.genes
-			facet.pi_k = np.ones(facet.k) / facet.k
+			facet.pi_k = (np.bincount(facet.labels, minlength=facet.k) + 1) / (n_cells + facet.k)
+			np.ones(facet.k) / facet.k
 
-		for _ in range(self.max_iter):
-			self._E_step(X)
-			self._M_step(X)
+		# Keep alternating EM and splitting until no more splits
+		splitting = True
+		while splitting:
+			# Run EM on the combined facets
+			for _ in range(self.max_iter):
+				self._E_step(X)
+				self._M_step(X)
+			splitting = False
+			# Attempt to split all the clusters in each facet
+			for facet in self.facets:
+				if facet.adaptive:
+					spltting = self._split_facet(X, facet) or splitting
 
 	def fit_transform(self, X: np.ndarray) -> np.ndarray:
 		self.fit(X)
@@ -96,6 +122,7 @@ class FacetLearning:
 		for i, facet in enumerate(self.facets):
 			# (n_genes)
 			facet.y_g = np.zeros(n_genes)
+			facet_L_g = np.zeros(n_genes)
 			# (k, n_genes)
 			mu_gk = agg.aggregate(facet.labels, X, func='mean', fill_value=0, size=facet.k, axis=0) + 0.01
 			# (k, n_genes)
@@ -108,8 +135,11 @@ class FacetLearning:
 				p_gkc = p_gk[facet.labels[c], :]
 				facet.y_g += X[c, :] * (np.log(p_gkc) - np.log(p_g0))
 				facet.y_g += self.r * np.log(1 - p_gkc) - np.log(1 - p_g0)
-
+				facet_L_g += X[c, :] * np.log(p_gkc) + self.r * np.log(1 - p_gkc)
 			all_yg[:, i] = facet.y_g
+			facet_L = np.sum(facet_L_g)
+			# BIC = -2 log(L) + (n_genes * k + k + n_genes) * log(n_cells)
+			facet.BIC = -2 * facet_L + (facet.n_genes * facet.k + facet.k + facet.n_genes) * np.log(n_cells)
 
 		# Compute the regularized likelihood gains
 		all_yg_sum = np.sum(all_yg, axis=1)
@@ -169,38 +199,79 @@ class FacetLearning:
 
 		return (gains, thetas)
 
-	def _evaluate_splits(self, facet: Facet, k: int, genes: np.ndarray, thetas: np.ndarray) -> Tuple[np.ndarray, int, float]:
+	def _evaluate_splits(self, X: np.ndarray, facet: Facet, cells: np.ndarray, genes: np.ndarray, thetas: np.ndarray) -> Tuple[np.ndarray, int, float]:
 		"""
 		Evaluate how well it works to split this particular cluster by each of the given genes
 
 		Args:
+			X:				The data matrix (n_cells, n_genes)
 			facet:			The facet to work with
-			k:				The cluster to split
+			cells:			The cells to split
 			genes:			The genes to consider
 			thetas:			The values to split by
 
 		Returns:
 			best_classes:	The classes of the best split (0s and 1s only)
-			best_gene:		The best gene for splitting
-			best_score:		The score of the best gene
+			best_gene:		The best gene for splitting, or -1 if no improvement
+			best_BIC:		The BIC score of the best gene
 		"""
-		cells = np.where(facet.labels == k)[0]
-		f0 = copy.copy(facet)
+		x = X[cells, :]
+
+		# First run a one-step EM with k == 1 to force calculation of BIC
+		f0 = copy(facet)
 		f0.k = 1
 		f0.adaptive = False
 		fl = FacetLearning([f0], self.r, self.alpha, max_iter=1)
-		fl.fit
+		_ = fl.fit_transform(x)
+		original_BIC = f0.BIC
+		best_BIC = original_BIC
+		best_labels = f0.labels
+		best_gene = -1
+		for i, gene in enumerate(genes):
+			theta = thetas[i]
+			f0 = copy(facet)
+			f0.k = 2
+			f0.adaptive = False
+			f0.labels = (x[:, gene] > theta).astype('int')
+			fl = FacetLearning([f0], self.r, self.alpha, max_iter=self.max_iter)
+			labels = fl.fit_transform(x)
+			if f0.BIC < best_BIC:
+				best_BIC = f0.BIC
+				best_labels = f0.labels
+				best_gene = gene
 
-# Deal with differences in cell size (in p_gk)
-# Select S/k genes per group
+		if best_BIC == original_BIC:
+			logging.debug("No improvement over original BIC score")
+		else:
+			logging.debug("Best split was %d, BIC reduction %f", best_gene, best_BIC - original_BIC)
 
-# Bregman divergence
+		return (best_labels, best_gene, best_BIC)
 
-# px = x./(x + r); % negbin parameter for x
-# py = y./(y + r); % negbin parameter for y
+	def _split_facet(self, X: np.ndarray, facet: Facet) -> bool:
+		"""
+		Split clusters of the facet, except if BIC fails to drop
 
-# bxy = x.*(log(px)-log(py)) + r*(log(1-px)-log(1-py));
+		Args:
+			X:			Expression matrix
+			facet:		The facet to split
 
-# Note this is undefined if x or y=0, so you really need to compute image011.png, where image012.png is a
-# regularization factor (0.1 seems to work well). The parameter r measures the amount of variability,
-# 2 seems to work well for your data.
+		Returns:
+			did_split:	True if any clusters were split, false otherwise
+		"""
+		next_k = 0
+		did_split = False
+		for k in range(facet.k):
+			cells = np.where(facet.labels == k)[0]
+			if cells.shape[0] < 2:
+				continue
+			(gains, thetas) = self._suggest_splits(X, cells)
+			best_genes = np.argsort(gains)[-self.n_split_tries:]
+			best_thetas = thetas[-self.n_split_tries:]
+			(split_labels, split_gene, split_BIC) = self._evaluate_splits(X, facet, cells, best_genes, best_thetas)
+			facet.labels[cells] = next_k + split_labels
+			if split_gene != -1:
+				next_k += 1
+				did_split = True
+			else:
+				next_k += 2
+		return did_split

@@ -72,7 +72,7 @@ class ProMMT(object):
 			p_gkc = p_gk[self.labels[c], :]
 			y_g += X[c, :]*(np.log(p_gkc)-np.log(p_g0))
 			y_g += self.r*np.log(1 - p_gkc)-np.log(1 - p_g0)
-			L_g = X[c, :]*np.log(p_gkc) + self.r*np.log(1 - p_gkc)
+			L_g += X[c, :]*np.log(p_gkc) + self.r*np.log(1 - p_gkc)
 		self.S = np.argsort(y_g, axis=0)[-self.n_S:]
 		self.L = np.sum(L_g)
 		self.BIC = -2*self.L + (self.n_S*self.k + self.n_S + self.k)*np.log(n_cells)
