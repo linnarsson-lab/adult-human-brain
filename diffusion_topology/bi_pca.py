@@ -804,7 +804,6 @@ def select_sig_pcs(data_tmp):
 
 def gini_indexes(data, labels, kind="both"):
     """Efficient implementation to calculate Gini index for every threshold in the data range
-    This calculates only yhr Right Gini Index
     This is a typical metric used in decision trees (less is better).
 
     Args 
@@ -856,6 +855,54 @@ def gini_indexes(data, labels, kind="both"):
         ginis.append( gini )
         thresolds.append( n )
     return np.array(ginis), np.array(thresolds)
+
+
+def normalized_MI_discrete(x,y, bin_step=1,
+                  normalization=["not_normalized","covariance","symmetric_uncertainty",
+                                 "total_correlation","dual_total_correlation","covariance","studholme","variation_of_information"]):
+    """Normalized Mutual information
+    It supports different kind of normalizations
+	
+	This implementation is optimized for discrete variable and categorical variables
+	
+	"""
+    
+    EPS = np.finfo(float).eps
+    bins = [np.arange(0,max(x)+2,bin_step)-0.5, np.arange(0,max(y)+2,bin_step)-0.5]
+    joint_hist, x_edges, y_edges = np.histogram2d(x, y, bins)
+    joint_hist += EPS # add EPS to avoid zeros
+    sum_hist = len(x) # same as sum(joint_hist)
+    jpd = joint_hist / sum_hist 
+    pdf_x = jpd.sum(1).reshape((jpd.shape[0], -1))
+    pdf_y = jpd.sum(0).reshape((-1, jpd.shape[1]))
+    H_X = -np.sum(pdf_x*np.log( pdf_x )) 
+    H_Y = -np.sum(pdf_y*np.log( pdf_y ))
+    H_XY = -np.sum(jpd*np.log( jpd ))
+    I_XY = -H_XY + H_X + H_Y
+    
+    results_dict = {}
+    for i in normalization:
+        if i == "not_normalized":
+            results_dict[i] = I_XY
+        elif i == "proficiency_x":
+            results_dict[i] = I_XY / H_Y
+        elif i == "proficiency_y":
+            results_dict[i] = I_XY / H_X
+        elif i == "symmetric_uncertainty":
+            results_dict[i] = I_XY / (H_X+H_Y)
+        elif i == "total_correlation":
+            results_dict[i] = I_XY / np.minimum(H_X,H_Y)
+        elif i == "dual_total_correlation":
+            results_dict[i] = I_XY / H_XY
+        elif i == "covariance":
+            results_dict[i] = I_XY / np.sqrt(H_X*H_Y)
+        elif i == "studholme":
+            results_dict[i] = (H_X + H_Y) / H_XY  -1
+        elif i == "variation_of_information":
+            results_dict[i] = H_X + H_Y - 2*I_XY
+    
+    return results_dict
+
 
 def quick_pca(data_tmp, n_components, cell_limit):
 	"""Performs pca using a max number of samples to speed up in case of big dataset 
