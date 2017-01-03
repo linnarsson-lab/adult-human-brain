@@ -247,7 +247,7 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 	Args
 	----
 		data : np.array (genes, cells)
-			Data is assumed to be in row molecule counts format
+			Data is assumed to be in raw molecule counts format
 			with genes already selected. 
 		n_splits : int
 			number of splits to be attempted
@@ -318,8 +318,8 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			# The following lines have been fixed and differ from the original implementation Amit
 			# Amit does: sig = pvalue_KS < 0.1
 			# This is wrong becouse one should stop after you find the first nonsignificant component
-			first_not_sign = where(pvalue_KS>0.1)[0][0]
-			sig = zeros_like(pvalue_KS,dtype=bool) 
+			first_not_sign = np.where(pvalue_KS>0.1)[0][0]
+			sig = np.zeros_like(pvalue_KS,dtype=bool) 
 			sig[:first_not_sign] = True
 			logger.debug( "Components: %i " % np.sum(sig) )
 			
@@ -393,7 +393,7 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 	Args
 	----
 		data : np.array (genes, cells)
-			Data is assumed to be in row molecule counts format
+			Data is assumed to be in raw molecule counts format
 			with genes already selected. 
 		n_splits : int
 			number of splits to be attempted
@@ -465,8 +465,8 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 			# The following lines have been fixed and differ from the original implementation
 			# Amit does: sig = pvalue_KS < 0.1
 			# This is wrong becouse one should stop after you find the first nonsignificant component
-			first_not_sign = where(pvalue_KS>0.1)[0][0]
-			sig = zeros_like(pvalue_KS,dtype=bool) 
+			first_not_sign = np.where(pvalue_KS>0.1)[0][0]
+			sig = np.zeros_like(pvalue_KS,dtype=bool) 
 			sig[:first_not_sign] = True
 			logger.debug( "Components: %i " % np.sum(sig) )
 			
@@ -545,7 +545,7 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 	Args
 	----
 		data : np.array (genes, cells)
-			Data is assumed to be in row molecule counts format
+			Data is assumed to be in raw molecule counts format
 			with genes already selected. 
 		n_splits : int
 			number of splits to be attempted
@@ -603,25 +603,10 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 
 			# Perform PCA
 			logger.debug( "Performing PCA" )
-			pca = PCA(n_components=n_components, whiten=True)
-			if current_cells_ixs.shape[0] > cell_limit:
-				selection = np.random.choice(np.arange(data_tmp.shape[1]), cell_limit, replace=False)
-				pca.fit( data_tmp[:,selection].T )
-			else:
-				pca.fit( data_tmp.T )
-			data_tmp = pca.transform( data_tmp.T ).T # This is the pca projection from now on
+			data_tmp = quick_pca(data_tmp) # This is the pca projection from now on
 
 			# Select significant principal components by KS test, this is more conservative than broken stick
-			pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
-			for i in range(1,data_tmp.shape[0]):
-				[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
-			
-			# The following lines have been fixed and differ from the original implementation
-			# Amit does: sig = pvalue_KS < 0.1
-			# This is wrong becouse one should stop after you find the first nonsignificant component
-			first_not_sign = where(pvalue_KS>0.1)[0][0]
-			sig = zeros_like(pvalue_KS,dtype=bool) 
-			sig[:first_not_sign] = True
+			sig = select_sig_pcs(data_tmp)
 			logger.debug( "Components: %i " % np.sum(sig) )
 			
 			# If the two first pcs are not significant: don't split
@@ -635,67 +620,317 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 			# Drop the not significant PCs
 			data_tmp = data_tmp[sig, : ]
 
-			# Perform knn search to build a connectivity graph
-			knn = NearestNeighbors(n_neighbors=15,algorithm="brute", metric='correlation')
-			knn.fit(data_tmp.T)
-			connectivity = knn.kneighbors_graph(data_tmp.T, n_neighbors=15)
-
-			model = AgglomerativeClustering(n_clusters=k, connectivity=connectivity)
-			best_labels = model.fit_predict( data_tmp.T ) # !!!! Here might be quadratic because internaly is trying to link components if there are more than 1 !!!!
-			
-			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)) )
+			### Clustering ####
+			# Perform knn search to build a connectivity graph and use as a constraint for Ward AggClust
+			best_labels = graph_split_cluster(data_tmp )
 			ids, cluster_counts = np.unique(best_labels, return_counts=True)
+			logger.debug("Proposed split (%s)" % (','.join(str(sum(best_labels==lb)) for lb in ids)) )
 			
+			### Cluster Checks ###
 			# Check that no small cluster gets generated
-			if np.min(cluster_counts) < smallest_allowed:
-				# Reject split immediatelly and continue
-				logger.debug( "A small cluster get generated, don't split'" )
-				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
-				running_label_id += 1
-				continue
-			
-			# Consider only the 500 genes with top loadings
-			sum_loadings_per_gene =  np.abs(  pca.components_.T[:,:first_not_sign].sum(1) )
-			topload_gene_ixs = np.argsort(sum_loadings_per_gene)[::-1][:500]
-			
-			# Test their significance using a Binomial test
-			# I changed the Amit implementation noting that some of the line are true 
-			# only true when sum(best_labels==0) == sum(best_labels==1)
-			# For exmaple in the case of split of 75 cells in (18 and 57)
-			# binom.cdf(18,50,0.5) ~= 0.03 and binom.cdf( 57, 100, 0.500 ) ~= 0.9
-			# For more strictness consider hypergeometric
-			cells_pos_group1 = np.sum( data[ topload_gene_ixs[:,None], current_cells_ixs[ best_labels == 0 ]] > 0, 1 ) 
-			cells_pos_group2 = np.sum( data[ topload_gene_ixs[:,None], current_cells_ixs[ best_labels == 1 ]] > 0, 1 )
-			# The above is: sum(n_molecules > 0) an it is calculated on the log but is the same since log2(0+1) = 0
-			prob = (cells_pos_group1+cells_pos_group2) / len(current_cells_ixs)
-			pvalue_binomial1 = binom.cdf(cells_pos_group1, np.sum(best_labels == 0), prob )
-			pvalue_binomial1 = np.minimum(pvalue_binomial1, 1-pvalue_binomial1)
-			pvalue_binomial2 = binom.cdf(cells_pos_group2, np.sum(best_labels == 1), prob )
-			pvalue_binomial2 = np.minimum(pvalue_binomial2, 1-pvalue_binomial2)
-			pvalue_binomial = np.minimum(pvalue_binomial1, pvalue_binomial2)
-			rejected_null, q_values = multipletests(pvalue_binomial, 0.01, 'fdr_bh')[:2]
-
-			# Decide if we should accept the split ### FOR NOW ALWAYS ACCEPT ####
-			# Here instead of arbitrary threshold on shilouette I could boostrap
-			#scores_percell = silhouette_samples(data_tmp.T, best_labels, "correlation")
-			#s_score = np.minimum( np.mean(scores_percell[best_labels==0]), np.mean(scores_percell[best_labels==1]) )
-
-
-			## TODO ###
-			if (np.sum(rejected_null) > 5): #and (s_score>0.1):
+			conditions_for_acceptance = [ np.min(cluster_counts) < smallest_allowed, ]
+			if np.all(conditions_for_acceptance):
 				# Accept
-				logger.debug("Spltting with significant genes: %s " % (np.sum(rejected_null),))
-				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 0]] = running_label_id 
-				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 1]] = running_label_id + 1
-				running_label_id += 2
+				for c in range(len(ids)):
+					cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == ids[c]]] = running_label_id + c
+				running_label_id += len(ids)
 			else:
-				# Reject
-				logger.debug( "Don't split. Significant genes: %s (min=5)" % (np.sum(rejected_null)) )
+				# Reject split
+				logger.debug( "Split was rejected'" )
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 
 	return cell_labels_by_depth
 
+def k_WardN(raw_data, n_splits=10, k=3,n_components=200, cell_limit=10000, smallest_allowed = 5, verbose=2, random_seed=19900715):
+	'''WardN algorythm for clustering using PCA splits
+
+	Args
+	----
+		data : np.array (genes, cells)
+			Data is assumed to be in raw molecule counts format
+			with genes already selected. 
+		n_splits : int
+			number of splits to be attempted
+		k: int >= 2
+			number of clusters generated per split
+		n_components: int
+			max number of principal components
+		cell_limit : int
+			the max number of cells that are used to calculate PCA, if #cells>cell_limit, 
+			a random sample of cell_limit cells will be drawn
+		smallest_allowed: int
+			the size of the smallest clsuter allowed, split that generates a cluster of this size is rejected
+		level_of_verbosity: int
+			0 for only ERRORS
+			1 for WARNINGS and ERRORS
+			2 for INFOS, WARNINGS and ERRORS
+			3 for DEBUGGING, NFOS, WARNINGS and ERRORS
+
+	Returns
+	-------
+		labels_matrix : np.array (split_depth, labels)
+			The assigned cluster at every iteration of the algorythm
+
+	'''
+
+	np.random.seed(random_seed)
+
+	# Manage output
+	logger = logging.getLogger('biPCA_logger')
+	logger.setLevel([logging.ERROR,logging.WARNING,logging.INFO,logging.DEBUG][verbose])
+	ch = logging.StreamHandler()
+	formatter = logging.Formatter('%(message)s')
+	ch.setFormatter( formatter )
+	logger.handlers = []
+	logger.addHandler(ch)
+
+	n_genes, n_cells = raw_data.shape
+	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
+
+	# Fit the noise model that is going to be used for feature selection
+	# This assumes that the noise model will not change but in subclusters
+	mu = raw_data.mean(1)
+	sigma = raw_data.std(1, ddof=1)
+	cv = sigma/mu
+	logger.debug( "Fitting CVvsMean noise model" )
+	score, mu_linspace, cv_fit , fitted_fun = fit_CV(mu,cv, 'SVR', svr_gamma=0.005)
+
+	#Log data here to avoid recalculate log multiple times
+	logger.debug( "Log-normalize the data" )
+	data = np.log2( raw_data + 1)
+	
+	# Run an iteration per level of depth
+	for i_split in range(n_splits):
+		logger.info( "Depth: %i" % i_split )
+		running_label_id = 0
+		parent_clusters = np.unique(cell_labels_by_depth[i_split, :])
+		# Consider every parent cluster and split them one by one
+		for parent in parent_clusters:
+			# Select the current cell cluster
+			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
+			data_tmp = data[:,current_cells_ixs].copy()
+			raw_tmp = raw_data[:,current_cells_ixs].copy()
+
+			# Stop condition for clusters that are too small
+			if raw_tmp.shape[1] < 20:
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+				continue
+
+			# Feature Selection
+			### TODO #### Eliminate genes that have high mutual information with other parent clusters
+			logger.debug( "Preparing Feature Selection" )
+			bool_ix = (raw_tmp.sum(1)> np.maximum(6,data_tmp.shape[1]//500)) & (np.sum(raw_tmp>0,1)> np.maximum(6,data_tmp.shape[1]//500))
+			raw_tmp = raw_tmp[bool_ix,:]
+			data_tmp = data_tmp[bool_ix,:]
+			mu = raw_tmp.mean(1)
+			sigma = raw_tmp.std(1, ddof=1)
+			cv = sigma/mu
+			logger.debug( "Performing Feature Selection" )
+			score = log2(cv) - fitted_fun(log2(mu)[:,newaxis])
+			N = np.maximum(400, np.minimum( int( 1.5*len(current_cells_ixs)), 8000 ) )
+			data_tmp = data_tmp[argsort(score)[::-1][:N],:]
+			logger.debug( "Selected %d genes" % N )
+
+			#Center normalize
+			data_tmp -= data_tmp.mean(1)[:,None]
+
+			# Perform PCA
+			logger.debug( "Performing PCA" )
+			data_tmp = quick_pca(data_tmp, n_components=n_components, cell_limit=cell_limit) # This is the pca projection from now on
+
+			# Select significant principal components by KS test, this is more conservative than broken stick
+			sig = select_sig_pcs(data_tmp)
+			
+			# If the two first pcs are not significant: don't split
+			if sum(sig) < 2:
+				logger.debug( "Two first pcs are not significant: don't split." )
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+				continue
+			logger.debug('%i principal components are significant' % np.sum(sig))
+
+			# Drop the not significant PCs
+			data_tmp = data_tmp[sig, : ]
+
+			### Clustering ####
+			# Perform knn search to build a connectivity graph and use as a constraint for Ward AggClust
+			best_labels = graph_split_cluster(data_tmp, k=k , algorithm="brute", metric='correlation')
+			ids, cluster_counts = np.unique(best_labels, return_counts=True)
+			logger.debug("Proposed split (%s)" % (','.join(str(sum(best_labels==lb)) for lb in ids)) )
+			
+			### Cluster Checks ###
+			# Check that no small cluster gets generated
+			conditions_for_acceptance = [ np.min(cluster_counts) > smallest_allowed, ]
+			if np.all(conditions_for_acceptance):
+				# Accept
+				for c in range(len(ids)):
+					cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == ids[c]]] = running_label_id + c
+				running_label_id += len(ids)
+			else:
+				# Reject split
+				logger.debug( "Split was rejected'" )
+				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				running_label_id += 1
+
+	return cell_labels_by_depth
+
+
+def select_sig_pcs(data_tmp):
+	"""Find significant principal components by KS test
+	Args
+	----
+		data_tmp : np.array (pcs, cells)
+			Data in pcs coordinates
+
+	Returns
+	-------
+		sig : np.array(dtype=bool)
+			The indicator vector for significance
+	"""
+	pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
+	for i in range(1,data_tmp.shape[0]):
+		[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
+	
+	# The following lines have been fixed and differ from the original implementation
+	# Amit does: sig = pvalue_KS < 0.1
+	# This is wrong becouse one should stop after you find the first nonsignificant component
+	first_not_sign = np.where(pvalue_KS>0.1)[0][0]
+	sig = np.zeros_like(pvalue_KS,dtype=bool) 
+	sig[:first_not_sign] = True
+	return sig
+
+def quick_pca(data_tmp, n_components, cell_limit):
+	"""Performs pca using a max number of samples to speed up in case of big dataset 
+	Args
+	----
+		data_tmp : np.array (genes, cells)
+			Log transformed data
+
+	Returns
+	-------
+		data_tmp : np.array (pcs, cells)
+			Data in pcs coordinates
+	"""
+	pca = PCA(n_components=n_components, whiten=True)
+	if data_tmp.shape[1] > cell_limit:
+		selection = np.random.choice(np.arange(data_tmp.shape[1]), cell_limit, replace=False)
+		pca.fit( data_tmp[:,selection].T )
+	else:
+		pca.fit( data_tmp.T )
+	return pca.transform( data_tmp.T ).T 
+
+def graph_split_cluster(data_tmp, k, algorithm="brute", metric='correlation'):
+	"""Perform clustering by first building an NearestNeighbors graph and then using connectivity contrained AgglomerativeClustering 
+	Args
+	----
+		data_tmp : np.array (pcs, cells)
+			Data in pcs coordinates
+
+	Returns
+	-------
+		clusters : np.array(dtype=int)
+			The cluster labels
+	"""	
+	knn = NearestNeighbors(n_neighbors=15,algorithm=algorithm, metric=metric)
+	knn.fit(data_tmp.T)
+	connectivity = knn.kneighbors_graph(data_tmp.T, n_neighbors=15)
+
+	model = AgglomerativeClustering(n_clusters=k, connectivity=connectivity)
+	return model.fit_predict( data_tmp.T )
+
+def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False):
+    '''Fits a noise model (CV vs mean)
+    Parameters
+    ----------
+    mu: 1-D array
+        mean of the genes (raw counts)
+    cv: 1-D array
+        coefficient of variation for each gene
+    fit_method: string
+        allowed: 'SVR', 'Exp', 'binSVR', 'binExp' 
+        default: 'SVR'(requires scikit learn)
+        SVR: uses Support vector regression to fit the noise model
+        Exp: Parametric fit to cv = mu^(-a) + b
+        bin: before fitting the distribution of mean is normalized to be
+             uniform by downsampling and resampling.
+    Returns
+    -------
+    score: 1-D array
+        Score is the relative position with respect of the fitted curve
+    mu_linspace: 1-D array
+        x coordiantes to plot (min(log2(mu)) -> max(log2(mu)))
+    cv_fit: 1-D array
+        y=f(x) coordinates to plot 
+    pars: tuple or None
+    
+    '''
+    log2_m = log2(mu)
+    log2_cv = log2(cv)
+    
+    if len(mu)>1000 and 'bin' in fit_method:
+        #histogram with 30 bins
+        n,xi = histogram(log2_m,30)
+        med_n = percentile(n,50)
+        for i in range(0,len(n)):
+            # index of genes within the ith bin
+            ind = where( (log2_m >= xi[i]) & (log2_m < xi[i+1]) )[0]
+            if len(ind)>med_n:
+                #Downsample if count is more than median
+                ind = ind[random.permutation(len(ind))]
+                ind = ind[:len(ind)-med_n]
+                mask = ones(len(log2_m), dtype=bool)
+                mask[ind] = False
+                log2_m = log2_m[mask]
+                log2_cv = log2_cv[mask]
+            elif (around(med_n/len(ind))>1) and (len(ind)>5):
+                #Duplicate if count is less than median
+                log2_m = r_[ log2_m, tile(log2_m[ind], around(med_n/len(ind))-1) ]
+                log2_cv = r_[ log2_cv, tile(log2_cv[ind], around(med_n/len(ind))-1) ]
+    else:
+        if 'bin' in fit_method:
+            print 'More than 1000 input feature needed for bin correction.'
+        pass
+                
+    if 'SVR' in fit_method:
+        try:
+            from sklearn.svm import SVR
+            if svr_gamma == 'auto':
+                svr_gamma = 1000./len(mu)
+            #Fit the Support Vector Regression
+            clf = SVR(gamma=svr_gamma)
+            clf.fit(log2_m[:,newaxis], log2_cv)
+            fitted_fun = clf.predict
+            score = log2(cv) - fitted_fun(log2(mu)[:,newaxis])
+            params = fitted_fun
+            #The coordinates of the fitted curve
+            mu_linspace = linspace(min(log2_m),max(log2_m))
+            cv_fit = fitted_fun(mu_linspace[:,newaxis])
+            return score, mu_linspace, cv_fit , params
+            
+        except ImportError:
+            if verbose:
+                print 'SVR fit requires scikit-learn python library. Using exponential instead.'
+            if 'bin' in fit_method:
+                return fit_CV(mu, cv, fit_method='binExp', x0=x0)
+            else:
+                return fit_CV(mu, cv, fit_method='Exp', x0=x0)
+    elif 'Exp' in fit_method:
+        from scipy.optimize import minimize
+        #Define the objective function to fit (least squares)
+        fun = lambda x, log2_m, log2_cv: sum(abs( log2( (2.**log2_m)**(-x[0])+x[1]) - log2_cv ))
+        #Fit using Nelder-Mead algorythm
+        optimization =  minimize(fun, x0, args=(log2_m,log2_cv), method='Nelder-Mead')
+        params = optimization.x
+        #The fitted function
+        fitted_fun = lambda log_mu: log2( (2.**log_mu)**(-params[0]) + params[1])
+        # Score is the relative position with respect of the fitted curve
+        score = log2(cv) - fitted_fun(log2(mu))
+        #The coordinates of the fitted curve
+        mu_linspace = linspace(min(log2_m),max(log2_m))
+        cv_fit = fitted_fun(mu_linspace)
+        return score, mu_linspace, cv_fit , params
 
 def test_gene(ds, cells, gene_ix, label, group):
     b = np.log2(ds[gene_ix,:][cells]+1)[label != group]
