@@ -802,39 +802,59 @@ def select_sig_pcs(data_tmp):
 	return sig
 
 
-def gini_indexes(data, labels):
-	"""Efficiemt implementation to calculate Gini index for every threshold in the data range
-	This is a typical metric used in decision trees.
-	
-	Args 
-	____
-		data: np.array1d(dtype=float|int)
-			the data vector
-		labels np.array1d(dtype=int)
-			the labels vector
-	Returns
-	_______
-		ginis: np.array shape=(len(thresholds)) 
-			Gini indexes
-		thresholds: np.array shape (~len(np.unique(data)))
-			might be truncated and not go over all np.unique(data)
+def gini_indexes(data, labels, kind="both"):
+    """Efficient implementation to calculate Gini index for every threshold in the data range
+    This calculates only yhr Right Gini Index
+    This is a typical metric used in decision trees (less is better).
 
-	"""
+    Args 
+    ____
+        data: np.array1d(dtype=float|int)
+            the data vector
+        labels np.array1d(dtype=int)
+            the labels vector
+        kinds: "left", "right", "both"; default "both"
+    Returns
+    _______
+        ginis: np.array shape=(len(thresholds)) 
+            Gini indexes
+        thresholds: np.array shape (~len(np.unique(data)))
+            might be truncated and not go over all np.unique(data)
+
+    """
     thresolds = []
     ginis = []
     bins, ix_uniq, counts = np.unique(data, return_counts=True, return_inverse=True)
-    for i in range(len(bins)):
+    for i in range(1,len(bins)):
         n = bins[i] # the value of the threshold
         index_of_n = np.where( bins==n )[0][0] # the index of value of the threshold after ranking
-        selec = labels[ix_uniq >= index_of_n ]
-        sq_contks = []
-        for k in np.unique(labels):
-            sq_contks.append( (np.sum(selec==k) / len(selec))**2 )
-        gini = 1 - np.sum(sq_contks)
+        
+        if kind == "both" and i != 0:
+            selec_r = labels[ix_uniq >= index_of_n ]
+            selec_l = labels[ix_uniq < index_of_n ]
+        elif kind =="left":
+            selec = labels[ix_uniq < index_of_n ]
+        elif kind == "right":
+            selec = labels[ix_uniq >= index_of_n ]
+        else:
+            selec = labels[ix_uniq >= index_of_n ]
+        
+        if kind == "both" and i != 0:
+            sq_contks_l = []
+            sq_contks_r = []
+            for k in np.unique(labels):
+                sq_contks_l.append( (np.sum(selec_l==k) / len(selec_l))**2 )
+                sq_contks_r.append( (np.sum(selec_r==k) / len(selec_r))**2 )
+            gini_l = 1 - np.sum(sq_contks_l)
+            gini_r = 1 - np.sum(sq_contks_r)
+            gini = gini_l + gini_r
+        else:
+            sq_contks = []
+            for k in np.unique(labels):
+                sq_contks.append( (np.sum(selec==k) / len(selec))**2 )
+            gini = 1 - np.sum(sq_contks)
         ginis.append( gini )
         thresolds.append( n )
-        if gini == 0:
-            break
     return np.array(ginis), np.array(thresolds)
 
 def quick_pca(data_tmp, n_components, cell_limit):
