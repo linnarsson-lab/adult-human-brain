@@ -801,6 +801,42 @@ def select_sig_pcs(data_tmp):
 	sig[:first_not_sign] = True
 	return sig
 
+
+def gini_indexes(data, labels):
+	"""Efficiemt implementation to calculate Gini index for every threshold in the data range
+	This is a typical metric used in decision trees.
+	
+	Args 
+	____
+		data: np.array1d(dtype=float|int)
+			the data vector
+		labels np.array1d(dtype=int)
+			the labels vector
+	Returns
+	_______
+		ginis: np.array shape=(len(thresholds)) 
+			Gini indexes
+		thresholds: np.array shape (~len(np.unique(data)))
+			might be truncated and not go over all np.unique(data)
+
+	"""
+    thresolds = []
+    ginis = []
+    bins, ix_uniq, counts = np.unique(data, return_counts=True, return_inverse=True)
+    for i in range(len(bins)):
+        n = bins[i] # the value of the threshold
+        index_of_n = np.where( bins==n )[0][0] # the index of value of the threshold after ranking
+        selec = labels[ix_uniq >= index_of_n ]
+        sq_contks = []
+        for k in np.unique(labels):
+            sq_contks.append( (np.sum(selec==k) / len(selec))**2 )
+        gini = 1 - np.sum(sq_contks)
+        ginis.append( gini )
+        thresolds.append( n )
+        if gini == 0:
+            break
+    return np.array(ginis), np.array(thresolds)
+
 def quick_pca(data_tmp, n_components, cell_limit):
 	"""Performs pca using a max number of samples to speed up in case of big dataset 
 	Args
