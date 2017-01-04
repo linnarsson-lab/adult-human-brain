@@ -49,6 +49,35 @@ default_config = {
 		"normalize": True,
 		"standardize": False
 	},
+	"facet_learning": {
+		"n_genes": 5000,
+		"max_iter": 200,
+		"r": 2.0,
+		"facets": [
+			# {
+			# 	"name": "sex",
+			# 	"k": 2,
+			# 	"genes": ["Xist", "Tsix"],
+			# 	"n_genes": 2,
+			# 	"adaptive": False
+			# },
+			# {
+			# 	"name": "cell cycle",
+			# 	"k": 2,
+			# 	"genes": ["Top2a", "Cdk1", "Plk1", "Cenpe"],
+			# 	"n_genes": 20,
+			# 	"adaptive": False
+			# },
+			{
+				"name": "cell type",
+				"k": 5,
+				"max_k": 15,
+				"genes": [],
+				"n_genes": 200,
+				"adaptive": True
+			},
+		]
+	},
 	"prommt": {
 		"n_genes": 1000,
 		"n_S": 100,
@@ -63,7 +92,7 @@ default_config = {
 }
 
 
-def cytograph(config: Dict = default_config) -> Any:
+def cytograph(config: Dict = default_config) -> None:
 	skip_preprocessing = False
 	if config["build_dir"] is None:
 		config["build_dir"] = "build_" + datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -93,60 +122,76 @@ def cytograph(config: Dict = default_config) -> Any:
 	n_total = ds.shape[1]
 	logging.info("%d of %d cells were valid", n_valid, n_total)
 	logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
+	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+
+	# logging.info("Facet learning")
+	# labels = facets(ds, cells, config["facet_learning"])
+	# logging.info(labels.shape)
+	# n_labels = np.max(labels, axis=0) + 1
+	# logging.info("Found " + str(n_labels) + " clusters")
 
 	# KNN graph generation and clustering
-	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
-	logging.info("PCA projection")
+	logging.info("Normalization and PCA projection")
 	transformed = pca_projection(ds, cells, config["louvain_jaccard"])
-	logging.info("Generating mutual KNN graph")
-	(knn, ok_cells) = make_knn(transformed, ds.shape[1], cells, config["knn"])
 
-	# logging.info("ProMMT clustering")
-	# labels = prommt(ds, ok_cells, config["prommt"])
-	# n_labels = max(labels) + 1
-	# logging.info("Found %d clusters", n_labels)
+	logging.info("Generating KNN graph")
+	knn = kneighbors_graph(transformed, mode='distance', n_neighbors=50)
+	knn = knn.tocoo()
 
-	logging.info("Facet learning")
-	labels = facets(ds, cells)
-	logging.info(labels.shape)
-	n_labels = np.max(labels, axis=0) + 1
-	logging.info("Found " + str(n_labels) + " clusters")
+	logging.info("Louvain-Jaccard clustering")
+	lj = dt.LouvainJaccard(resolution=1.0)
+	labels = lj.fit_predict(knn)
+	g = lj.graph
 	# Make labels for excluded cells == -1
-	labels_all = np.zeros((ds.shape[1], labels.shape[1]), dtype='int') + -1
-	labels_all[cells, :] = labels
+	labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+	labels_all[cells] = labels
+
+	# Mutual KNN
+	mknn = knn.minimum(knn.transpose()).tocoo()
 
 	# Layout
+	logging.info("SFDP layout")
+	sfdp_pos = dt.SFDP().layout_knn(knn)
+	sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
+	sfdp_all[cells] = sfdp_pos
+
+	logging.info("OpenOrd layout")
+	openord_pos = dt.OpenOrd(openord_path="/Users/Sten/OpenOrd/bin/").layout_knn(knn)
+	openord_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(openord_pos, axis=0)
+	openord_all[cells] = openord_pos
+
 	logging.info("t-SNE layout")
-	tsne = TSNE().fit_transform(transformed)
-	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne, axis=0)
-	tsne_all[cells] = tsne
+	tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
+	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+	tsne_all[cells] = tsne_pos
 
 	logging.info("Marker enrichment and trinarization")
 	f = config["annotation"]["f"]
 	pep = config["annotation"]["pep"]
-	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[ok_cells, 2] + 1, pep, f, ok_cells)
+	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[cells], pep, f, cells)
 	save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 	# Auto-annotation
 	logging.info("Auto-annotating cell types and states")
 	aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
 	(tags, annotations) = aa.annotate(ds, trinary_prob)
-	sizes = np.bincount(labels_all[:, 2] + 1)
+	sizes = np.bincount(labels_all + 1)
 	save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
 
-	logging.info("Plotting clusters on mutual-KNN graph")
-	for i in range(labels.shape[1]):
-		pl = False
-		if i == 2:
-			pl = True
-		plot_clusters(knn, labels_all[:, i] + 1, tsne_all, tags, annotations, title=tissue, plt_labels=pl, outfile=os.path.join(build_dir, tissue + "_" + str(i)))
+	logging.info("Plotting clusters on graph")
+	plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_tSNE"))
+	plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_SFDP"))
+	plot_clusters(mknn, labels, openord_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_OpenOrd"))
 
 	logging.info("Saving attributes")
 	ds.set_attr("tSNE_X", tsne_all[:, 0], axis=1)
 	ds.set_attr("tSNE_Y", tsne_all[:, 1], axis=1)
-	ds.set_attr("Louvain_Jaccard", labels_all, axis=1)
+	ds.set_attr("SFDP_X", sfdp_all[:, 0], axis=1)
+	ds.set_attr("SFDP_Y", sfdp_all[:, 1], axis=1)
+	ds.set_attr("OpenOrd_X", openord_all[:, 0], axis=1)
+	ds.set_attr("OpenOrd_Y", openord_all[:, 1], axis=1)
+	ds.set_attr("Clusters", labels_all, axis=1)
 	logging.info("Done.")
-	return (knn, tsne_all, labels_all, ok_cells, tags, annotations, enrichment, trinary_pat, trinary_prob)
 
 
 def save_auto_annotation(build_dir: str, tissue: str, sizes: np.ndarray, annotations: np.ndarray, tags: np.ndarray) -> None:
@@ -191,34 +236,50 @@ def save_diff_expr(ds: loompy.LoomConnection, build_dir: str, tissue: str, enric
 			f.write("\n")
 
 
-def facets(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict={"n_genes": 5000}) -> np.ndarray:
+def facets(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.ndarray:
+	"""
+	Run Facet Learning on the dataset, with the given facets.
+	"""
 	n_genes = config["n_genes"]
 
 	# Compute an initial gene set
 	logging.info("Selecting genes for Facet Learning")
 	with np.errstate(divide='ignore', invalid='ignore'):
 		(genes, _, _) = feature_selection(ds, n_genes, cells)
-	facet_genes = np.where(np.in1d(ds.Gene, ["Xist", "Tsix", "Top2a", "Cdk1", "Plk1", "Cenpe"]))[0]
+
+	# Make sure the facet-specific genes are included in the gene set
+	facet_genes = []  # type: List[str]
+	for f in config["facets"]:
+		facet_genes += f["genes"]
+	facet_genes = np.where(np.in1d(ds.Gene, facet_genes))[0]
 	genes = np.union1d(genes, facet_genes)
 
 	logging.info("Loading data (in batches)")
 	m = np.zeros((cells.shape[0], genes.shape[0]), dtype='int')
 	j = 0
 	for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=5000):
-		vals = vals[genes, :].transpose()
+		vals = vals[genes, :]
+		vals = vals / (np.sum(vals, axis=0) + 1) * 10000
+		vals = vals.transpose()
 		n_cells_in_batch = selection.shape[0]
 		m[j:j + n_cells_in_batch, :] = vals
 		j += n_cells_in_batch
 
 	logging.info("Facet learning with three facets")
 
-	# Get indexes for genes
+	# Function to find indexes for a list of genes
 	def gix(names: List[str]) -> List[int]:
 		return [np.where(ds.Gene[genes] == n)[0][0] for n in names]
-	f0 = dt.Facet("sex", k=2, n_genes=10, genes=gix(["Xist", "Tsix"]), adaptive=False)
-	f1 = dt.Facet("cell cycle", k=2, n_genes=20, genes=gix(["Top2a", "Cdk1", "Plk1", "Cenpe"]), adaptive=False)
-	f2 = dt.Facet("cell type", k=15, n_genes=100, genes=[], adaptive=True)
-	labels = dt.FacetLearning([f0, f1, f2], r=2, max_iter=100).fit_transform(m)
+
+	facet_list = []  # type: List[dt.Facet]
+	for f in config["facets"]:
+		if "max_k" in f:
+			max_k = f["max_k"]
+		else:
+			max_k = 0
+		f0 = dt.Facet(f["name"], k=f["k"], n_genes=f["n_genes"], max_k=max_k, genes=gix(f["genes"]), adaptive=f["adaptive"])
+		facet_list.append(f0)
+	labels = dt.FacetLearning(facet_list, r=config["r"], max_iter=config["max_iter"], gene_names=ds.Gene[genes]).fit_transform(m)
 	return labels
 
 
@@ -246,7 +307,6 @@ def prommt(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.nda
 	labels = dt.ProMMT(n_S=n_S, k=k, max_iter=max_iter).fit_transform(m)
 	return labels
 
-def sfdp(knn, )
 
 class Normalizer(object):
 	def __init__(self, ds: loompy.LoomConnection, config: Dict, mu: np.ndarray = None, sd: np.ndarray = None) -> None:
@@ -335,61 +395,6 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -
 	return transformed
 
 
-def make_knn(m: np.ndarray, d: int, cells: np.ndarray, config: Dict) -> Tuple[sparse.coo_matrix, np.ndarray]:
-	k = config["k"]
-	n_trees = config["n_trees"]
-	mutual = config["mutual"]
-	min_cells = config["min_cells"]
-	n_components = m.shape[1]
-	logging.info("Creating approximate nearest neighbors model (annoy)")
-	annoy = AnnoyIndex(n_components, metric="euclidean")
-	for ix, cell in enumerate(cells):
-		annoy.add_item(cell, m[ix, :])
-	annoy.build(n_trees)
-
-	logging.info("Computing mutual nearest neighbors")
-	I = np.empty(d * k)
-	J = np.empty(d * k)
-	V = np.empty(d * k)
-	for i in range(d):
-		(nn, w) = annoy.get_nns_by_item(i, k, include_distances=True)
-		w = np.array(w)
-		I[i * k:(i + 1) * k] = [i] * k
-		J[i * k:(i + 1) * k] = nn
-		V[i * k:(i + 1) * k] = w
-
-	# k nearest neighbours
-	knn = sparse.coo_matrix((V, (I, J)), shape=(d, d))
-
-	data = knn.data
-	rows = knn.row
-	cols = knn.col
-
-	# Convert to similarities by rescaling and subtracting from 1
-	data = data / data.max()
-	data = 1 - data
-
-	knn = sparse.coo_matrix((data, (rows, cols)), shape=(d, d)).tocsr()
-
-	if mutual:
-		# Compute Mutual knn
-		# This removes all edges that are not reciprocal
-		knn = knn.minimum(knn.transpose())
-	else:
-		# Make all edges reciprocal
-		# This duplicates all edges that are not reciprocal
-		knn = knn.maximum(knn.transpose())
-
-	# Find and remove disconnected components
-	logging.info("Identifying cells in small components")
-	(_, labels) = sparse.csgraph.connected_components(knn, directed='False')
-	sizes = np.bincount(labels)
-	ok_cells = np.where((sizes > min_cells)[labels])[0]
-	logging.info("Small components contained %d cells", cells.shape[0] - ok_cells.shape[0])
-
-	return (knn, ok_cells)
-
-
 def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	Fits a noise model (CV vs mean)
@@ -428,57 +433,8 @@ def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray
 	top_genes = np.where(ok)[0][np.argsort(score)][-n_genes:]
 
 	logging.debug("Keeping %i genes" % top_genes.shape[0])
-	logging.info(str(sorted(ds.Gene[top_genes[:50]])))
+	# logging.info(str(sorted(ds.Gene[top_genes[:50]])))
 	return (top_genes, mu, std)
-
-
-def louvain_jaccard(knn: sparse.coo_matrix, jaccard: bool = False, cooling_step: float = 0.95) -> Tuple[Any, np.ndarray, np.ndarray]:
-	"""
-	From knn, make a graph-tool Graph object, a Louvain partitioning and a layout position list
-
-	Args:
-		knn (COO sparse matrix):	knn adjacency matrix
-		jaccard (bool):				If true, replace knn edge weights with Jaccard similarities
-
-	Returns:
-		g (graph.tool Graph):		the Graph corresponding to the knn matrix
-		labels (ndarray of int): 	Louvain partition label for each node in the graph
-		sfdp (ndarray matrix):		X,Y position for each node
-	"""
-	logging.info("Creating graph")
-	g = gt.Graph(directed=False)
-
-	# Keep only half the edges, so the result is undirected
-	sel = np.where(knn.row < knn.col)[0]
-	logging.info("Graph has %d edges", sel.shape[0])
-
-	g.add_vertex(n=knn.shape[0])
-	edges = np.stack((knn.row[sel], knn.col[sel]), axis=1)
-	g.add_edge_list(edges)
-	w = g.new_edge_property("double")
-	if jaccard:
-		js = []
-		knncsr = knn.tocsr()
-		for i, j in edges:
-			r = knncsr.getrow(i)
-			c = knncsr.getrow(j)
-			shared = r.minimum(c).nnz
-			total = r.maximum(c).nnz
-			js.append(shared / total)
-		w.a = np.array(js)
-	else:
-		# use the input edge weights
-		w.a = knn.data[sel]
-
-	logging.info("Louvain partitioning")
-	partitions = community.best_partition(nx.from_scipy_sparse_matrix(knn))
-	labels = np.fromiter(partitions.values(), dtype='int')
-
-	logging.info("Creating graph layout")
-	# label_prop = g.new_vertex_property("int", vals=labels)
-	sfdp = gt.sfdp_layout(g, eweight=w, epsilon=0.0001, cooling_step=cooling_step).get_2d_array([0, 1]).transpose()
-
-	return (g, labels, sfdp)
 
 
 def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, plt_labels: bool = True, outfile: str = None) -> None:
@@ -490,13 +446,13 @@ def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int,
 	# Draw the KNN graph first, with gray transparent edges
 	if title is not None:
 		plt.title(title, fontsize=14, fontweight='bold')
-	nx.draw_networkx_edges(g, pos=pos, alpha=0.5, width=0.1, edge_color='gray')
+	nx.draw_networkx_edges(g, pos=pos, alpha=0.1, width=0.1, edge_color='gray')
 
 	# Then draw the nodes, colored by label
 	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
-	nx.draw(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, width=0.1, linewidths=0)
+	nx.draw_networkx_nodes(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, linewidths=0)
 	if plt_labels:
-		for lbl in range(max(labels) + 1):
+		for lbl in range(0, max(labels) + 1):
 			if np.sum(labels == lbl) == 0:
 				continue
 			(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
@@ -504,14 +460,9 @@ def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int,
 			for ix, a in enumerate(annotations[:, lbl]):
 				if a >= 0.5:
 					text_labels.append(tags[ix].abbreviation)
-			if len(text_labels) > 0:
-				text = "\n".join(text_labels)
-			else:
-				text = str(lbl + 1)
-			ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.2, ec='none'))
+			text = "\n".join(text_labels)
+			ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
 	if outfile is not None:
 		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
 
-if __name__ == "__main__":
-	result = cytograph()

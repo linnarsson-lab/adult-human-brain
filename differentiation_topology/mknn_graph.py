@@ -2,19 +2,19 @@
 import logging
 import loompy
 import numpy as np
+from typing import *
 from scipy import sparse
 from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import NearestNeighbors, BallTree
 from sklearn.metrics import pairwise_distances
 from scipy.special import polygamma
 from sklearn.decomposition import PCA, IncrementalPCA
-#import graph_tool.all as gt
 from annoy import AnnoyIndex
 import networkx as nx
-#import community
 import differentiation_topology as dt
 
-def knn_similarities(ds, config, cells, genes):
+
+def knn_similarities(ds: loompy.LoomConnection, config: Dict, cells: np.ndarray, genes: np.ndarray) -> sparse.coo_matrix:
 	"""
 	Compute knn similarity matrix for the given cells
 
@@ -60,7 +60,7 @@ def knn_similarities(ds, config, cells, genes):
 		# Load the whole chunk from the file, then extract genes and cells using fancy indexing
 		vals = ds[:, ix:ix + cols_per_chunk][genes, :][:, selection]
 		if normalize:
-			vals = vals/totals[selection + ix]*median_cell
+			vals = vals / totals[selection + ix] * median_cell
 		vals = np.log(vals+1)
 		vals = vals - np.mean(vals, axis=0)
 		if standardize:
@@ -191,86 +191,3 @@ def knn_similarities(ds, config, cells, genes):
 
 	logging.info("Done")
 	return (knn, genes, ok_cells, sigma)
-
-
-
-# block_state = gt.minimize_blockmodel_dl(g, deg_corr=True, overlap=True)
-# blocks = state.get_majority_blocks().get_array()
-
-
-def sparse_dmap(m, sigma):
-	"""
-	Compute the diffusion map of a sparse similarity matrix
-
-	Args:
-		m (sparse.coo_matrix):	Sparse matrix of similarities in [0,1]
-		sigma (numpy.array):    Array of nearest neighbor similarities
-
-	Returns:
-		tsym (sparse.coo_matrix):  Symmetric transition matrix T
-
-	Note:
-		The input is a matrix of *similarities*, not distances, which helps sparsity because very distant cells
-		will have similarity near zero (whereas distances would be large).
-
-	"""
-	m = m.tocoo()
-
-	# Convert sigma to distances
-	sigma = 1 - sigma
-
-	# The code below closely follows that of the diffusion pseudotime paper (supplementary methods)
-
-	# sigma_x^2 + sigma_y^2 (only for the non-zero rows and columns)
-	ss = np.power(sigma[m.row], 2) + np.power(sigma[m.col], 2)
-
-	# In the line below, '1 - m.data' converts the input similarities to distances,
-	# but only for the non-zero entries. That's fine because in the end (tsym) the
-	# zero entries will end up zero anyway, so no need to involve them
-	kxy = sparse.coo_matrix((np.sqrt(2*sigma[m.row]*sigma[m.col]/ss) * np.exp(-np.power(1-m.data, 2)/(2*ss)), (m.row, m.col)), shape=m.shape)
-	zx = kxy.sum(axis=1).A1
-	wxy = sparse.coo_matrix((kxy.data/(zx[kxy.row]*zx[kxy.col]), (kxy.row, kxy.col)), shape=kxy.shape)
-	zhat = wxy.sum(axis=1).A1
-	tsym = sparse.coo_matrix((wxy.data * np.power(zhat[wxy.row], -0.5) * np.power(zhat[wxy.col], -0.5), (wxy.row, wxy.col)), shape=wxy.shape)
-	return tsym
-
-def dpt(f, t, k, path_integral=True):
-	"""
-	Compute k steps of pseudotime evolution from starting vector f and transition matrix t
-
-	Args:
-		f (numpy 1D array):			The starting vector of N elements
-		t (numpy sparse 2d array):	The right-stochastic transition matrix
-		k (int):					Number of steps to evolve the input vector
-		path_integral (bool):		If true, calculate all-paths integral; otherwise calculate time evolution
-
-	Note:
-		This algorithm is basically the same as Google PageRank, except we start typically from
-		a single cell (or a few cells), rather than a uniform distribution, and we don't make
-		random jumps.
-		See: http://michaelnielsen.org/blog/using-your-laptop-to-compute-pagerank-for-millions-of-webpages/
-		and the original PageRank paper: http://infolab.stanford.edu/~backrub/google.html
-	"""
-	f = sparse.csr_matrix(f)
-	result = np.zeros(f.shape)
-	if path_integral:
-		for _ in range(k):
-			f = f.dot(t)
-			result = result + f
-		return result.A1
-	else:
-		for _ in range(k):
-			f = f.dot(t)
-		return f.A1
-
-#
-# Example of how to use diffusion pseudotime
-#
-# root = np.zeros(ds.shape[1]) # +(1.0/ds.shape[1])
-# root[0] = 1
-# t = dt.sparse_dmap(knn, sigma)
-
-# # Iterate cumulative pseudotime from the root cells
-# f = dt.dpt(root, t, 1000)
-#
-# Now f contains the probability distribution after 1000 diffusion time steps

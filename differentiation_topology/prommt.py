@@ -15,7 +15,7 @@ class ProMMT(object):
 		self.f = f
 		self.min_discordant = min_discordant
 
-	def fit(self, X, genes=None):
+	def fit_predict(self, X, genes=None) -> np.ndarray:
 		self.labels = np.random.randint(self.k, size=X.shape[0])
 
 		if genes is not None:
@@ -28,12 +28,6 @@ class ProMMT(object):
 			self._M_step(X)
 		logging.info("Log likelihood: " + str(self.L))
 		logging.info("BIC: " + str(self.BIC))
-
-	def fit_transform(self, X, genes=None):
-		self.fit(X, genes)
-		return self.transform()
-
-	def transform(self):
 		return self.labels
 
 	def _E_step(self, X):
