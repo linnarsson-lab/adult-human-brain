@@ -25,8 +25,8 @@ def low_complexity_flagger(total_molecules, expressed_genes):
         
     Return
     ------
-    indicator_vector: numpy.1darray(int)
-        A vector that contains 1 if the cell has low complexity 
+    indicator_vector: numpy.1darray(bool)
+        A vector that contains True if the cell has low complexity 
     
     
     Notes
@@ -36,8 +36,8 @@ def low_complexity_flagger(total_molecules, expressed_genes):
     
     """
     # Log transform and reshape the data
-    X = np.log2(total_molecules.values)
-    y = np.log2(expressed_genes.values)
+    X = np.log2(total_molecules)
+    y = np.log2(expressed_genes)
     X = X.reshape(-1,1)
     
     # Fit the model using the RANSAC procedure
@@ -67,7 +67,7 @@ def low_complexity_flagger(total_molecules, expressed_genes):
     more_lik_outlyer = w0*lik0 > w1*lik1
     thresh = mu_space[np.where(more_lik_outlyer)[0][0]]
 
-    return (sq_residuals > thresh).astype(int)
+    return (sq_residuals > thresh).astype(bool)
 
 
 def low_expression_flagger(total_molecules, thresh=LOW_EXPRESSION_THRESH):
@@ -80,12 +80,12 @@ def low_expression_flagger(total_molecules, thresh=LOW_EXPRESSION_THRESH):
         
     Return
     ------
-    indicator_vector: numpy.1darray(int)
-        A vector that contains 1 if the cell has low molecule count 
+    indicator_vector: numpy.1darray(bool)
+        A vector that contains True if the cell has low molecule count 
     
     """
 
-    return (total_molecules<thresh).astype(int)
+    return (total_molecules<thresh).astype(bool)
 
 def doublet_flagger(df):
     """Combine several heuristic to robustly call dublets
@@ -112,10 +112,10 @@ def doublet_heuristic_1():
     ------
     
     """
-    return
+    return None
 
 def doublet_heuristic_2():
-        """Heuristic that score the likelihood that a data entry is a doublet
+    """Heuristic that score the likelihood that a data entry is a doublet
     Args
     ----
         
@@ -123,10 +123,10 @@ def doublet_heuristic_2():
     ------
     
     """
-    return
+    return None
 
 def doublet_heuristic_3():
-        """Heuristic that score the likelihood that a data entry is a doublet
+    """Heuristic that score the likelihood that a data entry is a doublet
     Args
     ----
         
@@ -134,5 +134,5 @@ def doublet_heuristic_3():
     ------
     
     """
-    return
+    return None
 
