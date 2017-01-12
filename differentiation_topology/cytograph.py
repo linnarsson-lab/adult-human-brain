@@ -2,6 +2,7 @@ import copy
 import json
 import logging
 import os
+import csv
 from datetime import datetime
 from typing import *
 from multiprocessing import Pool
@@ -27,11 +28,11 @@ import differentiation_topology as dt
 colors20 = np.array(Tableau_20.mpl_colors)
 
 default_config = {
-	"sample_dir": "/Users/Sten/loom-datasets/Whole brain/",
-	"build_dir": "/Users/Sten/builds/build_20161127_180745",
-	"tissue": "Dentate gyrus",
-	"samples": ["10X43_1", "10X46_1"],
-
+	"n_processes": 1,
+	"sample_dir": "/Users/Sten/whole_brain",
+	"pool_config": "/Users/Sten/builds/pooling_specification.tab",
+	"build_root": "/Users/Sten/builds",
+	"build_dir": None,
 	"preprocessing": {
 		"do_validate_genes": True,
 		"make_doublets": False
@@ -49,149 +50,114 @@ default_config = {
 		"normalize": True,
 		"standardize": False
 	},
-	"facet_learning": {
-		"n_genes": 5000,
-		"max_iter": 200,
-		"r": 2.0,
-		"facets": [
-			# {
-			# 	"name": "sex",
-			# 	"k": 2,
-			# 	"genes": ["Xist", "Tsix"],
-			# 	"n_genes": 2,
-			# 	"adaptive": False
-			# },
-			# {
-			# 	"name": "cell cycle",
-			# 	"k": 2,
-			# 	"genes": ["Top2a", "Cdk1", "Plk1", "Cenpe"],
-			# 	"n_genes": 20,
-			# 	"adaptive": False
-			# },
-			{
-				"name": "cell type",
-				"k": 5,
-				"max_k": 15,
-				"genes": [],
-				"n_genes": 200,
-				"adaptive": True
-			},
-		]
-	},
-	"prommt": {
-		"n_genes": 1000,
-		"n_S": 100,
-		"k": 5,
-		"max_iter": 100
-	},
 	"annotation": {
 		"pep": 0.05,
 		"f": 0.2,
-		"annotation_root": "/Users/Sten/Dropbox (Linnarsson Group)/Code/autoannotation/"
+		"annotation_root": "/dropbox/Code/auto-annotation/"
 	}
 }
 
 
-def cytograph(config: Dict = default_config) -> None:
-	skip_preprocessing = False
-	if config["build_dir"] is None:
-		config["build_dir"] = "build_" + datetime.now().strftime("%Y%m%d_%H%M%S")
-		os.mkdir(config["build_dir"])
-	else:
-		skip_preprocessing = True
-	build_dir = config["build_dir"]
-	tissue = config["tissue"]
-	samples = config["samples"]
-	sample_dir = config["sample_dir"]
-	fname = os.path.join(build_dir, tissue.replace(" ", "_") + ".loom")
+class Cytograph:
+	def __init__(self, config: Dict = default_config) -> None:
+		self.config = config
 
-	config_json = "build_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".json"
-	with open(os.path.join(build_dir, config_json), 'w') as f:
-		f.write(json.dumps(config))
+	def process_all(self) -> None:
+		tissues = {}  # type: Dict[str, int]
+		with open(self.config["pool_config"], 'r') as f:
+			for row in csv.reader(f, delimiter="\t"):
+				tissues[row[1]] = 1
 
-	# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
-	logging.info("Processing: " + tissue)
+		if self.config["build_dir"] is None:
+			self.config["build_dir"] = os.path.join(self.config["build_root"], "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+			os.mkdir(self.config["build_dir"])
 
-	# Preprocessing
-	if not skip_preprocessing:
+		pool = Pool(self.config["n_processes"])
+		pool.map(self.process_one, tissues.keys())
+
+	def process_one(self, tissue: str) -> None:
+		config = self.config
+		build_dir = config["build_dir"]
+		samples = []  # type: List[str]
+		with open(config["pool_config"], 'r') as f:
+			for row in csv.reader(f, delimiter="\t"):
+				if row[1] == tissue and row[2] != "FAILED":
+					samples.append(row[0])
+
+		sample_dir = config["sample_dir"]
+		fname = os.path.join(build_dir, tissue.replace(" ", "_") + ".loom")
+
+		config_json = "config.json"
+		with open(os.path.join(build_dir, config_json), 'w') as f:
+			f.write(json.dumps(config))
+
+		# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
+		logging.info("Processing: " + tissue)
+
+		# Preprocessing
 		logging.info("Preprocessing")
 		dt.preprocess(sample_dir, samples, fname, {"title": tissue}, False, True)
 
-	ds = loompy.connect(fname)
-	n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
-	n_total = ds.shape[1]
-	logging.info("%d of %d cells were valid", n_valid, n_total)
-	logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
-	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+		ds = loompy.connect(fname)
+		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
+		n_total = ds.shape[1]
+		logging.info("%d of %d cells were valid", n_valid, n_total)
+		logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
+		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 
-	# logging.info("Facet learning")
-	# labels = facets(ds, cells, config["facet_learning"])
-	# logging.info(labels.shape)
-	# n_labels = np.max(labels, axis=0) + 1
-	# logging.info("Found " + str(n_labels) + " clusters")
+		# logging.info("Facet learning")
+		# labels = facets(ds, cells, config["facet_learning"])
+		# logging.info(labels.shape)
+		# n_labels = np.max(labels, axis=0) + 1
+		# logging.info("Found " + str(n_labels) + " clusters")
 
-	# KNN graph generation and clustering
-	logging.info("Normalization and PCA projection")
-	transformed = pca_projection(ds, cells, config["louvain_jaccard"])
+		# KNN graph generation and clustering
+		logging.info("Normalization and PCA projection")
+		transformed = pca_projection(ds, cells, config["louvain_jaccard"])
 
-	logging.info("Generating KNN graph")
-	knn = kneighbors_graph(transformed, mode='distance', n_neighbors=50)
-	knn = knn.tocoo()
+		logging.info("Generating KNN graph")
+		knn = kneighbors_graph(transformed, mode='distance', n_neighbors=30)
+		knn = knn.tocoo()
 
-	logging.info("Louvain-Jaccard clustering")
-	lj = dt.LouvainJaccard(resolution=1.0)
-	labels = lj.fit_predict(knn)
-	g = lj.graph
-	# Make labels for excluded cells == -1
-	labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-	labels_all[cells] = labels
+		logging.info("Louvain-Jaccard clustering")
+		lj = dt.LouvainJaccard(resolution=1.0)
+		labels = lj.fit_predict(knn)
+		g = lj.graph
+		# Make labels for excluded cells == -1
+		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+		labels_all[cells] = labels
 
-	# Mutual KNN
-	mknn = knn.minimum(knn.transpose()).tocoo()
+		# Mutual KNN
+		mknn = knn.minimum(knn.transpose()).tocoo()
 
-	# Layout
-	logging.info("SFDP layout")
-	sfdp_pos = dt.SFDP().layout_knn(knn)
-	sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
-	sfdp_all[cells] = sfdp_pos
+		logging.info("t-SNE layout")
+		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50).fit_transform(transformed)
+		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+		tsne_all[cells] = tsne_pos
 
-	logging.info("OpenOrd layout")
-	openord_pos = dt.OpenOrd(openord_path="/Users/Sten/OpenOrd/bin/").layout_knn(knn)
-	openord_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(openord_pos, axis=0)
-	openord_all[cells] = openord_pos
+		logging.info("Marker enrichment and trinarization")
+		f = config["annotation"]["f"]
+		pep = config["annotation"]["pep"]
+		(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[cells], pep, f, cells)
+		save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
-	logging.info("t-SNE layout")
-	tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
-	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
-	tsne_all[cells] = tsne_pos
+		# Auto-annotation
+		logging.info("Auto-annotating cell types and states")
+		aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
+		(tags, annotations) = aa.annotate(ds, trinary_prob)
+		sizes = np.bincount(labels_all + 1)
+		save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
 
-	logging.info("Marker enrichment and trinarization")
-	f = config["annotation"]["f"]
-	pep = config["annotation"]["pep"]
-	(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[cells], pep, f, cells)
-	save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
+		logging.info("Plotting clusters on graph")
+		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_tSNE"))
 
-	# Auto-annotation
-	logging.info("Auto-annotating cell types and states")
-	aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
-	(tags, annotations) = aa.annotate(ds, trinary_prob)
-	sizes = np.bincount(labels_all + 1)
-	save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
-
-	logging.info("Plotting clusters on graph")
-	plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_tSNE"))
-	plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_SFDP"))
-	plot_clusters(mknn, labels, openord_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_OpenOrd"))
-
-	logging.info("Saving attributes")
-	ds.set_attr("tSNE_X", tsne_all[:, 0], axis=1)
-	ds.set_attr("tSNE_Y", tsne_all[:, 1], axis=1)
-	ds.set_attr("SFDP_X", sfdp_all[:, 0], axis=1)
-	ds.set_attr("SFDP_Y", sfdp_all[:, 1], axis=1)
-	ds.set_attr("OpenOrd_X", openord_all[:, 0], axis=1)
-	ds.set_attr("OpenOrd_Y", openord_all[:, 1], axis=1)
-	ds.set_attr("Clusters", labels_all, axis=1)
-	logging.info("Done.")
+		logging.info("Saving attributes")
+		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
+		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
+		ds.set_attr("Clusters", labels_all, axis=1)
+		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data)
+		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data)
+		logging.info("Done.")
 
 
 def save_auto_annotation(build_dir: str, tissue: str, sizes: np.ndarray, annotations: np.ndarray, tags: np.ndarray) -> None:

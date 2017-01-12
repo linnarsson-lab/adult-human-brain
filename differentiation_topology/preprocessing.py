@@ -21,16 +21,16 @@ amit
 """
 
 
-
 import os
 from shutil import copyfile
 from tempfile import mktemp
+from typing import *
 import logging
 import numpy as np
 import loompy
 
-def generate_doublets(ds, cell_id_template):
-	n = int(ds.shape[1]*0.01)
+def generate_doublets(ds: loompy.LoomConnection, cell_id_template: str) -> None:
+	n = int(ds.shape[1] * 0.01)
 	cells = np.fromiter(range(ds.shape[1]), dtype='int')
 
 	# Create doublets
@@ -61,17 +61,20 @@ def generate_doublets(ds, cell_id_template):
 	dblts[-n:] = 1
 	ds.set_attr("_FakeDoublet", dblts, dtype='int', axis=1)
 
-def validate_cells(ds):
+
+def validate_cells(ds: loompy.LoomConnection) -> None:
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
-	valid = np.logical_and(np.logical_and(mols >= 600, (mols/genes) >= 1.2), np.logical_and(mols <= 20000, genes >= 500)).astype('int')
+	valid = np.logical_and(np.logical_and(mols >= 600, (mols / genes) >= 1.2), np.logical_and(mols <= 20000, genes >= 500)).astype('int')
 	ds.set_attr("_Valid", valid, axis=1)
 
-def validate_genes(ds):
+
+def validate_genes(ds: loompy.LoomConnection) -> None:
 	nnz = ds.map(np.count_nonzero, axis=0)
-	valid = np.logical_and(nnz > 20, nnz < ds.shape[1]*0.6)
+	valid = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
 	ds.set_attr("_Valid", valid, axis=0)
 
-def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False, do_validate_genes=False):
+
+def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_file: str, attrs: Dict = {}, make_doublets: bool = False, do_validate_genes: bool = False) -> Tuple[int, int]:
 	# Keep track of temporary copies of the loom files
 	temp_files = []
 	n_valid = 0
@@ -80,7 +83,7 @@ def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False,
 		logging.info("Creating temp file for " + sample_id)
 
 		# Make a temporary loom file name, track it, and copy the sample
-		fname = mktemp(suffix=".loom", dir=loom_folder)
+		fname = mktemp(suffix=".loom", dir=build_folder)
 		temp_files.append(fname)
 		copyfile(os.path.join(loom_folder, sample_id + ".loom"), fname)
 		logging.info("Preprocessing " + sample_id)
@@ -88,7 +91,7 @@ def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False,
 		# Connect and perform file-specific QC and validation
 		ds = loompy.connect(fname)
 
-		if make_doublets and not "_FakeDoublet" in ds.col_attrs:
+		if make_doublets and "_FakeDoublet" not in ds.col_attrs:
 			logging.info("Making fake doublets")
 			generate_doublets(ds, sample_id)
 		logging.info("Marking invalid cells")
@@ -109,9 +112,7 @@ def preprocess(loom_folder, sample_ids, out_file, attrs={}, make_doublets=False,
 	ds.close()
 
 	# Remove the temporary loom files
-	logging.info("Cleaning up")
 	for fname in temp_files:
 		os.remove(fname)
-	logging.info("Done")
 
 	return (n_valid, n_total)
