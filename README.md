@@ -1,5 +1,5 @@
 
-# differentiation-topology
+# cytograph
 
 ## Installation
 
