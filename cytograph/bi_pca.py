@@ -344,11 +344,8 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			if np.min(cluster_counts) < smallest_allowed:
 				# Reject split immediatelly and continue
 				logger.debug( "A small cluster get generated, don't split'" )
-<<<<<<< Updated upstream:cytograph/bi_pca.py
 				print("A small cluster get generated, don't split'")
-=======
-				print("A small cluster get generated, don't split")
->>>>>>> Stashed changes:differentiation_topology/bi_pca.py
+
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
