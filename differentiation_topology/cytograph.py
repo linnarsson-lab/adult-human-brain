@@ -28,10 +28,11 @@ import differentiation_topology as dt
 colors20 = np.array(Tableau_20.mpl_colors)
 
 default_config = {
-	"n_processes": 1,
-	"sample_dir": "/Users/Sten/whole_brain",
-	"pool_config": "/Users/Sten/builds/pooling_specification.tab",
-	"build_root": "/Users/Sten/builds",
+	# NOTE: these paths should all be relative, not absolute, because the root path will be prepended
+	"sample_dir": "loom_samples",
+	"pool_config": "pooling_specification.tab",
+	"build_root": "loom_builds",
+
 	"build_dir": None,
 	"preprocessing": {
 		"do_validate_genes": True,
@@ -59,10 +60,13 @@ default_config = {
 
 
 class Cytograph:
-	def __init__(self, config: Dict = default_config) -> None:
+	def __init__(self, root: str, config: Dict = default_config) -> None:
+		config["sample_dir"] = os.path.join(root, config["sample_dir"])
+		config["build_root"] = os.path.join(root, config["build_root"])
+		config["pool_config"] = os.path.join(root, config["pool_config"])
 		self.config = config
 
-	def process_all(self) -> None:
+	def process_all(self, n_processes: int = 1) -> None:
 		tissues = {}  # type: Dict[str, int]
 		with open(self.config["pool_config"], 'r') as f:
 			for row in csv.reader(f, delimiter="\t"):
@@ -72,7 +76,7 @@ class Cytograph:
 			self.config["build_dir"] = os.path.join(self.config["build_root"], "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
 			os.mkdir(self.config["build_dir"])
 
-		pool = Pool(self.config["n_processes"])
+		pool = Pool(n_processes)
 		pool.map(self.process_one, tissues.keys())
 
 	def process_one(self, tissue: str) -> None:
@@ -122,7 +126,7 @@ class Cytograph:
 		logging.info("Louvain-Jaccard clustering")
 		lj = dt.LouvainJaccard(resolution=1.0)
 		labels = lj.fit_predict(knn)
-		g = lj.graph
+		# g = lj.graph
 		# Make labels for excluded cells == -1
 		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 		labels_all[cells] = labels
@@ -155,8 +159,8 @@ class Cytograph:
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
 		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
 		ds.set_attr("Clusters", labels_all, axis=1)
-		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data)
-		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data)
+		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
+		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 		logging.info("Done.")
 
 
@@ -343,7 +347,7 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -
 	normalizer = Normalizer(ds, config, mu, sd)
 
 	logging.info("Incremental PCA in batches of %d", cache_n_columns)
-	pca = IncrementalPCA(n_components=n_components)
+	pca = IncrementalPCA(n_components=n_components, whiten=True)
 	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cache_n_columns):
 		vals = normalizer.normalize(vals, ix + selection)
 		pca.partial_fit(vals[genes, :].transpose())		# PCA on the selected genes

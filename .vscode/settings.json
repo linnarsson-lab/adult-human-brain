@@ -1,0 +1,11 @@
+// Workspace settings
+{
+    "files.exclude": {
+        "build/": true,
+        "dist/": true,
+        "*.egg-info": true,
+        "**/*.pyc": true,
+        "**/*.js": true,
+        "**/*.map": true
+    }
+}

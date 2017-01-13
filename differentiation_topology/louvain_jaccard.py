@@ -25,7 +25,6 @@ class LouvainJaccard:
 			the property 'graph' of type nx.Graph
 		"""
 		edges = np.stack((knn.row, knn.col), axis=1)
-
 		# Calculate Jaccard similarities
 		js = []  # type: List[float]
 		knncsr = knn.tocsr()
