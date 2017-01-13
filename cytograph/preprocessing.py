@@ -30,39 +30,6 @@ import numpy as np
 import loompy
 
 
-def generate_doublets(ds: loompy.LoomConnection, cell_id_template: str) -> None:
-	n = int(ds.shape[1] * 0.01)
-	cells = np.fromiter(range(ds.shape[1]), dtype='int')
-
-	# Create doublets
-	doublets = []
-	ids = []
-	for ix in range(n):
-		pair = np.random.choice(cells, 2, replace=False)
-		dbl = ds[:, pair[0]] + ds[:, pair[1]]
-		doublets.append(dbl)
-		ids.append(cell_id_template + "_doublet_" + str(ix))
-	doublets = np.column_stack(doublets)
-
-	# Create dummy column attributes
-	dbl_attrs = {}
-	for a in ds.col_attrs.keys():
-		if a == "CellID":
-			dbl_attrs[a] = ids
-		else:
-			dtype = ds.schema["col_attrs"][a]
-			if dtype == "float64":
-				dbl_attrs[a] = np.zeros(n, dtype='float64')
-			if dtype == "string":
-				dbl_attrs[a] = np.zeros(n, dtype='unicode')
-			if dtype == "int":
-				dbl_attrs[a] = np.zeros(n, dtype='int')
-	ds.add_columns(doublets, dbl_attrs)
-	dblts = np.zeros(ds.shape[1])
-	dblts[-n:] = 1
-	ds.set_attr("_FakeDoublet", dblts, dtype='int', axis=1)
-
-
 def validate_cells(ds: loompy.LoomConnection) -> None:
 	(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 	valid = np.logical_and(np.logical_and(mols >= 600, (mols / genes) >= 1.2), np.logical_and(mols <= 20000, genes >= 500)).astype('int')
@@ -92,9 +59,6 @@ def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_
 		# Connect and perform file-specific QC and validation
 		ds = loompy.connect(fname)
 
-		if make_doublets and "_FakeDoublet" not in ds.col_attrs:
-			logging.info("Making fake doublets")
-			generate_doublets(ds, sample_id)
 		logging.info("Marking invalid cells")
 		validate_cells(ds)
 		n_valid += np.sum(ds.col_attrs["_Valid"] == 1)
@@ -102,7 +66,7 @@ def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_
 		ds.close()
 
 	logging.info("Creating combined loom file")
-	loompy.combine(temp_files, out_file, key="Accession", file_attrs=attrs)
+	loompy.join(temp_files, out_file, key="Accession", file_attrs=attrs)
 	ds = loompy.connect(out_file)
 	if do_validate_genes:
 		logging.info("Marking invalid genes")

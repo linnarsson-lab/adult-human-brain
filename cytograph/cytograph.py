@@ -87,6 +87,7 @@ class Cytograph:
 
 	def process_one(self, tissue: str) -> None:
 		config = self.config
+		print(config)
 		build_dir = config["build_dir"]
 		samples = []  # type: List[str]
 		with open(config["pool_config"], 'r') as f:

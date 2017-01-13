@@ -343,7 +343,7 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			if np.min(cluster_counts) < smallest_allowed:
 				# Reject split immediatelly and continue
 				logger.debug( "A small cluster get generated, don't split'" )
-				print "A small cluster get generated, don't split'"
+				print("A small cluster get generated, don't split'")
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
@@ -1014,7 +1014,7 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
                 log2_cv = r_[ log2_cv, tile(log2_cv[ind], around(med_n/len(ind))-1) ]
     else:
         if 'bin' in fit_method:
-            print 'More than 1000 input feature needed for bin correction.'
+            print('More than 1000 input feature needed for bin correction.')
         pass
                 
     if 'SVR' in fit_method:
@@ -1035,7 +1035,7 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
             
         except ImportError:
             if verbose:
-                print 'SVR fit requires scikit-learn python library. Using exponential instead.'
+                print('SVR fit requires scikit-learn python library. Using exponential instead.')
             if 'bin' in fit_method:
                 return fit_CV(mu, cv, fit_method='binExp', x0=x0)
             else:
