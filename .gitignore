@@ -1,3 +1,7 @@
+# Loom
+loom_samples/
+loom_builds/
+
 # Mac
 *.DS_Store/
 test/

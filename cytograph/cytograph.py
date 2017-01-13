@@ -57,6 +57,13 @@ default_config = {
 	}
 }
 
+# Run like this:
+#
+# import cytograph as cg
+# c = cg.Cytograph("path_to_root")
+# c.process_one("Cortex1")
+#
+
 
 class Cytograph:
 	def __init__(self, root: str, config: Dict = default_config) -> None:
