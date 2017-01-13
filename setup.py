@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 __version__ = "0.0.0"
-exec(open('differentiation_topology/_version.py').read())
+exec(open('cytograph/_version.py').read())
 
 setup(
-    name="differentiation-topology",
+    name="cytograph",
     version=__version__,
     packages=find_packages(),
     install_requires=[
@@ -13,13 +13,16 @@ setup(
         'scikit-learn',
         'scipy',
         'annoy',
-        'numpy-groupies'
+        'numpy-groupies',
+        'networkx',
+        'palettable',
+        'tqdm'
     ],
 
     # metadata
     author="Linnarsson Lab",
     author_email="sten.linnarsson@ki.se",
-    description="Differentiation topology algorithm",
+    description="Pipeline for single-cell RNA-seq analysis",
     license="MIT",
-    url="https://github.com/linnarsson-lab/differentiation-topology",
+    url="https://github.com/linnarsson-lab/cytograph",
 )

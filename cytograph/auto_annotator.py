@@ -2,7 +2,8 @@ import os
 import logging
 import numpy as np
 
-class CellTag(object):
+
+class CellTag:
 	def __init__(self, category, file):
 		self.category = category
 		with open(file, "r") as f:

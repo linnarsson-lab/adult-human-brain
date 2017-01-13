@@ -29,6 +29,7 @@ import logging
 import numpy as np
 import loompy
 
+
 def generate_doublets(ds: loompy.LoomConnection, cell_id_template: str) -> None:
 	n = int(ds.shape[1] * 0.01)
 	cells = np.fromiter(range(ds.shape[1]), dtype='int')

@@ -20,10 +20,9 @@ from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 from sklearn.preprocessing import scale
 from sklearn.svm import SVR
-from annoy import AnnoyIndex
 import networkx as nx
 # import community
-import differentiation_topology as dt
+import cytograph as cg
 
 colors20 = np.array(Tableau_20.mpl_colors)
 
@@ -100,7 +99,7 @@ class Cytograph:
 
 		# Preprocessing
 		logging.info("Preprocessing")
-		dt.preprocess(sample_dir, samples, fname, {"title": tissue}, False, True)
+		cg.preprocess(sample_dir, samples, fname, {"title": tissue}, False, True)
 
 		ds = loompy.connect(fname)
 		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
@@ -124,7 +123,7 @@ class Cytograph:
 		knn = knn.tocoo()
 
 		logging.info("Louvain-Jaccard clustering")
-		lj = dt.LouvainJaccard(resolution=1.0)
+		lj = cg.LouvainJaccard(resolution=1.0)
 		labels = lj.fit_predict(knn)
 		# g = lj.graph
 		# Make labels for excluded cells == -1
@@ -142,12 +141,12 @@ class Cytograph:
 		logging.info("Marker enrichment and trinarization")
 		f = config["annotation"]["f"]
 		pep = config["annotation"]["pep"]
-		(enrichment, trinary_prob, trinary_pat) = dt.expression_patterns(ds, labels_all[cells], pep, f, cells)
+		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], pep, f, cells)
 		save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 		# Auto-annotation
 		logging.info("Auto-annotating cell types and states")
-		aa = dt.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
+		aa = cg.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
 		(tags, annotations) = aa.annotate(ds, trinary_prob)
 		sizes = np.bincount(labels_all + 1)
 		save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
@@ -241,15 +240,15 @@ def facets(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.nda
 	def gix(names: List[str]) -> List[int]:
 		return [np.where(ds.Gene[genes] == n)[0][0] for n in names]
 
-	facet_list = []  # type: List[dt.Facet]
+	facet_list = []  # type: List[cg.Facet]
 	for f in config["facets"]:
 		if "max_k" in f:
 			max_k = f["max_k"]
 		else:
 			max_k = 0
-		f0 = dt.Facet(f["name"], k=f["k"], n_genes=f["n_genes"], max_k=max_k, genes=gix(f["genes"]), adaptive=f["adaptive"])
+		f0 = cg.Facet(f["name"], k=f["k"], n_genes=f["n_genes"], max_k=max_k, genes=gix(f["genes"]), adaptive=f["adaptive"])
 		facet_list.append(f0)
-	labels = dt.FacetLearning(facet_list, r=config["r"], max_iter=config["max_iter"], gene_names=ds.Gene[genes]).fit_transform(m)
+	labels = cg.FacetLearning(facet_list, r=config["r"], max_iter=config["max_iter"], gene_names=ds.Gene[genes]).fit_transform(m)
 	return labels
 
 
@@ -274,7 +273,7 @@ def prommt(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.nda
 		j += n_cells_in_batch
 
 	logging.info("ProMMT clustering")
-	labels = dt.ProMMT(n_S=n_S, k=k, max_iter=max_iter).fit_transform(m)
+	labels = cg.ProMMT(n_S=n_S, k=k, max_iter=max_iter).fit_transform(m)
 	return labels
 
 
@@ -435,4 +434,3 @@ def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int,
 	if outfile is not None:
 		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
-
