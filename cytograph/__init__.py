@@ -1,6 +1,6 @@
 
 from .preprocessing import preprocess
-from .bi_pca import broken_stick, biPCA
+from .bi_pca import broken_stick, biPCA, select_sig_pcs
 from .diff_exp import expression_patterns, betabinomial_trinarize_array
 from .auto_annotator import AutoAnnotator
 from .cytograph import Cytograph, plot_clusters, pca_projection, feature_selection, Normalizer

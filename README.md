@@ -5,8 +5,11 @@
 
 `graphviz`, with the `dot` command available in the $PATH
 
-On Mac, graphviz can be installed using Homebrew. Note; the graphviz provided with Anaconda does not work,
-because it wasn't compiled with full support for SFDP layout.
+**Note:** On Mac, graphviz must be installed from the [package](http://www.graphviz.org/pub/graphviz/stable/macos/lion/graphviz-2.40.1.pkg), Note
+using Conda or Homebrew.
+
+`pygraphviz`, install by `pip install pygraphviz``
+
 
 ## Installation
 

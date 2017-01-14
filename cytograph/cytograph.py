@@ -69,7 +69,7 @@ class Cytograph:
 			k: int = 30,
 			lj_resolution: float = 1.0,
 			n_genes: int = 2000,
-			n_components: int = 50,
+			n_components: int = 30,
 			pep: float = 0.05,
 			f: float = 0.2,
 			sfdp: bool = False
@@ -111,8 +111,11 @@ class Cytograph:
 		self.build_dir = os.path.join(self.build_root, "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
 		os.mkdir(self.build_dir)
 
-		pool = Pool(n_processes)
-		pool.map(self._process_one, tissues)
+		if len(tissues) > 1:
+			pool = Pool(n_processes)
+			pool.map(self._process_one, tissues)
+		else:
+			self._process_one(tissues[0])
 
 	def _process_one(self, tissue: str) -> None:
 		samples = []  # type: List[str]
@@ -169,7 +172,7 @@ class Cytograph:
 		mknn = knn.minimum(knn.transpose()).tocoo()
 
 		logging.info("t-SNE layout")
-		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50, early_exaggeration=2.0, learning_rate=200.0).fit_transform(transformed)
+		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50).fit_transform(transformed)
 		# Place all cells in the lower left corner
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		# Place the valid cells where they belong
@@ -183,6 +186,7 @@ class Cytograph:
 
 		logging.info("Marker enrichment and trinarization")
 		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
+		
 		save_diff_expr(ds, self.build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 		# Auto-annotation
@@ -207,6 +211,7 @@ class Cytograph:
 		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 
+		self.pca_transformed = transformed
 		self.tsne = tsne_all
 		if self.sfdp:
 			self.sfdp = sfdp_all
@@ -403,7 +408,7 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 	normalizer = Normalizer(ds, False, mu, sd)
 
 	logging.info("Incremental PCA")
-	pca = IncrementalPCA(n_components=n_components, whiten=True)
+	pca = IncrementalPCA(n_components=n_components)
 	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1):
 		vals = normalizer.normalize(vals, ix + selection)
 		pca.partial_fit(vals[genes, :].transpose())		# PCA on the selected genes
@@ -418,7 +423,9 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 		transformed[j:j + n_cells_in_batch, :] = pca.transform(vals[genes, :].transpose())
 		j += n_cells_in_batch
 
-	return transformed
+	sigs = cg.select_sig_pcs(transformed)
+	logging.info("Using %d significant principal components", sigs.sum())
+	return transformed[:, sigs]
 
 
 def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
