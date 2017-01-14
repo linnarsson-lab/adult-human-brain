@@ -11,6 +11,7 @@ from scipy.stats import pearsonr, ks_2samp, binom
 from scipy.spatial.distance import cdist
 from pylab import *  # SPEED-UP
 import numpy as np
+from numba import jit
 import loompy
 import logging
 
@@ -27,7 +28,7 @@ def broken_stick(n: float, k: float) -> np.ndarray:
 		In the paper a corrected method is proposed
 
 	"""
-	return np.array([((polygamma(0, 1 + n) - polygamma(0, x + 1)) / n) for x in range(k)])
+	return np.array([((polygamma(0, 1 + n) - polygamma(0, x + 1)) / n) for x in np.arange(k)])
 
 
 def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10) -> np.ndarray:
@@ -65,7 +66,7 @@ def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10)
 		X = X - X.mean(1)[:,None]
 		X = X / np.sqrt(np.sum(X**2, 0))  # divide by unnormalized standard deviation over axis=0
 
-		def corr_dist(a, b):
+		def corr_dist(a: int, b:int) -> float:
 			return 1 - pearsonr(a,b)[0]
 		metric_f = corr_dist
 	else:
@@ -170,7 +171,7 @@ def biPCA(data: np.ndarray, n_splits: int = 10, n_components: int=20, cell_limit
 			# No principal component is significant, don't split
 			if not np.any(sig):
 				logging.debug("No principal component is significant, don't split!")
-				cell_labels_by_depth[i + 1, current_cells_ixs] = running_label_id
+				cell_labels_by_depth[i_split + 1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
 			logging.debug('%i principal components are significant' % sum(sig))
@@ -285,7 +286,7 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 	cell_labels_by_depth = np.zeros((n_splits + 1, n_cells))
 
 	# Log data here to avoid recalculate log multiple times
-	data = np.log2(data[:,current_cells_ixs] + 1)
+	data = np.log2(data[:, current_cells_ixs] + 1)
 
 	# Run an iteration per level of depth
 	for i_split in range(n_splits):
@@ -804,9 +805,17 @@ def select_sig_pcs(data_tmp):
 	sig[:first_not_sign] = True
 	return sig
 
+@jit(nopython=True, cache=True)
+def find_first(item, vec):
+    """return the index of the first occurence of item in vec"""
+    for i in xrange(len(vec)):
+        if item == vec[i]:
+            return i
+    return -1
 
-def gini_indexes(data, labels, kind="both"):
-    """Efficient implementation to calculate Gini index for every threshold in the data range
+def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> Tuple[np.ndarray, np.ndarray]:
+    """Efficient implementation to calculate Gini impurity of impurity for every threshold in the data range
+    This calculates only yhr Right Gini Index
     This is a typical metric used in decision trees (less is better).
 
     Args 
@@ -824,12 +833,13 @@ def gini_indexes(data, labels, kind="both"):
             might be truncated and not go over all np.unique(data)
 
     """
-    thresolds = []
-    ginis = []
+
     bins, ix_uniq, counts = np.unique(data, return_counts=True, return_inverse=True)
-    for i in range(1,len(bins)):
+    ginis = np.zeros(bins.size-1)
+    for i in range(1,bins.size):
         n = bins[i] # the value of the threshold
-        index_of_n = np.where( bins==n )[0][0] # the index of value of the threshold after ranking
+        # index_of_n = np.where( bins==n )[0][0] # the index of value of the threshold after ranking
+        index_of_n = find_first(n,bins)
         
         if kind == "both" and i != 0:
             selec_r = labels[ix_uniq >= index_of_n ]
@@ -842,22 +852,19 @@ def gini_indexes(data, labels, kind="both"):
             selec = labels[ix_uniq >= index_of_n ]
         
         if kind == "both" and i != 0:
-            sq_contks_l = []
-            sq_contks_r = []
-            for k in np.unique(labels):
-                sq_contks_l.append( (np.sum(selec_l==k) / len(selec_l))**2 )
-                sq_contks_r.append( (np.sum(selec_r==k) / len(selec_r))**2 )
-            gini_l = 1 - np.sum(sq_contks_l)
-            gini_r = 1 - np.sum(sq_contks_r)
-            gini = gini_l + gini_r
+            sum_sq_contks_l = np.sum(bincount(selec_l)**2)
+            sq_N_l = len(selec_l)**2
+            gini_l = 1 - (sum_sq_contks_l / sq_N_l)
+            
+            sum_sq_contks_r = np.sum(bincount(selec_r)**2)
+            sq_N_r = len(selec_r)**2
+            gini_r = 1 - (sum_sq_contks_r / sq_N_r)
+            ginis[i-1] = gini_l + gini_r
         else:
-            sq_contks = []
-            for k in np.unique(labels):
-                sq_contks.append( (np.sum(selec==k) / len(selec))**2 )
-            gini = 1 - np.sum(sq_contks)
-        ginis.append( gini )
-        thresolds.append( n )
-    return np.array(ginis), np.array(thresolds)
+            sum_sq_contks = np.sum(bincount(selec)**2)
+            sq_N = len(selec)**2
+            ginis[i-1] = 1 - (sum_sq_contks / sq_N)
+    return ginis, bins[1:]
 
 
 def normalized_MI_discrete(x,y, bin_step=1,
