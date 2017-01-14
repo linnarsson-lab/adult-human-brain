@@ -47,6 +47,7 @@ def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_
 	temp_files = []
 	n_valid = 0
 	n_total = 0
+
 	for sample_id in sample_ids:
 		logging.info("Creating temp file for " + sample_id)
 
@@ -66,7 +67,7 @@ def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_
 		ds.close()
 
 	logging.info("Creating combined loom file")
-	loompy.join(temp_files, out_file, key="Accession", file_attrs=attrs)
+	loompy.combine(temp_files, out_file, key="Accession", file_attrs=attrs)
 	ds = loompy.connect(out_file)
 	if do_validate_genes:
 		logging.info("Marking invalid genes")

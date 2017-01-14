@@ -61,53 +61,67 @@ default_config = {
 #
 # import cytograph as cg
 # c = cg.Cytograph("path_to_root")
-# c.process_one("Cortex1")
+# c.process("Cortex1")
 #
 
 
 class Cytograph:
 	def __init__(self, root: str, config: Dict = default_config) -> None:
-		config["sample_dir"] = os.path.join(root, config["sample_dir"])
-		config["build_root"] = os.path.join(root, config["build_root"])
-		config["pool_config"] = os.path.join(root, config["pool_config"])
+		self.sample_dir = os.path.join(root, config["sample_dir"])
+		self.build_root = os.path.join(root, config["build_root"])
+		self.pool_config = os.path.join(root, config["pool_config"])
+		self.build_dir = None  # type: str
 		self.config = config
 
-	def process_all(self, n_processes: int = 1) -> None:
-		tissues = {}  # type: Dict[str, int]
-		with open(self.config["pool_config"], 'r') as f:
-			for row in csv.reader(f, delimiter="\t"):
-				tissues[row[1]] = 1
+	def process(self, tissues: List[str] = None, n_processes: int = 1) -> None:
+		"""
+		Process samples according to the pooling specification
 
-		if self.config["build_dir"] is None:
-			self.config["build_dir"] = os.path.join(self.config["build_root"], "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
-			os.mkdir(self.config["build_dir"])
+		Args:
+			tissues:	List of tissues to process, or None to process all
+			n_processes: Number of parallel processes to use
+		"""
+		if isinstance(tissues, str):
+			tissues = [tissues]
+		if not isinstance(tissues, (list, tuple)):
+			raise ValueError("tissues must be a list of strings")
+
+		if tissues is None:
+			temp = {}  # type: Dict[str, int]
+			with open(self.pool_config, 'r') as f:
+				for row in csv.reader(f, delimiter="\t"):
+					temp[row[1]] = 1
+			tissues = list(temp.keys())
+
+		self.build_dir = os.path.join(self.build_root, "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
+		os.mkdir(self.build_dir)
 
 		pool = Pool(n_processes)
-		pool.map(self.process_one, tissues.keys())
+		pool.map(self._process_one, tissues)
 
-	def process_one(self, tissue: str) -> None:
+	def _process_one(self, tissue: str) -> None:
 		config = self.config
-		print(config)
-		build_dir = config["build_dir"]
 		samples = []  # type: List[str]
-		with open(config["pool_config"], 'r') as f:
+		with open(self.pool_config, 'r') as f:
 			for row in csv.reader(f, delimiter="\t"):
 				if row[1] == tissue and row[2] != "FAILED":
 					samples.append(row[0])
+		if len(samples) == 0:
+			logging.warn("No samples defined for " + tissue)
+			return
 
-		sample_dir = config["sample_dir"]
-		fname = os.path.join(build_dir, tissue.replace(" ", "_") + ".loom")
+		fname = os.path.join(self.build_dir, tissue.replace(" ", "_") + ".loom")
 
 		config_json = "config.json"
-		with open(os.path.join(build_dir, config_json), 'w') as f:
+		with open(os.path.join(self.build_dir, config_json), 'w') as f:
 			f.write(json.dumps(config))
 
 		# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
 		logging.info("Processing: " + tissue)
 
 		# Preprocessing
-		logging.info("Preprocessing")
-		cg.preprocess(sample_dir, samples, fname, {"title": tissue}, False, True)
+		logging.info("Preprocessing " + tissue + " " + str(samples))
+		cg.preprocess(self.sample_dir, self.build_dir, samples, fname, {"title": tissue}, False, True)
 
 		ds = loompy.connect(fname)
 		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
@@ -142,7 +156,7 @@ class Cytograph:
 		mknn = knn.minimum(knn.transpose()).tocoo()
 
 		logging.info("t-SNE layout")
-		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50).fit_transform(transformed)
+		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50, early_exaggeration=2.0, learning_rate=200.0).fit_transform(transformed)
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		tsne_all[cells] = tsne_pos
 
@@ -150,17 +164,17 @@ class Cytograph:
 		f = config["annotation"]["f"]
 		pep = config["annotation"]["pep"]
 		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], pep, f, cells)
-		save_diff_expr(ds, build_dir, tissue, enrichment, trinary_pat, trinary_prob)
+		save_diff_expr(ds, self.build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 		# Auto-annotation
 		logging.info("Auto-annotating cell types and states")
 		aa = cg.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
 		(tags, annotations) = aa.annotate(ds, trinary_prob)
 		sizes = np.bincount(labels_all + 1)
-		save_auto_annotation(build_dir, tissue, sizes, annotations, tags)
+		save_auto_annotation(self.build_dir, tissue, sizes, annotations, tags)
 
 		logging.info("Plotting clusters on graph")
-		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(build_dir, tissue + "_tSNE"))
+		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
 
 		logging.info("Saving attributes")
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
@@ -168,6 +182,18 @@ class Cytograph:
 		ds.set_attr("Clusters", labels_all, axis=1)
 		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
+
+		self.tsne_x = tsne_all[:, 0]
+		self.tsne_y = tsne_all[:, 1]
+		self.knn = knn
+		self.mknn = mknn
+		self.lj_graph = lj.graph
+		self.labels = labels_all
+		self.cells = cells
+		self.aa_tags = tags
+		self.aa_annotations = annotations
+		self.enrichment = enrichment
+		self.trinary_prob = trinary_prob
 		logging.info("Done.")
 
 
