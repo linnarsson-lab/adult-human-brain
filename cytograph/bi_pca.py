@@ -9,107 +9,111 @@ from scipy.stats import mannwhitneyu
 from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats import pearsonr, ks_2samp, binom
 from scipy.spatial.distance import cdist
-from pylab import * # SPEED-UP
+from pylab import *  # SPEED-UP
+import numpy as np
+import loompy
 import logging
 
-def broken_stick(n, k):
+
+def broken_stick(n: float, k: float) -> np.ndarray:
 	"""
 	Return a vector of the k largest expected broken stick fragments, out of n total
 
 	Remarks:
 		The formula uses polygamma to exactly compute (1/n)sum{j=k to n}(1/j) for each k
 
-	Note:	
+	Note:
 		According to Cangelosi R. BiologyDirect 2017, this method might underestimate the dimensionality of the data
 		In the paper a corrected method is proposed
-	
+
 	"""
-	return np.array( [((polygamma(0,1+n)-polygamma(0,x+1))/n) for x in range(k)] )
+	return np.array([((polygamma(0, 1 + n) - polygamma(0, x + 1)) / n) for x in range(k)])
 
 
+def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10) -> np.ndarray:
+	"""Kmeans implementation that allows using correlation
 
-def kmeans(X, k, metric="correlation", n_iter=10):
-    """Kmeans implementation that allows using correlation
+	Arguments
+	---------
+	X: np.array(float)   shape=(samples, features)
+		Input data loaded in memory
+	k: int
+		Number of clusters
+	metric: str or callable
+		Can be:
+		- "corralation"
+		- "euclidean"
+		- In principle it also supports whatever can be passed as metric argument of sklern.pairwise.paired_distances
+		(e.g.To use cosine one needs to normalize similarly to correlation)
 
-    Arguments
-    ---------
-    X: np.array(float)   shape=(samples, features)
-        Input data loaded in memory
-    k: int
-        Number of clusters
-    metric: str or callable
-        Can be:
-        - "corralation"
-        - "euclidean"
-        - In principle it also supports whatever can be passed as metric argument of sklern.pairwise.paired_distances
-        (e.g.To use cosine one needs to normalize similarly to correlation)
+	Returns
+	-------
+	labels: np.array(int) shape=(samples,)
+		labels of the clusters
 
-    Returns
-    -------
-    labels: np.array(int) shape=(samples,)
-        labels of the clusters
+	Notes
+	-----
 
-    Notes
-    -----
+	- The code was implemented by reading Wikipedia so it is not super-professional, it follows Llyoid alrgorythm.
+	- The normalization to do in the case of correlation distance was taken from MATLAB source.
+	- The algorythm seems very fast but I am not sure I am taking in account all the corner cases
+	- Sometimes in the E step a empty cluster migh form, this will make impossible the M step for one centroid,
+	this was solved by relocating this centroid close to the point that is farthest from all the other centroids
+	- An implementation that does not load data into memory is possible with few changes
+	"""
+	if metric == "correlation":
+		X = X - X.mean(1)[:,None]
+		X = X / np.sqrt(np.sum(X**2, 0))  # divide by unnormalized standard deviation over axis=0
 
-    - The code was implemented by reading Wikipedia so it is not super-professional, it follows Llyoid alrgorythm.
-    - The normalization to do in the case of correlation distance was taken from MATLAB source.
-    - The algorythm seems very fast but I am not sure I am taking in account all the corner cases
-    - Sometimes in the E step a empty cluster migh form, this will make impossible the M step for one centroid,
-      this was solved by relocating this centroid close to the point that is farthest from all the other centroids
-    - An implementation that does not load data into memory is possible with few changes
-    """
-    if metric == "correlation":
-        X = X - X.mean(1)[:,None]
-        X = X / np.sqrt( np.sum(X**2, 0) ) # divide by unnormalized standard deviation over axis=0
-        corr_dist = lambda a,b: 1 - pearsonr(a,b)[0]
-        metric_f = corr_dist
-    else:
-        metric_f = metric
-        
-    # Start from infinite inertia
-    best_inertia = np.inf
-    # And run the algorythm n_iter times keeping track of the one with smallest intertia
-    for _ in range(n_iter):
-        # Initialize labels and tolerance
-        final_label = -np.ones(X.shape[0])
-        tol = 1e-16
-        # Randomly choose centroids from the dataset
-        ix = np.random.choice(X.shape[0],k,replace=False) 
-        updated_centroids = X[ix,:].copy()
+		def corr_dist(a, b):
+			return 1 - pearsonr(a,b)[0]
+		metric_f = corr_dist
+	else:
+		metric_f = metric
 
-        # Perform EM
-        while True:
-            # Expectation Step - assign cell to closest centroid
-            centroids = updated_centroids.copy()
-            D = cdist(X, centroids, metric=metric)
-            label = np.argmin(D,1)
+	# Start from infinite inertia
+	best_inertia = np.inf
+	# And run the algorythm n_iter times keeping track of the one with smallest intertia
+	for _ in range(n_iter):
+		# Initialize labels and tolerance
+		final_label = -np.ones(X.shape[0])
+		tol = 1e-16
+		# Randomly choose centroids from the dataset
+		ix = np.random.choice(X.shape[0],k,replace=False) 
+		updated_centroids = X[ix,:].copy()
 
-            # Maximization step - relocate centroid to the average of the clusters
-            for i in range(k):
+		# Perform EM
+		while True:
+			# Expectation Step - assign cell to closest centroid
+			centroids = updated_centroids.copy()
+			D = cdist(X, centroids, metric=metric)
+			label = np.argmin(D,1)
 
-                query = (label == i)
-                if sum(query): # The cluster is not empty
-                    updated_centroids[i,:] = np.mean(X[query,:],0)
-                else:
-                    # Relocate the centroid to the sample that is further away from al the other centroids
-                    updated_centroids[i,:] = X[np.argmax( np.min(D,1) ), :]
+			# Maximization step - relocate centroid to the average of the clusters
+			for i in range(k):
+				query = (label == i)
+				if sum(query):  # The cluster is not empty
+					updated_centroids[i,:] = np.mean(X[query,:],0)
+				else:
+					# Relocate the centroid to the sample that is further away from al the other centroids
+					updated_centroids[i,:] = X[np.argmax( np.min(D,1) ), :]
 
-                if metric == "correlation":
-                    # This bit is taken from MATLAB source code.
-                    # The rationale is that the centroids should be recentered 
-                    updated_centroids = updated_centroids - updated_centroids.mean(1)[:,None]
+				if metric == "correlation":
+					# This bit is taken from MATLAB source code.
+					# The rationale is that the centroids should be recentered 
+					updated_centroids = updated_centroids - updated_centroids.mean(1)[:,None]
 
-            # If all the centroids are not uppdated (within a max tolerance) Stop updating
-            if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
-                break
-        # Calculate inertia and keep track of the iteration with smallest inertia
-        inertia = np.sum( D[np.arange(X.shape[0]), label] )
-        if inertia < best_inertia:
-            final_label = label.copy()
-    return final_label
+			# If all the centroids are not uppdated (within a max tolerance) Stop updating
+			if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
+				break
+		# Calculate inertia and keep track of the iteration with smallest inertia
+		inertia = np.sum( D[np.arange(X.shape[0]), label] )
+		if inertia < best_inertia:
+			final_label = label.copy()
+	return final_label
 
-def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster = 5, verbose=2):
+
+def biPCA(data: np.ndarray, n_splits: int = 10, n_components: int=20, cell_limit: int=10000, smallest_cluster: int = 5, verbose: int=2) -> np.ndarray:
 	'''biPCA algorythm for clustering using PCA splits
 
 	Args
@@ -133,43 +137,40 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 	-------
 
 	'''
-
 	logging.basicConfig(format='%(message)s', level=[logging.ERROR,logging.WARNING,logging.INFO,logging.DEBUG][verbose])
-
 	n_genes, n_cells = data.shape
 	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
-	
+
 	# Run a iteration per level of depth
 	for i_split in range(n_splits):
-		logging.info( "Depth: %i" % i_split )
+		logging.info("Depth: %i" % i_split)
 		running_label_id = 0
 		parent_clusters = np.unique(cell_labels_by_depth[i_split, :])
 		# Consider every parent cluster and split them one by one
 		for parent in parent_clusters:
-			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
-			data_tmp = np.log2( data[:,current_cells_ixs] + 1)
-			data_tmp -= data_tmp.mean(1)[:,None]
+			current_cells_ixs = np.where(cell_labels_by_depth[i_split, :] == parent)[0]
+			data_tmp = np.log2(data[:, current_cells_ixs] + 1)
+			data_tmp -= data_tmp.mean(1)[:, None]
 
 			# Perform PCA
 			pca = PCA(n_components=n_components)
 
 			if current_cells_ixs.shape[0] > cell_limit:
 				selection = np.random.choice(np.arange(current_cells_ixs.shape[0]), cell_limit, replace=False)
-				pca.fit( data_tmp[:,selection].T )
+				pca.fit(data_tmp[:,selection].T)
 			else:
-				pca.fit( data_tmp.T )
-			
-			data_tmp = pca.transform( data_tmp.T ).T
+				pca.fit(data_tmp.T)
+
+			data_tmp = pca.transform(data_tmp.T).T
 
 			# Select significant components using broken-stick model
 			bs = broken_stick(n_genes, min(n_components, len(current_cells_ixs) ))
 			sig = pca.explained_variance_ratio_ > bs
-			
+
 			# No principal component is significant, don't split
 			if not np.any(sig):
-				
-				logging.debug( "No principal component is significant, don't split!" )
-				cell_labels_by_depth[i+1, current_cells_ixs] = running_label_id
+				logging.debug("No principal component is significant, don't split!")
+				cell_labels_by_depth[i + 1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
 			logging.debug('%i principal components are significant' % sum(sig))
@@ -196,7 +197,7 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			for _ in range(3):
 				# Here we could use MiniBatchKMeans when n_cells > 10k
 				labels = sk_KMeans(n_clusters=2, n_init=3, n_jobs=1).fit_predict(data_tmp.T)
-				
+
 				# The simplest way to calculate silhouette is  score = silhouette_score(X, labels)
 				# However a cluster size resilient compuataion is:
 				scores_percell = silhouette_samples(data_tmp.T, labels)
@@ -205,8 +206,8 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 					best_score = score
 					best_labels = labels
 			logging.debug("Proposed split (%i,%i) has best_score: %s" % (sum(best_labels==0),sum(best_labels==1), best_score) )
-			ids, cluster_counts = np.unique(best_labels, return_counts=True)			
-			
+			ids, cluster_counts = np.unique(best_labels, return_counts=True)
+
 			# Check that no small cluster gets generated
 			if min(cluster_counts) < smallest_cluster:
 				# Reject split immediatelly and continue
@@ -214,7 +215,7 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
-			
+
 			# Conside only the 500 genes with top loadings
 			sum_loadings_per_gene =  np.abs(  pca.components_.T[:,:first_non_sign].sum(1) )
 			topload_gene_ixs = np.argsort(sum_loadings_per_gene)[::-1][:500]
@@ -229,18 +230,18 @@ def biPCA(data, n_splits=10, n_components=20, cell_limit=10000, smallest_cluster
 			if (np.sum(rejected_null) > 5) and (best_score>0.01):
 				# Accept
 				logging.debug("Spltting with significant genes: %s; silhouette-score: %s" % (np.sum(rejected_null), best_score))
-				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 0]] = running_label_id 
-				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 1]] = running_label_id + 1
+				cell_labels_by_depth[i_split + 1, current_cells_ixs[best_labels == 0]] = running_label_id 
+				cell_labels_by_depth[i_split + 1, current_cells_ixs[best_labels == 1]] = running_label_id + 1
 				running_label_id += 2
 			else:
 				# Reject
-				logging.debug( "Don't split. Significant genes: %s (min=5); silhouette-score: %s(min=0.01)" % (np.sum(rejected_null), best_score) )
-				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				logging.debug("Don't split. Significant genes: %s (min=5); silhouette-score: %s(min=0.01)" % (np.sum(rejected_null), best_score))
+				cell_labels_by_depth[i_split + 1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 	return cell_labels_by_depth
 
 
-def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_allowed = 5, verbose=2, random_seed=19900715):
+def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_allowed=5, verbose=2, random_seed=19900715):
 	'''biPCA algorythm for clustering using PCA splits
 	This version resembles Amit's implementation closelly but introduce necessary enhancements
 
@@ -273,31 +274,31 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 	np.random.seed(random_seed)
 
 	logger = logging.getLogger('biPCA_logger')
-	logger.setLevel([logging.ERROR,logging.WARNING,logging.INFO,logging.DEBUG][verbose])
+	logger.setLevel([logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG][verbose])
 	ch = logging.StreamHandler()
 	formatter = logging.Formatter('%(message)s')
-	ch.setFormatter( formatter )
+	ch.setFormatter(formatter)
 	logger.handlers = []
 	logger.addHandler(ch)
 
 	n_genes, n_cells = data.shape
-	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
-	
-	#Log data here to avoid recalculate log multiple times
-	data = np.log2( data[:,current_cells_ixs] + 1)
+	cell_labels_by_depth = np.zeros((n_splits + 1, n_cells))
+
+	# Log data here to avoid recalculate log multiple times
+	data = np.log2(data[:,current_cells_ixs] + 1)
 
 	# Run an iteration per level of depth
 	for i_split in range(n_splits):
-		logger.info( "Depth: %i" % i_split )
+		logger.info("Depth: %i" % i_split)
 		running_label_id = 0
 		parent_clusters = np.unique(cell_labels_by_depth[i_split, :])
 		# Consider every parent cluster and split them one by one
 		for parent in parent_clusters:
 			# Select the current cell cluster
-			logger.debug( "Log-normalize the data" )
-			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
-			data_tmp = data[:,current_cells_ixs].copy()
-			data_tmp -= data_tmp.mean(1)[:,None]
+			logger.debug("Log-normalize the data")
+			current_cells_ixs = np.where(cell_labels_by_depth[i_split, :] == parent )[0]
+			data_tmp = data[:, current_cells_ixs].copy()
+			data_tmp -= data_tmp.mean(1)[:, None]
 
 			# Perform PCA with whithening
 			# Without withening the "completeness score drastically deacreases"
@@ -314,7 +315,7 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
 			for i in range(1,data_tmp.shape[0]):
 				[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
-			
+
 			# The following lines have been fixed and differ from the original implementation Amit
 			# Amit does: sig = pvalue_KS < 0.1
 			# This is wrong becouse one should stop after you find the first nonsignificant component
@@ -322,7 +323,7 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			sig = np.zeros_like(pvalue_KS,dtype=bool) 
 			sig[:first_not_sign] = True
 			logger.debug( "Components: %i " % np.sum(sig) )
-			
+
 			# If the two first pcs are not significant: don't split
 			if np.sum(sig)<2:
 				logger.debug( "Two first pcs are not significant: don't split." )
@@ -338,20 +339,21 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			best_labels = kmeans(data_tmp.T, k=2, metric="correlation", n_iter=10) # TODO This could be parallelized 
 			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)) )
 			ids, cluster_counts = np.unique(best_labels, return_counts=True)			
-			
+
 			# Check that no small cluster gets generated
 			if np.min(cluster_counts) < smallest_allowed:
 				# Reject split immediatelly and continue
 				logger.debug( "A small cluster get generated, don't split'" )
 				print("A small cluster get generated, don't split'")
+
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
-			
+
 			# Consider only the 500 genes with top loadings
 			sum_loadings_per_gene =  np.abs(  pca.components_.T[:,:first_not_sign].sum(1) )
 			topload_gene_ixs = np.argsort(sum_loadings_per_gene)[::-1][:500]
-			
+
 			# Test their significance using a Binomial test
 			# I changed the Amit implementation noting that some of the line are true 
 			# only true when sum(best_labels==0) == sum(best_labels==1)
@@ -461,7 +463,7 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 			pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
 			for i in range(1,data_tmp.shape[0]):
 				[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
-			
+
 			# The following lines have been fixed and differ from the original implementation
 			# Amit does: sig = pvalue_KS < 0.1
 			# This is wrong becouse one should stop after you find the first nonsignificant component
@@ -469,7 +471,7 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 			sig = np.zeros_like(pvalue_KS,dtype=bool) 
 			sig[:first_not_sign] = True
 			logger.debug( "Components: %i " % np.sum(sig) )
-			
+
 			# If the two first pcs are not significant: don't split
 			if sum(sig) < 2:
 				logger.debug( "Two first pcs are not significant: don't split." )
@@ -487,11 +489,11 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 			connectivity = knn.kneighbors_graph(data_tmp.T, n_neighbors=15)
 
 			model = AgglomerativeClustering(n_clusters=2, connectivity=connectivity)
-			best_labels = model.fit_predict( data_tmp.T ) # !!!! Here might be quadratic because internaly is trying to link components if there are more than 1 !!!!
-			
+			best_labels = model.fit_predict(data_tmp.T)  # !!!! Here might be quadratic because internaly is trying to link components if there are more than 1 !!!!
+
 			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)) )
 			ids, cluster_counts = np.unique(best_labels, return_counts=True)
-			
+
 			# Check that no small cluster gets generated
 			if np.min(cluster_counts) < smallest_allowed:
 				# Reject split immediatelly and continue
@@ -499,11 +501,11 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
-			
+
 			# Consider only the 500 genes with top loadings
 			sum_loadings_per_gene =  np.abs(  pca.components_.T[:,:first_not_sign].sum(1) )
 			topload_gene_ixs = np.argsort(sum_loadings_per_gene)[::-1][:500]
-			
+
 			# Test their significance using a Binomial test
 			# I changed the Amit implementation noting that some of the line are true 
 			# only true when sum(best_labels==0) == sum(best_labels==1)
@@ -523,9 +525,9 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 
 			# Decide if we should accept the split ### FOR NOW ALWAYS ACCEPT ####
 			# Here instead of arbitrary threshold on shilouette I could boostrap
-			#scores_percell = silhouette_samples(data_tmp.T, best_labels, "correlation")
-			#s_score = np.minimum( np.mean(scores_percell[best_labels==0]), np.mean(scores_percell[best_labels==1]) )
-			if (np.sum(rejected_null) > 5): #and (s_score>0.1):
+			# scores_percell = silhouette_samples(data_tmp.T, best_labels, "correlation")
+			# s_score = np.minimum( np.mean(scores_percell[best_labels==0]), np.mean(scores_percell[best_labels==1]) )
+			if (np.sum(rejected_null) > 5):  # and (s_score>0.1):
 				# Accept
 				logger.debug("Spltting with significant genes: %s " % (np.sum(rejected_null),))
 				cell_labels_by_depth[i_split+1, current_cells_ixs[best_labels == 0]] = running_label_id 
@@ -533,8 +535,8 @@ def binary_WardN(data, n_splits=10, n_components=200, cell_limit=10000, smallest
 				running_label_id += 2
 			else:
 				# Reject
-				logger.debug( "Don't split. Significant genes: %s (min=5)" % (np.sum(rejected_null)) )
-				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
+				logger.debug("Don't split. Significant genes: %s (min=5)" % (np.sum(rejected_null)))
+				cell_labels_by_depth[i_split + 1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 
 	return cell_labels_by_depth
@@ -585,9 +587,9 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 	n_genes, n_cells = data.shape
 	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
 
-	#Log data here to avoid recalculate log multiple times
+	# Log data here to avoid recalculate log multiple times
 	data = np.log2( data + 1)
-	
+
 	# Run an iteration per level of depth
 	for i_split in range(n_splits):
 		logger.info( "Depth: %i" % i_split )
@@ -596,22 +598,22 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 		# Consider every parent cluster and split them one by one
 		for parent in parent_clusters:
 			# Select the current cell cluster
-			logger.debug( "Log-normalize the data" )
+			logger.debug("Log-normalize the data")
 			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
 			data_tmp = data[:,current_cells_ixs].copy()
 			data_tmp -= data_tmp.mean(1)[:,None]
 
 			# Perform PCA
-			logger.debug( "Performing PCA" )
+			logger.debug("Performing PCA")
 			data_tmp = quick_pca(data_tmp) # This is the pca projection from now on
 
 			# Select significant principal components by KS test, this is more conservative than broken stick
 			sig = select_sig_pcs(data_tmp)
-			logger.debug( "Components: %i " % np.sum(sig) )
-			
+			logger.debug("Components: %i " % np.sum(sig))
+
 			# If the two first pcs are not significant: don't split
 			if sum(sig) < 2:
-				logger.debug( "Two first pcs are not significant: don't split." )
+				logger.debug("Two first pcs are not significant: don't split.")
 				cell_labels_by_depth[i_split+1, current_cells_ixs] = running_label_id
 				running_label_id += 1
 				continue
@@ -625,7 +627,7 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 			best_labels = graph_split_cluster(data_tmp )
 			ids, cluster_counts = np.unique(best_labels, return_counts=True)
 			logger.debug("Proposed split (%s)" % (','.join(str(sum(best_labels==lb)) for lb in ids)) )
-			
+
 			### Cluster Checks ###
 			# Check that no small cluster gets generated
 			conditions_for_acceptance = [ np.min(cluster_counts) < smallest_allowed, ]
@@ -641,6 +643,7 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 				running_label_id += 1
 
 	return cell_labels_by_depth
+
 
 def k_WardN(raw_data, n_splits=10, k=3,n_components=200, cell_limit=10000, smallest_allowed = 5, verbose=2, random_seed=19900715):
 	'''WardN algorythm for clustering using PCA splits
@@ -945,6 +948,7 @@ def quick_pca(data_tmp, n_components, cell_limit):
 		pca.fit( data_tmp.T )
 	return pca.transform( data_tmp.T ).T 
 
+
 def graph_split_cluster(data_tmp, k, algorithm="brute", metric='correlation'):
 	"""Perform clustering by first building an NearestNeighbors graph and then using connectivity contrained AgglomerativeClustering 
 	Args
@@ -963,6 +967,7 @@ def graph_split_cluster(data_tmp, k, algorithm="brute", metric='correlation'):
 
 	model = AgglomerativeClustering(n_clusters=k, connectivity=connectivity)
 	return model.fit_predict( data_tmp.T )
+
 
 def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False):
     '''Fits a noise model (CV vs mean)
@@ -1056,7 +1061,7 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
         cv_fit = fitted_fun(mu_linspace)
         return score, mu_linspace, cv_fit , params
 
-def test_gene(ds, cells, gene_ix, label, group):
+def test_gene(ds: loompy.LoomConnection, cells: np.ndarray, gene_ix: int, label: np.ndarray, group: float) -> float:
     b = np.log2(ds[gene_ix,:][cells]+1)[label != group]
     a = np.log2(ds[gene_ix,:][cells]+1)[label == group]
     (_,pval) = mannwhitneyu(a,b,alternative="greater")
