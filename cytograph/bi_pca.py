@@ -66,8 +66,8 @@ def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10)
 		X = X - X.mean(1)[:,None]
 		X = X / np.sqrt(np.sum(X**2, 0))  # divide by unnormalized standard deviation over axis=0
 
-		def corr_dist(a: int, b:int) -> float:
-			return 1 - pearsonr(a,b)[0]
+		def corr_dist(a: int, b: int) -> float:
+			return 1 - pearsonr(a, b)[0]
 		metric_f = corr_dist
 	else:
 		metric_f = metric
@@ -94,10 +94,10 @@ def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10)
 			for i in range(k):
 				query = (label == i)
 				if sum(query):  # The cluster is not empty
-					updated_centroids[i,:] = np.mean(X[query,:],0)
+					updated_centroids[i, :] = np.mean(X[query, :], 0)
 				else:
 					# Relocate the centroid to the sample that is further away from al the other centroids
-					updated_centroids[i,:] = X[np.argmax( np.min(D,1) ), :]
+					updated_centroids[i, :] = X[np.argmax(np.min(D,1)), :]
 
 				if metric == "correlation":
 					# This bit is taken from MATLAB source code.
@@ -108,7 +108,7 @@ def kmeans(X: np.ndarray, k: int, metric: str = "correlation", n_iter: int = 10)
 			if np.all(paired_distances(centroids, updated_centroids, metric=metric_f) < tol, 0):
 				break
 		# Calculate inertia and keep track of the iteration with smallest inertia
-		inertia = np.sum( D[np.arange(X.shape[0]), label] )
+		inertia = np.sum(D[np.arange(X.shape[0]), label])
 		if inertia < best_inertia:
 			final_label = label.copy()
 	return final_label
@@ -334,12 +334,12 @@ def amit_biPCA(data, n_splits=10, n_components=200, cell_limit=10000, smallest_a
 			logger.debug('%i principal components are significant' % sum(sig))
 
 			# Drop the not significant PCs
-			data_tmp = data_tmp[sig, : ]
+			data_tmp = data_tmp[sig, :]
 
 			# Perform KMEANS clustering
-			best_labels = kmeans(data_tmp.T, k=2, metric="correlation", n_iter=10) # TODO This could be parallelized 
-			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)) )
-			ids, cluster_counts = np.unique(best_labels, return_counts=True)			
+			best_labels = kmeans(data_tmp.T, k=2, metric="correlation", n_iter=10) #  TODO This could be parallelized 
+			logger.debug("Proposed split (%i,%i)" % (sum(best_labels==0),sum(best_labels==1)))
+			ids, cluster_counts = np.unique(best_labels, return_counts=True)
 
 			# Check that no small cluster gets generated
 			if np.min(cluster_counts) < smallest_allowed:
@@ -600,13 +600,13 @@ def fix_k_WardN(data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 		for parent in parent_clusters:
 			# Select the current cell cluster
 			logger.debug("Log-normalize the data")
-			current_cells_ixs = np.where( cell_labels_by_depth[i_split, :] == parent )[0]
-			data_tmp = data[:,current_cells_ixs].copy()
-			data_tmp -= data_tmp.mean(1)[:,None]
+			current_cells_ixs = np.where(cell_labels_by_depth[i_split, :] == parent)[0]
+			data_tmp = data[:, current_cells_ixs].copy()
+			data_tmp -= data_tmp.mean(1)[:, None]
 
 			# Perform PCA
 			logger.debug("Performing PCA")
-			data_tmp = quick_pca(data_tmp) # This is the pca projection from now on
+			data_tmp = quick_pca(data_tmp)  # This is the pca projection from now on
 
 			# Select significant principal components by KS test, this is more conservative than broken stick
 			sig = select_sig_pcs(data_tmp)
@@ -701,7 +701,7 @@ def k_WardN(raw_data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 	score, mu_linspace, cv_fit , fitted_fun = fit_CV(mu,cv, 'SVR', svr_gamma=0.005)
 
 	#Log data here to avoid recalculate log multiple times
-	logger.debug( "Log-normalize the data" )
+	logger.debug("Log-normalize the data")
 	data = np.log2( raw_data + 1)
 	
 	# Run an iteration per level of depth
@@ -781,7 +781,7 @@ def k_WardN(raw_data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 	return cell_labels_by_depth
 
 
-def select_sig_pcs(data_tmp):
+def select_sig_pcs(data_tmp: np.ndarray[float]) -> np.ndarray[bool]:
 	"""Find significant principal components by KS test
 	Args
 	----
@@ -793,7 +793,7 @@ def select_sig_pcs(data_tmp):
 		sig : np.array(dtype=bool)
 			The indicator vector for significance
 	"""
-	pvalue_KS = zeros(data_tmp.shape[0]) # pvalue of each component
+	pvalue_KS = np.zeros(data_tmp.shape[0]) # pvalue of each component
 	for i in range(1,data_tmp.shape[0]):
 		[_, pvalue_KS[i]] = ks_2samp(data_tmp[i-1,:],data_tmp[i,:])
 	
@@ -806,17 +806,17 @@ def select_sig_pcs(data_tmp):
 	return sig
 
 @jit(nopython=True, cache=True)
-def find_first(item, vec):
+def find_first(item : object, vec: np.ndarray) -> int:
     """return the index of the first occurence of item in vec"""
-    for i in xrange(len(vec)):
+    for i in range(len(vec)):
         if item == vec[i]:
             return i
     return -1
 
-def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> Tuple[np.ndarray, np.ndarray]:
-    """Efficient implementation to calculate Gini impurity of impurity for every threshold in the data range
-    This calculates only yhr Right Gini Index
-    This is a typical metric used in decision trees (less is better).
+def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> tuple[np.ndarray, np.ndarray]:
+    """Efficient implementation to calculate Gini impurity for every threshold in the data range
+    This calculates only yhr Right Gini impurity index
+    This is a metric used in decision trees (less is better).
 
     Args 
     ____
@@ -827,9 +827,9 @@ def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> Tup
         kinds: "left", "right", "both"; default "both"
     Returns
     _______
-        ginis: np.array shape=(len(thresholds)) 
+        ginis: np.ndarray shape=(len(thresholds)) 
             Gini indexes
-        thresholds: np.array shape (~len(np.unique(data)))
+        thresholds: np.ndarray shape (~len(np.unique(data)))
             might be truncated and not go over all np.unique(data)
 
     """
@@ -852,24 +852,24 @@ def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> Tup
             selec = labels[ix_uniq >= index_of_n ]
         
         if kind == "both" and i != 0:
-            sum_sq_contks_l = np.sum(bincount(selec_l)**2)
+            sum_sq_contks_l = np.sum(np.bincount(selec_l)**2)
             sq_N_l = len(selec_l)**2
             gini_l = 1 - (sum_sq_contks_l / sq_N_l)
             
-            sum_sq_contks_r = np.sum(bincount(selec_r)**2)
+            sum_sq_contks_r = np.sum(np.bincount(selec_r)**2)
             sq_N_r = len(selec_r)**2
             gini_r = 1 - (sum_sq_contks_r / sq_N_r)
             ginis[i-1] = gini_l + gini_r
         else:
-            sum_sq_contks = np.sum(bincount(selec)**2)
+            sum_sq_contks = np.sum(np.bincount(selec)**2)
             sq_N = len(selec)**2
             ginis[i-1] = 1 - (sum_sq_contks / sq_N)
     return ginis, bins[1:]
 
 
-def normalized_MI_discrete(x,y, bin_step=1,
-                  normalization=["not_normalized","covariance","symmetric_uncertainty",
-                                 "total_correlation","dual_total_correlation","covariance","studholme","variation_of_information"]):
+def normalized_MI_discrete(x: np.ndarray, y: np.ndarray, bin_step: int=1,
+                  normalization: List =["not_normalized","covariance","symmetric_uncertainty",
+								 "total_correlation","dual_total_correlation","covariance","studholme","variation_of_information"]) -> Dict:
     """Normalized Mutual information
     It supports different kind of normalizations
 	
@@ -935,8 +935,8 @@ def normalized_MI_discrete(x,y, bin_step=1,
     return results_dict
 
 
-def quick_pca(data_tmp, n_components, cell_limit):
-	"""Performs pca using a max number of samples to speed up in case of big dataset 
+def quick_pca(data_tmp: np.ndarray, n_components: int, cell_limit: int) -> np.ndarray:
+	"""Performs pca using a max number of samples to speed up in case of a big dataset 
 	Args
 	----
 		data_tmp : np.array (genes, cells)
@@ -956,7 +956,7 @@ def quick_pca(data_tmp, n_components, cell_limit):
 	return pca.transform( data_tmp.T ).T 
 
 
-def graph_split_cluster(data_tmp, k, algorithm="brute", metric='correlation'):
+def graph_split_cluster(data_tmp: np.ndarray, k: int, algorithm: str="brute", metric: str='correlation') -> np.ndarray:
 	"""Perform clustering by first building an NearestNeighbors graph and then using connectivity contrained AgglomerativeClustering 
 	Args
 	----
@@ -976,7 +976,7 @@ def graph_split_cluster(data_tmp, k, algorithm="brute", metric='correlation'):
 	return model.fit_predict( data_tmp.T )
 
 
-def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False):
+def fit_CV(mu: np.ndarray, cv: np.ndarray, fit_method: str='Exp', svr_gamma: float = 0.06, x0: List[float] = [0.5,0.5], verbose: bool=False) -> tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray]:
     '''Fits a noise model (CV vs mean)
     Parameters
     ----------
@@ -1002,28 +1002,28 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
     pars: tuple or None
     
     '''
-    log2_m = log2(mu)
-    log2_cv = log2(cv)
+    log2_m = np.log2(mu)
+    log2_cv = np.log2(cv)
     
     if len(mu)>1000 and 'bin' in fit_method:
         #histogram with 30 bins
-        n,xi = histogram(log2_m,30)
-        med_n = percentile(n,50)
+        n,xi = np.histogram(log2_m,30)
+        med_n = np.percentile(n,50)
         for i in range(0,len(n)):
             # index of genes within the ith bin
-            ind = where( (log2_m >= xi[i]) & (log2_m < xi[i+1]) )[0]
+            ind = np.where( (log2_m >= xi[i]) & (log2_m < xi[i+1]) )[0]
             if len(ind)>med_n:
                 #Downsample if count is more than median
-                ind = ind[random.permutation(len(ind))]
+                ind = ind[np.random.permutation(len(ind))]
                 ind = ind[:len(ind)-med_n]
-                mask = ones(len(log2_m), dtype=bool)
+                mask = np.ones(len(log2_m), dtype=bool)
                 mask[ind] = False
                 log2_m = log2_m[mask]
                 log2_cv = log2_cv[mask]
-            elif (around(med_n/len(ind))>1) and (len(ind)>5):
+            elif (np.around(med_n/len(ind))>1) and (len(ind)>5):
                 #Duplicate if count is less than median
-                log2_m = r_[ log2_m, tile(log2_m[ind], around(med_n/len(ind))-1) ]
-                log2_cv = r_[ log2_cv, tile(log2_cv[ind], around(med_n/len(ind))-1) ]
+                log2_m = np.r_[ log2_m, np.tile(log2_m[ind], np.around(med_n/len(ind))-1) ]
+                log2_cv = np.r_[ log2_cv, np.tile(log2_cv[ind], np.around(med_n/len(ind))-1) ]
     else:
         if 'bin' in fit_method:
             print('More than 1000 input feature needed for bin correction.')
@@ -1036,13 +1036,13 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
                 svr_gamma = 1000./len(mu)
             #Fit the Support Vector Regression
             clf = SVR(gamma=svr_gamma)
-            clf.fit(log2_m[:,newaxis], log2_cv)
+            clf.fit(log2_m[:,None], log2_cv)
             fitted_fun = clf.predict
-            score = log2(cv) - fitted_fun(log2(mu)[:,newaxis])
+            score = np.log2(cv) - fitted_fun(np.log2(mu)[:,None])
             params = fitted_fun
             #The coordinates of the fitted curve
-            mu_linspace = linspace(min(log2_m),max(log2_m))
-            cv_fit = fitted_fun(mu_linspace[:,newaxis])
+            mu_linspace = np.linspace(np.min(log2_m),np.max(log2_m))
+            cv_fit = fitted_fun(mu_linspace[:,None])
             return score, mu_linspace, cv_fit , params
             
         except ImportError:
@@ -1062,9 +1062,9 @@ def fit_CV(mu, cv, fit_method='Exp', svr_gamma=0.06, x0=[0.5,0.5], verbose=False
         #The fitted function
         fitted_fun = lambda log_mu: log2( (2.**log_mu)**(-params[0]) + params[1])
         # Score is the relative position with respect of the fitted curve
-        score = log2(cv) - fitted_fun(log2(mu))
+        score = np.log2(cv) - fitted_fun(np.log2(mu))
         #The coordinates of the fitted curve
-        mu_linspace = linspace(min(log2_m),max(log2_m))
+        mu_linspace = np.linspace(np.min(log2_m),np.max(log2_m))
         cv_fit = fitted_fun(mu_linspace)
         return score, mu_linspace, cv_fit , params
 
@@ -1073,184 +1073,3 @@ def test_gene(ds: loompy.LoomConnection, cells: np.ndarray, gene_ix: int, label:
     a = np.log2(ds[gene_ix,:][cells]+1)[label == group]
     (_,pval) = mannwhitneyu(a,b,alternative="greater")
     return pval
-
-#Can't merge for some reason'
-
-__original_MATLAB_code__ = """
-function [dataout_sorted,cells_groups,cellsorder,cells_bor,gr_cells_vec] = biPCAsplit_v4(data, n_splits, n_pca, min_gr);
-
-[N,M] = size(data);
-gr_cells_vec = ones(M,n_splits+1);
-
-for i=1:n_splits
-    i
-    k = 0;
-    gr_uni = unique(gr_cells_vec(:,i));
-    for j=1:length(gr_uni);
-        cells_curr = find(gr_cells_vec(:,i)==j);
-        if length(cells_curr)>min_gr
-            datalog_tmp = cent_norm([(log2(data(:,cells_curr)+1))]);
-            if length(cells_curr)<1e4
-                [U]=pcasecon(datalog_tmp,n_pca);
-            else
-                [U]=pcasecon(datalog_tmp(:,[1:round(length(cells_curr)/1e4):length(cells_curr)]),n_pca);
-            end
-            prj = [U'*datalog_tmp]';
-            if prj~=-1
-                pks = zeros(n_pca,1);
-                for jj=2:n_pca
-                    [~,pks(jj)] = kstest2(prj(:,jj-1),prj(:,jj));
-                end
-                prj = prj(:,pks<0.1);
-                length(prj(1,:))
-                if length(prj(1,:))>2
-                    idx = zeros(length(prj(:,1)),5);
-                    for jjj=1:5;
-                        idx(:,jjj) = kmeans(prj,2,'distance','correlation');
-                        s = silhouette(prj,idx(:,jjj),'correlation');
-                        %             figure(111);
-                        %             kk=1; plot3(prj(idx==kk,1),prj(idx==kk,2),prj(idx==kk,3),'.r');hold on
-                        %             kk=2; plot3(prj(idx==kk,1),prj(idx==kk,2),prj(idx==kk,3),'.c');
-                        %             close(111)
-                        min_s(jjj) = min([mean(s(idx(:,jjj)==1)),mean(s(idx(:,jjj)==2))]);
-                        sum(s<0.1)/length(s)
-                    end
-                    [~,imin] = max(min_s);
-                    idx = idx(:,imin);
-                    [~,top_load_genes] = sort(sum(abs(U),2),'descend');
-                    top_load_genes = top_load_genes(1:500);
-                    n_gr1 = sum(data(top_load_genes,cells_curr(idx==1))>0,2);
-                    n_gr2 = sum(data(top_load_genes,cells_curr(idx==2))>0,2);
-                    %                     fold_pos = n_gr1./(n_gr1+n_gr2);
-                    %                     fold_pos(fold_pos<0.5) = 1 - fold_pos(fold_pos<0.5);
-                    %                     [fold_possort,fold_xi] = sort(fold_pos,'descend');
-                    pbin = binocdf(n_gr1,length(cells_curr),(n_gr1+n_gr2)/length(cells_curr));
-                    pbin = 2*min([pbin,1-pbin],[],2);
-                    length(fdr_proc(pbin,0.05))
-                    if min_s(imin)>0.1 & length(fdr_proc(pbin,0.01))>10
-                        gr_cells_vec(cells_curr(idx==1),i+1) = k+1;
-                        gr_cells_vec(cells_curr(idx==2),i+1) = k+2;
-                        k = k+2;
-                    else
-                        gr_cells_vec(cells_curr,i+1) = k+1;
-                        k = k+1;
-                    end
-                else
-                    gr_cells_vec(cells_curr,i+1) = k+1;
-                    k = k+1;
-                end
-            else
-                gr_cells_vec(cells_curr,i+1) = k+1;
-                k = k+1;
-            end
-        else
-            gr_cells_vec(cells_curr,i+1) = k+1;
-            k = k+1;
-        end
-    end
-end
-
-[cells_groups,cellsorder] = sort(gr_cells_vec(:,end)');
-cells_bor = find(diff(cells_groups)>0)+1;
-gr_cells_vec = gr_cells_vec(cellsorder,:);
-dataout_sorted = data(:,cellsorder);
-
-T_cells_tmp = gr_cells_vec(:,end);
-T_cells_tmp_uni = unique(T_cells_tmp);
-meanpergene = mean(data,2);%
-molenrich_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
-meangr_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
-meangrpos_mat = zeros(length(data(:,1)),length(T_cells_tmp_uni));
-for jjj=1:length(T_cells_tmp_uni)
-    jjj
-    %         gr_center(jjj) = mean(find(T_cells_tmp==T_cells_tmp_uni(jjj)));
-    molenrich_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj)),2)./meanpergene;
-    meangrpos_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj))>0,2);
-end
-molenrich_mat(meanpergene==0,:) = 0;
-meangrpos_mat(meangrpos_mat<0.1) = 0;
-molenrich_mat(meanpergene==0 | isnan(meanpergene),:) = 0;
-[sc_0p5,xi0p5] = sort(molenrich_mat.*meangrpos_mat.^0.5,'descend');
-[sc_1,xi1] = sort(molenrich_mat.*meangrpos_mat.^1,'descend');
-
-num_per_power = 10;
-ind_gr_tmp_mark = [xi0p5(1:num_per_power,:);xi1(1:num_per_power,:)];%xi0(1:100,:);
-sc_gr_tmp_mark = [sc_0p5(1:num_per_power,:);sc_1(1:num_per_power,:)];
-ind_gr_tmp_mark = flipud(ind_gr_tmp_mark(:));
-sc_gr_tmp_mark = flipud(sc_gr_tmp_mark(:));
-
-[~,xi] = sortrows([ind_gr_tmp_mark,sc_gr_tmp_mark],[1,2]);
-ind_gr_tmp_mark = ind_gr_tmp_mark(xi);
-sc_gr_tmp_mark = sc_gr_tmp_mark(xi);
-[~,ia] = unique(ind_gr_tmp_mark,'last');
-ind_gr_tmp_mark = ind_gr_tmp_mark(ia);
-sc_gr_tmp_mark = sc_gr_tmp_mark(ia);
-ind_gr_tmp_mark(sc_gr_tmp_mark==0) = [];
-
-dataout_sorted = data(ind_gr_tmp_mark,cellsorder);
-
-
-% % % % % % % % % % % % % % % % % % % % % % % % % % order the blocks such
-% that similar are closer
-gr_uni = T_cells_tmp_uni;
-num_gr = length(gr_uni);
-med_exp = zeros(length(ind_gr_tmp_mark),num_gr);
-for i=1:num_gr % calculate the median expression for each group
-    med_exp(:,i) = median(dataout_sorted(:,T_cells_tmp==gr_uni(i)),2);
-end
-empty_cluster = find(sum(med_exp)==0);
-gr_cellorder = find(sum(med_exp)>0);
-med_exp = med_exp(:,gr_cellorder);
-Z = linkage(log2(med_exp+1)','average','correlation');
-D = pdist(log2(med_exp+1)','correlation');
-% D = squareform(1-corr_mat(log2(med_exp+1)));
-% Z = linkage(D,'average');
-leaforder = optimalleaforder(Z,D);
-gr_cellorder = [gr_cellorder(leaforder),empty_cluster];%1:num_gr;
-T_cells_new = zeros(size(T_cells_tmp));
-for i=1:length(gr_cellorder)
-    T_cells_new(T_cells_tmp==gr_cellorder(i)) = i;
-end
-
-[T_cells_tmp,XIX] = sort(T_cells_new);
-cellsorder = cellsorder(XIX);
-cells_groups = T_cells_tmp;
-cells_bor = find(diff(cells_groups)>0)+1;
-gr_cells_vec = gr_cells_vec(XIX,:);
-dataout_sorted = dataout_sorted(:,XIX);
-
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
-
-T_cells_tmp_uni = unique(T_cells_tmp);
-meanpergene = mean(dataout_sorted,2);%
-molenrich_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
-meangr_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
-meangrpos_mat = zeros(length(dataout_sorted(:,1)),length(T_cells_tmp_uni));
-for jjj=1:length(T_cells_tmp_uni)
-    jjj
-    %         gr_center(jjj) = mean(find(T_cells_tmp==T_cells_tmp_uni(jjj)));
-    molenrich_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj)),2)./meanpergene;
-    meangrpos_mat(:,jjj) = mean(dataout_sorted(:,T_cells_tmp==T_cells_tmp_uni(jjj))>0,2);
-end
-molenrich_mat(meanpergene==0,:) = 0;
-meangrpos_mat(meangrpos_mat<0.1) = 0;
-molenrich_mat(meanpergene==0 | isnan(meanpergene),:) = 0;
-[sc_0p5,xi0p5] = sort(molenrich_mat.*meangrpos_mat.^0.5,'descend');
-[sc_1,xi1] = sort(molenrich_mat.*meangrpos_mat.^1,'descend');
-
-num_per_power = 10;
-ind_gr_tmp_mark = [xi0p5(1:num_per_power,:);xi1(1:num_per_power,:)];%xi0(1:100,:);
-sc_gr_tmp_mark = [sc_0p5(1:num_per_power,:);sc_1(1:num_per_power,:)];
-ind_gr_tmp_mark = flipud(ind_gr_tmp_mark(:));
-sc_gr_tmp_mark = flipud(sc_gr_tmp_mark(:));
-
-[~,xi] = sortrows([ind_gr_tmp_mark,sc_gr_tmp_mark],[1,2]);
-ind_gr_tmp_mark = ind_gr_tmp_mark(xi);
-sc_gr_tmp_mark = sc_gr_tmp_mark(xi);
-[~,ia] = unique(ind_gr_tmp_mark,'last');
-ind_gr_tmp_mark = ind_gr_tmp_mark(ia);
-sc_gr_tmp_mark = sc_gr_tmp_mark(ia);
-ind_gr_tmp_mark(sc_gr_tmp_mark==0) = [];
-
-dataout_sorted = dataout_sorted(ind_gr_tmp_mark,cellsorder);
-"""
