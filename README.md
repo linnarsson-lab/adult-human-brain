@@ -5,8 +5,8 @@
 
 `graphviz`, with the `dot` command available in the $PATH
 
-**Note:** On Mac, graphviz must be installed from the [package](http://www.graphviz.org/pub/graphviz/stable/macos/lion/graphviz-2.40.1.pkg), Note
-using Conda or Homebrew.
+**Note:** On Mac, graphviz must be installed from the [package](http://www.graphviz.org/pub/graphviz/stable/macos/lion/graphviz-2.40.1.pkg) 
+(neither Conda or Homebrew works).
 
 `pygraphviz`, install by `pip install pygraphviz``
 

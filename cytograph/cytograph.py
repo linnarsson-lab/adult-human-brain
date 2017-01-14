@@ -109,9 +109,6 @@ class Cytograph:
 
 		fname = os.path.join(self.build_dir, tissue.replace(" ", "_") + ".loom")
 
-		with open(os.path.join(self.build_dir, "config_json"), 'w') as f:
-			f.write(json.dumps(self.__dict__))
-
 		# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
 		logging.info("Processing: " + tissue)
 
