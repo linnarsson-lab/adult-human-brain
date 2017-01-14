@@ -60,7 +60,20 @@ default_config = {
 
 
 class Cytograph:
-	def __init__(self, root: str, sample_dir: str = "loom_samples", pool_config: str = "pooling_specification.tab", build_root: str = "loom_builds", annotation_root: str = "../auto-annotation", k: int = 30, lj_resolution: float = 1.0, n_genes: int = 2000, n_components: int = 50, pep: float = 0.05, f: float = 0.2) -> None:
+	def __init__(self,
+			root: str,
+			sample_dir: str = "loom_samples",
+			pool_config: str = "pooling_specification.tab",
+			build_root: str = "loom_builds",
+			annotation_root: str = "../auto-annotation",
+			k: int = 30,
+			lj_resolution: float = 1.0,
+			n_genes: int = 2000,
+			n_components: int = 50,
+			pep: float = 0.05,
+			f: float = 0.2
+		) -> None:
+
 		self.sample_dir = os.path.join(root, sample_dir)
 		self.build_root = os.path.join(root, build_root)
 		self.pool_config = os.path.join(root, pool_config)
