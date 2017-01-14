@@ -40,27 +40,28 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 	enrichment = np.empty((ds.shape[0], n_labels))
 	trinary_pat = np.empty((ds.shape[0], n_labels))
 	trinary_prob = np.empty((ds.shape[0], n_labels))
-	for row in range(ds.shape[0]):
-		if cells is None:
-			data = ds[row, :]
-		else:
-			data = ds[row, :][cells]
-		mu0 = np.mean(data)
-		f0 = np.count_nonzero(data)
-		score1 = np.zeros(n_labels)
-		score2 = np.zeros(n_labels)
-		for lbl in range(n_labels):
-			if np.sum(labels == lbl) == 0:
-				continue
-			selection = data[np.where(labels == lbl)[0]]
-			if mu0 == 0 or f0 == 0:
-				score1[lbl] = 0
-				score2[lbl] = 0
-			else:
-				score1[lbl] = np.mean(selection) / mu0
-				score2[lbl] = np.count_nonzero(selection) / f0
-		enrichment[row, :] = score1 * score2
-		trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
+
+	j = 0
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+		# vals = normalizer.normalize(vals, selection)
+		for j, row in enumerate(selection):
+			data = vals[j, :]
+			mu0 = np.mean(data)
+			f0 = np.count_nonzero(data)
+			score1 = np.zeros(n_labels)
+			score2 = np.zeros(n_labels)
+			for lbl in range(n_labels):
+				if np.sum(labels == lbl) == 0:
+					continue
+				sel = data[np.where(labels == lbl)[0]]
+				if mu0 == 0 or f0 == 0:
+					score1[lbl] = 0
+					score2[lbl] = 0
+				else:
+					score1[lbl] = np.mean(sel) / mu0
+					score2[lbl] = np.count_nonzero(sel) / f0
+			enrichment[row, :] = score1 * score2
+			trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
 	return (enrichment, trinary_prob, trinary_pat)
 
 

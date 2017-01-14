@@ -154,7 +154,7 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 	logging.info("Computing PCA incrementally")
 	pca = IncrementalPCA(n_components=n_components)
 	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1):
-		vals = normalizer.normalize(vals, ix + selection)
+		vals = normalizer.normalize(vals, selection)
 		pca.partial_fit(vals[genes, :].transpose())		# PCA on the selected genes
 
 	logging.info("Projecting cells to PCA space")

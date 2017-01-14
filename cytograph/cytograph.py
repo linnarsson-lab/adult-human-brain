@@ -20,36 +20,13 @@ from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 from sklearn.preprocessing import scale
 from sklearn.svm import SVR
+from scipy.stats import ks_2samp
 import networkx as nx
 # import community
 import cytograph as cg
 
 colors20 = np.array(Tableau_20.mpl_colors)
 
-default_config = {
-	# NOTE: these paths should all be relative, not absolute, because the root path will be prepended
-	"sample_dir": "loom_samples",
-	"pool_config": "pooling_specification.tab",
-	"build_root": "loom_builds",
-
-	"build_dir": None,
-	"preprocessing": {
-		"do_validate_genes": True,
-		"make_doublets": False
-	},
-	"louvain_jaccard": {
-		"cache_n_columns": 5000,
-		"n_components": 50,
-		"n_genes": 2000,
-		"normalize": True,
-		"standardize": False
-	},
-	"annotation": {
-		"pep": 0.05,
-		"f": 0.2,
-		"annotation_root": "/dropbox/Code/auto-annotation/"
-	}
-}
 
 # Run like this:
 #
@@ -69,7 +46,7 @@ class Cytograph:
 			k: int = 30,
 			lj_resolution: float = 1.0,
 			n_genes: int = 2000,
-			n_components: int = 30,
+			n_components: int = 50,
 			pep: float = 0.05,
 			f: float = 0.2,
 			sfdp: bool = False
@@ -88,6 +65,14 @@ class Cytograph:
 		self.f = f
 		self.sfdp = sfdp
 
+	def list_tissues(self) -> List[str]:
+		temp = {}  # type: Dict[str, int]
+		with open(self.pool_config, 'r') as f:
+			for row in csv.reader(f, delimiter="\t"):
+				if row[1] != "" and row[1] != "Pool":
+					temp[row[1]] = 1
+		return list(temp.keys())
+
 	def process(self, tissues: List[str] = None, n_processes: int = 1) -> None:
 		"""
 		Process samples according to the pooling specification
@@ -98,15 +83,10 @@ class Cytograph:
 		"""
 		if isinstance(tissues, str):
 			tissues = [tissues]
+		if tissues is None:
+			tissues = self.list_tissues()
 		if not isinstance(tissues, (list, tuple)):
 			raise ValueError("tissues must be a list of strings")
-
-		if tissues is None:
-			temp = {}  # type: Dict[str, int]
-			with open(self.pool_config, 'r') as f:
-				for row in csv.reader(f, delimiter="\t"):
-					temp[row[1]] = 1
-			tissues = list(temp.keys())
 
 		self.build_dir = os.path.join(self.build_root, "build_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
 		os.mkdir(self.build_dir)
@@ -172,7 +152,7 @@ class Cytograph:
 		mknn = knn.minimum(knn.transpose()).tocoo()
 
 		logging.info("t-SNE layout")
-		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50).fit_transform(transformed)
+		tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
 		# Place all cells in the lower left corner
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		# Place the valid cells where they belong
@@ -186,7 +166,6 @@ class Cytograph:
 
 		logging.info("Marker enrichment and trinarization")
 		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
-		
 		save_diff_expr(ds, self.build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 		# Auto-annotation
@@ -198,6 +177,7 @@ class Cytograph:
 
 		logging.info("Plotting clusters on graph")
 		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+		plot_clusters(mknn, labels, transformed[:, :2], tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
 		if self.sfdp:
 			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
 
@@ -410,7 +390,7 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 	logging.info("Incremental PCA")
 	pca = IncrementalPCA(n_components=n_components)
 	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1):
-		vals = normalizer.normalize(vals, ix + selection)
+		vals = normalizer.normalize(vals, selection)
 		pca.partial_fit(vals[genes, :].transpose())		# PCA on the selected genes
 
 	logging.info("Projecting cells to PCA space (in batches)")
@@ -423,9 +403,16 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 		transformed[j:j + n_cells_in_batch, :] = pca.transform(vals[genes, :].transpose())
 		j += n_cells_in_batch
 
-	sigs = cg.select_sig_pcs(transformed)
-	logging.info("Using %d significant principal components", sigs.sum())
-	return transformed[:, sigs]
+	pvalue_KS = np.zeros(transformed.shape[1])  # pvalue of each component
+	for i in range(1, transformed.shape[1]):
+		(_, pvalue_KS[i]) = ks_2samp(transformed[:, i - 1], transformed[:, i])
+	sigs = np.where(pvalue_KS > 0.1)[0]
+	if len(sigs) == 0:
+		first_not_sign = n_components
+	else:
+		first_not_sign = sigs[0]
+	logging.info("Using %d significant principal components", first_not_sign)
+	return transformed[:, :first_not_sign]
 
 
 def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
