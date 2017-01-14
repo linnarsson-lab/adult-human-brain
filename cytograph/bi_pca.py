@@ -10,6 +10,7 @@ from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats import pearsonr, ks_2samp, binom
 from scipy.spatial.distance import cdist
 from pylab import *  # SPEED-UP
+from typing import *
 import numpy as np
 from numba import jit
 import loompy
@@ -781,7 +782,7 @@ def k_WardN(raw_data, n_splits=10, k=3,n_components=200, cell_limit=10000, small
 	return cell_labels_by_depth
 
 
-def select_sig_pcs(data_tmp: np.ndarray[float]) -> np.ndarray[bool]:
+def select_sig_pcs(data_tmp: np.ndarray) -> np.ndarray:
 	"""Find significant principal components by KS test
 	Args
 	----
@@ -805,7 +806,7 @@ def select_sig_pcs(data_tmp: np.ndarray[float]) -> np.ndarray[bool]:
 	sig[:first_not_sign] = True
 	return sig
 
-@jit(nopython=True, cache=True)
+@jit(nopython=True, cache=False)
 def find_first(item : object, vec: np.ndarray) -> int:
     """return the index of the first occurence of item in vec"""
     for i in range(len(vec)):
@@ -813,7 +814,7 @@ def find_first(item : object, vec: np.ndarray) -> int:
             return i
     return -1
 
-def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> tuple[np.ndarray, np.ndarray]:
+def gini_impurity(data: np.ndarray, labels: np.ndarray, kind: str="both") -> Tuple[np.ndarray, np.ndarray]:
     """Efficient implementation to calculate Gini impurity for every threshold in the data range
     This calculates only yhr Right Gini impurity index
     This is a metric used in decision trees (less is better).
@@ -976,7 +977,7 @@ def graph_split_cluster(data_tmp: np.ndarray, k: int, algorithm: str="brute", me
 	return model.fit_predict( data_tmp.T )
 
 
-def fit_CV(mu: np.ndarray, cv: np.ndarray, fit_method: str='Exp', svr_gamma: float = 0.06, x0: List[float] = [0.5,0.5], verbose: bool=False) -> tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray]:
+def fit_CV(mu: np.ndarray, cv: np.ndarray, fit_method: str='Exp', svr_gamma: float = 0.06, x0: List[float] = [0.5,0.5], verbose: bool=False) -> Tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray]:
     '''Fits a noise model (CV vs mean)
     Parameters
     ----------
