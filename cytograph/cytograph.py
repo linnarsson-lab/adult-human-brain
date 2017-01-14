@@ -37,12 +37,6 @@ default_config = {
 		"do_validate_genes": True,
 		"make_doublets": False
 	},
-	"knn": {
-		"k": 50,
-		"n_trees": 50,
-		"mutual": True,
-		"min_cells": 10
-	},
 	"louvain_jaccard": {
 		"cache_n_columns": 5000,
 		"n_components": 50,
@@ -66,12 +60,18 @@ default_config = {
 
 
 class Cytograph:
-	def __init__(self, root: str, config: Dict = default_config) -> None:
-		self.sample_dir = os.path.join(root, config["sample_dir"])
-		self.build_root = os.path.join(root, config["build_root"])
-		self.pool_config = os.path.join(root, config["pool_config"])
+	def __init__(self, root: str, sample_dir: str = "loom_samples", pool_config: str = "pooling_specification.tab", build_root: str = "loom_builds", annotation_root: str = "../auto-annotation", k: int = 30, lj_resolution: float = 1.0, n_genes: int = 2000, n_components: int = 50, pep: float = 0.05, f: float = 0.2) -> None:
+		self.sample_dir = os.path.join(root, sample_dir)
+		self.build_root = os.path.join(root, build_root)
+		self.pool_config = os.path.join(root, pool_config)
+		self.annotation_root = os.path.join(root, annotation_root)
 		self.build_dir = None  # type: str
-		self.config = config
+		self.k = k
+		self.lj_resolution = lj_resolution
+		self.n_components = n_components
+		self.n_genes = n_genes
+		self.pep = pep
+		self.f = f
 
 	def process(self, tissues: List[str] = None, n_processes: int = 1) -> None:
 		"""
@@ -100,7 +100,6 @@ class Cytograph:
 		pool.map(self._process_one, tissues)
 
 	def _process_one(self, tissue: str) -> None:
-		config = self.config
 		samples = []  # type: List[str]
 		with open(self.pool_config, 'r') as f:
 			for row in csv.reader(f, delimiter="\t"):
@@ -112,9 +111,8 @@ class Cytograph:
 
 		fname = os.path.join(self.build_dir, tissue.replace(" ", "_") + ".loom")
 
-		config_json = "config.json"
-		with open(os.path.join(self.build_dir, config_json), 'w') as f:
-			f.write(json.dumps(config))
+		with open(os.path.join(self.build_dir, "config_json"), 'w') as f:
+			f.write(json.dumps(self.__dict__))
 
 		# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
 		logging.info("Processing: " + tissue)
@@ -138,14 +136,14 @@ class Cytograph:
 
 		# KNN graph generation and clustering
 		logging.info("Normalization and PCA projection")
-		transformed = pca_projection(ds, cells, config["louvain_jaccard"])
+		transformed = pca_projection(ds, cells, n_genes=self.n_genes, n_components=self.n_components)
 
 		logging.info("Generating KNN graph")
-		knn = kneighbors_graph(transformed, mode='distance', n_neighbors=30)
+		knn = kneighbors_graph(transformed, mode='distance', n_neighbors=self.k)
 		knn = knn.tocoo()
 
 		logging.info("Louvain-Jaccard clustering")
-		lj = cg.LouvainJaccard(resolution=1.0)
+		lj = cg.LouvainJaccard(resolution=self.lj_resolution)
 		labels = lj.fit_predict(knn)
 		# g = lj.graph
 		# Make labels for excluded cells == -1
@@ -157,34 +155,42 @@ class Cytograph:
 
 		logging.info("t-SNE layout")
 		tsne_pos = TSNE(init=transformed[:, :2], perplexity=50, early_exaggeration=2.0, learning_rate=200.0).fit_transform(transformed)
+		# Place all cells in the lower left corner
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+		# Place the valid cells where they belong
 		tsne_all[cells] = tsne_pos
 
+		logging.info("SFDP layout")
+		sfdp_pos = cg.SFDP().layout(lj.graph)
+		sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
+		sfdp_all[cells] = sfdp_pos
+
 		logging.info("Marker enrichment and trinarization")
-		f = config["annotation"]["f"]
-		pep = config["annotation"]["pep"]
-		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], pep, f, cells)
+		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
 		save_diff_expr(ds, self.build_dir, tissue, enrichment, trinary_pat, trinary_prob)
 
 		# Auto-annotation
 		logging.info("Auto-annotating cell types and states")
-		aa = cg.AutoAnnotator(ds, root=config["annotation"]["annotation_root"])
+		aa = cg.AutoAnnotator(ds, root=self.annotation_root)
 		(tags, annotations) = aa.annotate(ds, trinary_prob)
 		sizes = np.bincount(labels_all + 1)
 		save_auto_annotation(self.build_dir, tissue, sizes, annotations, tags)
 
 		logging.info("Plotting clusters on graph")
 		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+		plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
 
 		logging.info("Saving attributes")
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
 		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
+		ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
+		ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
 		ds.set_attr("Clusters", labels_all, axis=1)
 		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 
-		self.tsne_x = tsne_all[:, 0]
-		self.tsne_y = tsne_all[:, 1]
+		self.tsne = tsne_all
+		self.sfdp = sfdp_all
 		self.knn = knn
 		self.mknn = mknn
 		self.lj_graph = lj.graph
@@ -312,14 +318,14 @@ def prommt(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.nda
 
 
 class Normalizer(object):
-	def __init__(self, ds: loompy.LoomConnection, config: Dict, mu: np.ndarray = None, sd: np.ndarray = None) -> None:
+	def __init__(self, ds: loompy.LoomConnection, standardize: bool = False, mu: np.ndarray = None, sd: np.ndarray = None) -> None:
 		if (mu is None) or (sd is None):
 			(self.sd, self.mu) = ds.map([np.std, np.mean], axis=0)
 		else:
 			self.sd = sd
 			self.mu = mu
 		self.totals = ds.map(np.sum, axis=1)
-		self.config = config
+		self.standardize = standardize
 
 	def normalize(self, vals: np.ndarray, cells: np.ndarray) -> np.ndarray:
 		"""
@@ -332,14 +338,14 @@ class Normalizer(object):
 		Returns:
 			vals_adjusted (ndarray):	The normalized values
 		"""
-		if self.config["normalize"]:
-			# Adjust total count per cell to 10,000
-			vals = vals / (self.totals[cells] + 1) * 10000
+		# Adjust total count per cell to 10,000
+		vals = vals / (self.totals[cells] + 1) * 10000
+
 		# Log transform
 		vals = np.log(vals + 1)
 		# Subtract mean per gene
 		vals = vals - self.mu[:, None]
-		if self.config["standardize"]:
+		if self.standardize:
 			# Scale to unit standard deviation per gene
 			vals = self._div0(vals, self.sd[:, None])
 		return vals
@@ -352,23 +358,21 @@ class Normalizer(object):
 		return c
 
 
-def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -> np.ndarray:
+def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n_components: int) -> np.ndarray:
 	"""
 	Memory-efficient PCA projection of the dataset
 
 	Args:
 		ds (LoomConnection): 	Dataset
 		cells (ndaray of int):	Indices of cells to project
-		config (dict):			Dict of settings
+		n_genes:			Number of genes to use for PCA
+		n_components:		Number of components to retain from PCA
 
 	Returns:
 		The dataset transformed by the top principal components
 		Shape: (n_samples, n_components), where n_samples = cells.shape[0]
 	"""
-	cache_n_columns = config["cache_n_columns"]
-	n_genes = config["n_genes"]
 	n_cells = cells.shape[0]
-	n_components = config["n_components"]
 
 	# Compute an initial gene set
 	logging.info("Selecting genes")
@@ -377,18 +381,18 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, config: Dict) -
 
 	# Perform PCA based on the gene selection and the cell sample
 	logging.info("Computing aggregate statistics for normalization")
-	normalizer = Normalizer(ds, config, mu, sd)
+	normalizer = Normalizer(ds, False, mu, sd)
 
-	logging.info("Incremental PCA in batches of %d", cache_n_columns)
+	logging.info("Incremental PCA")
 	pca = IncrementalPCA(n_components=n_components, whiten=True)
-	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cache_n_columns):
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1):
 		vals = normalizer.normalize(vals, ix + selection)
 		pca.partial_fit(vals[genes, :].transpose())		# PCA on the selected genes
 
 	logging.info("Projecting cells to PCA space (in batches)")
 	transformed = np.zeros((cells.shape[0], pca.n_components_))
 	j = 0
-	for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cache_n_columns):
+	for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1):
 		vals = normalizer.normalize(vals, selection)
 		n_cells_in_batch = selection.shape[0]
 		temp = pca.transform(vals[genes, :].transpose())

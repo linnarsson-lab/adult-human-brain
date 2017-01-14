@@ -10,8 +10,7 @@ from scipy import sparse
 
 
 class SFDP:
-	def __init__(self, sfdp_path: str = "") -> None:
-		self.sfdp_path = sfdp_path
+	def __init__(self) -> None:
 		self.graph = None  # type: nx.Graph
 
 	def layout_knn(self, knn: sparse.coo_matrix) -> np.ndarray:
@@ -48,7 +47,7 @@ class SFDP:
 		outfile = os.path.join(tempdir, "graph_sfdp.dot")
 		nx.nx_agraph.write_dot(graph, infile)
 		try:
-			_ = check_output([os.path.join(self.sfdp_path, "sfdp"), infile, "-o" + outfile])
+			_ = check_output(["sfdp", infile, "-o" + outfile])
 		except CalledProcessError as e:
 			shutil.rmtree(tempdir)
 			raise e
