@@ -71,7 +71,8 @@ class Cytograph:
 			n_genes: int = 2000,
 			n_components: int = 50,
 			pep: float = 0.05,
-			f: float = 0.2
+			f: float = 0.2,
+			sfdp: bool = False
 		) -> None:
 
 		self.sample_dir = os.path.join(root, sample_dir)
@@ -85,6 +86,7 @@ class Cytograph:
 		self.n_genes = n_genes
 		self.pep = pep
 		self.f = f
+		self.sfdp = sfdp
 
 	def process(self, tissues: List[str] = None, n_processes: int = 1) -> None:
 		"""
@@ -173,10 +175,11 @@ class Cytograph:
 		# Place the valid cells where they belong
 		tsne_all[cells] = tsne_pos
 
-		logging.info("SFDP layout")
-		sfdp_pos = cg.SFDP().layout(lj.graph)
-		sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
-		sfdp_all[cells] = sfdp_pos
+		if self.sfdp:
+			logging.info("SFDP layout")
+			sfdp_pos = cg.SFDP().layout(lj.graph)
+			sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
+			sfdp_all[cells] = sfdp_pos
 
 		logging.info("Marker enrichment and trinarization")
 		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
@@ -191,19 +194,22 @@ class Cytograph:
 
 		logging.info("Plotting clusters on graph")
 		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
-		plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
+		if self.sfdp:
+			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
 
 		logging.info("Saving attributes")
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
 		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
-		ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
-		ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
+		if self.sfdp:
+			ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
+			ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
 		ds.set_attr("Clusters", labels_all, axis=1)
 		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 
 		self.tsne = tsne_all
-		self.sfdp = sfdp_all
+		if self.sfdp:
+			self.sfdp = sfdp_all
 		self.knn = knn
 		self.mknn = mknn
 		self.lj_graph = lj.graph
