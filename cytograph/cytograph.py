@@ -63,7 +63,7 @@ class Cytograph:
 		self.n_genes = n_genes
 		self.pep = pep
 		self.f = f
-		self.sfdp = sfdp
+		self.plot_sfdp = sfdp
 
 	def list_tissues(self) -> List[str]:
 		temp = {}  # type: Dict[str, int]
@@ -93,9 +93,15 @@ class Cytograph:
 
 		if len(tissues) > 1:
 			pool = Pool(n_processes)
-			pool.map(self._process_one, tissues)
+			pool.map(self._safe_proc_one, tissues)
 		else:
 			self._process_one(tissues[0])
+
+	def _safe_proc_one(self, tissue: str) -> None:
+		try:
+			self._process_one(tissue)
+		except Exception as e:
+			logging.error(str(e))
 
 	def _process_one(self, tissue: str) -> None:
 		samples = []  # type: List[str]
@@ -148,14 +154,14 @@ class Cytograph:
 		# Mutual KNN
 		mknn = knn.minimum(knn.transpose()).tocoo()
 
-		logging.info("t-SNE layout")
-		tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
-		# Place all cells in the lower left corner
-		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
-		# Place the valid cells where they belong
-		tsne_all[cells] = tsne_pos
+		# logging.info("t-SNE layout")
+		# tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
+		# # Place all cells in the lower left corner
+		# tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+		# # Place the valid cells where they belong
+		# tsne_all[cells] = tsne_pos
 
-		if self.sfdp:
+		if self.plot_sfdp:
 			logging.info("SFDP layout")
 			sfdp_pos = cg.SFDP().layout(lj.graph)
 			sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
@@ -173,15 +179,15 @@ class Cytograph:
 		save_auto_annotation(self.build_dir, tissue, sizes, annotations, tags)
 
 		logging.info("Plotting clusters on graph")
-		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+#		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
 		plot_clusters(mknn, labels, transformed[:, :2], tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
-		if self.sfdp:
+		if self.plot_sfdp:
 			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
 
 		logging.info("Saving attributes")
-		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
-		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
-		if self.sfdp:
+#		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
+#		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
+		if self.plot_sfdp:
 			ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
 			ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
 		ds.set_attr("Clusters", labels_all, axis=1)
@@ -189,8 +195,8 @@ class Cytograph:
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 
 		self.pca_transformed = transformed
-		self.tsne = tsne_all
-		if self.sfdp:
+#		self.tsne = tsne_all
+		if self.plot_sfdp:
 			self.sfdp = sfdp_all
 		self.knn = knn
 		self.mknn = mknn
@@ -403,13 +409,12 @@ def pca_projection(ds: loompy.LoomConnection, cells: np.ndarray, n_genes: int, n
 	pvalue_KS = np.zeros(transformed.shape[1])  # pvalue of each component
 	for i in range(1, transformed.shape[1]):
 		(_, pvalue_KS[i]) = ks_2samp(transformed[:, i - 1], transformed[:, i])
-	sigs = np.where(pvalue_KS > 0.1)[0]
+	sigs = np.where(pvalue_KS < 0.1)[0]
 	if len(sigs) == 0:
-		first_not_sign = n_components
-	else:
-		first_not_sign = sigs[0]
-	logging.info("Using %d significant principal components", first_not_sign)
-	return transformed[:, :first_not_sign]
+		logging.info("No significant principal components!")
+		sigs = (0,)
+	logging.info("Using %d significant principal components", len(sigs))
+	return transformed[:, sigs]
 
 
 def feature_selection(ds: loompy.LoomConnection, n_genes: int, cells: np.ndarray = None, cache: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
