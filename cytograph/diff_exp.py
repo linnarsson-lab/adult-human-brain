@@ -38,7 +38,7 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 	n_labels = np.max(labels) + 1
 
 	scores1 = np.empty((ds.shape[0], n_labels))
-	scores1 = np.empty((ds.shape[0], n_labels))
+	scores2 = np.empty((ds.shape[0], n_labels))
 	trinary_pat = np.empty((ds.shape[0], n_labels))
 	trinary_prob = np.empty((ds.shape[0], n_labels))
 
