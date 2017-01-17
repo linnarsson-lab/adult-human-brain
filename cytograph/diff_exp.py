@@ -37,7 +37,8 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 
 	n_labels = np.max(labels) + 1
 
-	enrichment = np.empty((ds.shape[0], n_labels))
+	scores1 = np.empty((ds.shape[0], n_labels))
+	scores1 = np.empty((ds.shape[0], n_labels))
 	trinary_pat = np.empty((ds.shape[0], n_labels))
 	trinary_prob = np.empty((ds.shape[0], n_labels))
 
@@ -60,9 +61,10 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 				else:
 					score1[lbl] = np.mean(sel) / mu0
 					score2[lbl] = np.count_nonzero(sel) / f0
-			enrichment[row, :] = score1 * score2
+			scores1[row, :] = score1
+			scores2[row, :] = score2
 			trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
-	return (enrichment, trinary_prob, trinary_pat)
+	return (scores1, scores2, trinary_prob, trinary_pat)
 
 
 def p_half(k: int, n: int, f: float) -> float:
