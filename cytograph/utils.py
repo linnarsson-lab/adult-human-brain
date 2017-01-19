@@ -1,15 +1,17 @@
 from typing import *
+import logging
+from collections import defaultdict
 import numpy as np
 import numpy_groupies as npg
 import pandas as pd
-import loompy
-from collections import defaultdict
 from scipy.spatial.distance import squareform, pdist
 from scipy.cluster.hierarchy import linkage, leaves_list
-import logging
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import matplotlib.ticker as ticker
+import loompy
+
+pd.options.mode.chained_assignment = None  # this is because of a warning in prepare_heat_map
 
 
 def loompy2data(filename: str) -> pd.DataFrame:
@@ -122,7 +124,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	labels_sorted = labels_updated[ix0]
 	cols_df_sorted = cols_df.ix[:, ix0]
 	df_sorted = df.ix[:, ix0]
-	cols_df_sorted.ix["Total Molecules"] = df_sorted.sum(0).values
+	cols_df_sorted.loc["Total Molecules",:] = df_sorted.sum(0).values
 
 	# Generate a list of genes and gene cluster labels
 	accession_list = []  # type: List
@@ -133,7 +135,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	gene_cluster = np.array(gene_cluster)
 		
 	rows_df_markers = rows_df.ix[:,accession_list]
-	rows_df_markers.ix["Cluster"] = np.array(gene_cluster)
+	rows_df_markers.loc["Cluster", :] = np.array(gene_cluster)
 	
 	return df_sorted.ix[accession_list, :], rows_df_markers, cols_df_sorted, accession_list, gene_cluster, mus
 
