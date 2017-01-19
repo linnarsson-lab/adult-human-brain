@@ -194,6 +194,7 @@ def generate_pcolor_args(attribute_values: np.ndarray, kind: str = "categorical"
 	return values, generated_cmap
 
 def calculate_intensities(df_markers: pd.DataFrame) -> pd.DataFrame:
+	logging.debug("Calculating intensites of the pixels")
 	intensities = np.log2(df_markers + 1)
 	intensities = intensities.sub(intensities.mean(1),axis="rows")
 	return intensities.div(intensities.std(1),axis="rows")
@@ -255,7 +256,7 @@ def super_heatmap(intensities: pd.DataFrame,
 			bpos = np.where(np.diff(cols_annot.ix["Clusters"].values))[0]
 			cpos = (np.r_[0, bpos[:-1]] + bpos) / 2.
 			for b in bpos:
-				heatmap_ax.axvline(b, linewidth=0.5, c="darkred", alpha=0.6)
+				heatmap_ax.axvline(b+1, linewidth=0.5, c="darkred", alpha=0.6)
 			uq, ix = np.unique(cols_annot.ix["Clusters"].values, return_index=True)
 			order_pos = uq[np.argsort(ix)]
 			plt.xticks(cpos, order_pos,fontsize=7, ha="center", va="center")
@@ -299,3 +300,43 @@ def super_heatmap(intensities: pd.DataFrame,
 		row_bar.yaxis.set_major_locator(Y_Locator())
 		
 	fig.canvas.draw()
+
+
+def create_markers_file(loom_file_path: str, marker_n: int=150) -> None:
+	"""Create a .marker (loom format) file that contains a (marker x cell) tables and all necessary annotation to plot it
+	
+	Args
+	----
+	loom_file_path: the path to the .loom file
+	marker_n: the total number of genes will be approximatelly  N_clusters * marker_n / 3.
+	
+	Returns
+	-------
+	Nothing. Saves a file at loom_file_path.marker
+	"""
+	ds, df, cols_df, rows_df = loompy2data_annot(loom_file_path)
+	df_markers, rows_annot, cols_annot, accession_list, gene_cluster, mus = prepare_heat_map(df, cols_df, rows_df, marker_n=marker_n)
+	marker_file_path = loom_file_path.rstrip(".loom") + ".markers"
+	loompy.create(marker_file_path, df_markers.values,
+			{k:np.array(v) for k,v in rows_annot.T.to_dict("list").items()},
+			{k:np.array(v) for k,v in cols_annot.T.to_dict("list").items()})
+
+def plot_markers_file(markers_file_path: str,
+					col_attrs: List = [ ("SampleID",), ("Clusters", ), ("DonorID", ) ],
+					row_attrs: List = [ ("Cluster",)]) -> None:
+	"""Loads and plot Marker file
+	
+	Args
+	----
+	marker_file_path
+	col_attrs
+	row_attrs
+	
+	Returns
+	-------
+	Nothing. Opens a matplotlib window with the heatmap.
+	"""
+	ds, df_markers, cols_annot, rows_annot = loompy2data_annot(markers_file_path)
+	intensities = calculate_intensities(df_markers)
+	logging.debug("Preparing the plot")
+	super_heatmap(intensities, cols_annot, rows_annot, col_attrs, row_attrs)
