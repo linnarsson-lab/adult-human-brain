@@ -68,13 +68,16 @@ def marker_table(df: pd.DataFrame, groups: np.ndarray, avg_N: int = 30) -> Tuple
 	markers_array = np.vstack((genes00, genes05,genes10))
 	markers = defaultdict(set)  # type: defaultdict
 	for ct in range(mus.shape[1]):
-		if score10_df.ix[mk, ct] > 0.05:
 			markers[ct] |= set(markers_array[:,ct])
 	for ct in range(mus.shape[1]):
+		for mk in markers[ct]:
+			if score10_df.ix[mk, ct] < 0.05:
+				markers[ct] -= set([mk])
 		for mk in markers[ct]:
 			for ct2 in list(set(range(mus.shape[1])) - set([ct])):
 				if score10_df.ix[mk,ct] >= score10_df.ix[mk, ct2]:
 					markers[ct2] -= set([mk])
+		
 					
 	return markers, mus
 
