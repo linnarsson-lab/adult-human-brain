@@ -70,7 +70,7 @@ def marker_table(df: pd.DataFrame, groups: np.ndarray, avg_N: int = 30) -> Tuple
 	for ct in range(mus.shape[1]):
 			markers[ct] |= set(markers_array[:,ct])
 	for ct in range(mus.shape[1]):
-		for mk in markers[ct]:
+		for mk in list(markers[ct]):
 			if score10_df.ix[mk, ct] < 0.05:
 				markers[ct] -= set([mk])
 		for mk in markers[ct]:
@@ -201,7 +201,8 @@ def calculate_intensities(df_markers: pd.DataFrame) -> pd.DataFrame:
 	logging.debug("Calculating intensites of the pixels")
 	intensities = np.log2(df_markers + 1)
 	intensities = intensities.sub(intensities.mean(1),axis="rows")
-	return intensities.div(intensities.std(1),axis="rows")
+	standard_deviations = intensities.std(1).replace([np.nan, -np.inf], np.inf) # substitute weird value with np.inf to get zero after division 
+	return intensities.div(standard_deviations,axis="rows")
 
 
 def super_heatmap(intensities: pd.DataFrame,
