@@ -115,7 +115,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	
 	# Perform single linkage on correlation of the average pattern of the markers
 	logging.debug("Sort the clusters by single linkage")
-	z = linkage(mus_selected.T, 'single','correlation' )
+	z = linkage(mus_selected.T, 'average','correlation' )
 	order = leaves_list(z)
 	
 	logging.debug("Preparing output")
@@ -206,7 +206,7 @@ def calculate_intensities(df_markers: pd.DataFrame) -> pd.DataFrame:
 
 
 def super_heatmap(intensities: pd.DataFrame,
-                  cols_annot: pd.DataFrame,
+				  cols_annot: pd.DataFrame,
 				  rows_annot: pd.DataFrame,
 				  col_attrs: List[Tuple] = [ ("SampleID",), ("Clusters", ), ("DonorID", ) ],
 				  row_attrs: List[Tuple] = [ ("Cluster",)]) -> None:

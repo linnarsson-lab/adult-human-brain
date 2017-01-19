@@ -11,3 +11,4 @@ if __name__ == '__main__':
 		plt.show()
 	else:
 		raise IOError("file name is not correct, extension must be .markers")
+
