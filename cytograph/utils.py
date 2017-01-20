@@ -115,7 +115,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	
 	# Perform single linkage on correlation of the average pattern of the markers
 	logging.debug("Sort the clusters by single linkage")
-	z = linkage(mus_selected.T, 'average','correlation' )
+	z = linkage(np.log2(mus_selected.T + 1), 'average','correlation' )
 	order = leaves_list(z)
 	
 	logging.debug("Preparing output")
@@ -259,7 +259,7 @@ def super_heatmap(intensities: pd.DataFrame,
 			column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='on', labeltop='off' )
 			column_bar.tick_params(direction='out', pad=-9, colors='w') 
 			bpos = np.where(np.diff(cols_annot.ix["Clusters"].values))[0]
-			cpos = (np.r_[0, bpos[:-1]] + bpos) / 2.
+			cpos = (np.r_[0, bpos] + np.r_[bpos, cols_annot.shape[1]]) / 2.
 			for b in bpos:
 				heatmap_ax.axvline(b+1, linewidth=0.5, c="darkred", alpha=0.6)
 			uq, ix = np.unique(cols_annot.ix["Clusters"].values, return_index=True)
@@ -307,7 +307,7 @@ def super_heatmap(intensities: pd.DataFrame,
 	fig.canvas.draw()
 
 
-def create_markers_file(loom_file_path: str, marker_n: int=150) -> None:
+def create_markers_file(loom_file_path: str, marker_n: int=100) -> None:
 	"""Create a .marker (loom format) file that contains a (marker x cell) tables and all necessary annotation to plot it
 	
 	Args
@@ -319,9 +319,13 @@ def create_markers_file(loom_file_path: str, marker_n: int=150) -> None:
 	-------
 	Nothing. Saves a file at loom_file_path.marker
 	"""
+	if os.path.exists(loom_file_path):
+		marker_file_path = os.path.splitext(loom_file_path)[0] + ".markers"
+	else:
+		raise IOError("%s does not exist" % loom_file_path)
+
 	ds, df, cols_df, rows_df = loompy2data_annot(loom_file_path)
 	df_markers, rows_annot, cols_annot, accession_list, gene_cluster, mus = prepare_heat_map(df, cols_df, rows_df, marker_n=marker_n)
-	marker_file_path = loom_file_path.rstrip(".loom") + ".markers"
 	loompy.create(marker_file_path, df_markers.values,
 			{k:np.array(v) for k,v in rows_annot.T.to_dict("list").items()},
 			{k:np.array(v) for k,v in cols_annot.T.to_dict("list").items()})
