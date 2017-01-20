@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 import matplotlib.ticker as ticker
 import loompy
+import os
 
 pd.options.mode.chained_assignment = None  # this is because of a warning in prepare_heat_map
 
@@ -307,7 +308,7 @@ def super_heatmap(intensities: pd.DataFrame,
 	fig.canvas.draw()
 
 
-def create_markers_file(loom_file_path: str, marker_n: int=100) -> None:
+def create_markers_file(loom_file_path: str, marker_n: int = 100, overwrite: bool = False) -> None:
 	"""Create a .marker (loom format) file that contains a (marker x cell) tables and all necessary annotation to plot it
 	
 	Args
@@ -321,6 +322,13 @@ def create_markers_file(loom_file_path: str, marker_n: int=100) -> None:
 	"""
 	if os.path.exists(loom_file_path):
 		marker_file_path = os.path.splitext(loom_file_path)[0] + ".markers"
+		if os.path.exists(marker_file_path):
+			if overwrite:
+				logging.debug("Removing old version of %s" % marker_file_path)
+				os.remove(marker_file_path)
+			else:
+				logging.debug("Previous version of %s was found, saving a backup" % marker_file_path)
+				os.rename(marker_file_path, marker_file_path + '.bak')
 	else:
 		raise IOError("%s does not exist" % loom_file_path)
 
