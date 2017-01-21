@@ -276,16 +276,15 @@ def super_heatmap(intensities: pd.DataFrame,
 				column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
 				values, generated_cmap = generate_pcolor_args(inverse_uq == entry_ix, kind="bool")
 				column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
-				c += 1
 				column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
 				plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name + " %s" % uq[entry_ix],
 				ha='right', va='center', fontsize=7,transform = fig.transFigure) 
+				c += 1
 		else:
 			columnbar_bbox = [left , bottom + height + c*h_col_bar , width, h_col_bar]
 			column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
 			values, generated_cmap = generate_pcolor_args(cols_annot.ix[col_name].values, kind=kind[0])
 			column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
-			c += 1
 			column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
 			# Special cases
 			if col_name == "Clusters":
@@ -307,6 +306,7 @@ def super_heatmap(intensities: pd.DataFrame,
 				column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='off', labeltop='off' )
 			plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name,
 				ha='right', va='center', fontsize=7,transform = fig.transFigure)  
+			c += 1
 
 	# Row bars
 	for r, (row_name, *kind) in enumerate(row_attrs):
@@ -375,8 +375,8 @@ def create_markers_file(loom_file_path: str, marker_n: int = 100, overwrite: boo
 			{k:np.array(v) for k,v in cols_annot.T.to_dict("list").items()})
 
 def plot_markers_file(markers_file_path: str,
-					col_attrs: List = [ ("SampleID",), ("Clusters", ), ("DonorID", ) ],
-					row_attrs: List = [ ("Cluster",)]) -> None:
+					col_attrs: List = [("DonorID", ), ("SampleID",), ("Age", "multi"),("Clusters", )],
+					row_attrs: List = [("Cluster",)]) -> None:
 	"""Loads and plot Marker file
 	
 	Args
