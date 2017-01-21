@@ -360,7 +360,7 @@ def super_heatmap(intensities: pd.DataFrame,
 				uq, ix = np.unique(cols_annot.ix["Clusters"].values, return_index=True)
 				order_pos = uq[np.argsort(ix)]
 				# labels with names of the clusters
-				plt.xticks(cpos, order_pos, fontsize=7, ha="center", va="center")
+				plt.xticks(cpos, order_pos+1, fontsize=7, ha="center", va="center")
 				for t in column_bar.xaxis.get_major_ticks():
 					t.label1.set_fontweight('bold')
 			else:
