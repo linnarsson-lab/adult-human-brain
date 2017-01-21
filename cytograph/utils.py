@@ -185,10 +185,10 @@ def generate_pcolor_args(attribute_values: np.ndarray, kind: str = "categorical"
 		else:
 			generated_cmap = plt.cm.viridis
 	elif kind == "bool":
-		generated_cmap = plt.cm.gray
+		generated_cmap = plt.cm.gray_r
 		values = attribute_values.astype(int)
 	elif kind == "binary":
-		generated_cmap = plt.cm.gray
+		generated_cmap = plt.cm.gray_r
 		values = (attribute_values == attribute_values[0]).astype(int)
 	elif kind == "custom":
 		levels, ix = np.unique(attribute_values, return_inverse=True )
@@ -227,16 +227,15 @@ def super_heatmap(intensities: pd.DataFrame,
 	'''
 	e = 0.03
 	h_col_bar = 0.019
-	n_col_bars = len(col_attrs)
 	w_row_bar = 0.03
+	n_col_bars = len(col_attrs)
 	n_row_bars = len(row_attrs)
-	delta_x = w_row_bar * n_row_bars
-	delta_y = h_col_bar * n_col_bars
-
 	# Add extra column bars if there is a multiple column
 	for (i, *k) in col_attrs:
 		if "multi" in k:
 			n_col_bars += len(np.unique(cols_annot.ix[i].values)) - 1
+	delta_x = w_row_bar * n_row_bars
+	delta_y = h_col_bar * n_col_bars
 
 	fig = plt.figure(figsize=(12,9))
 	# Determine the boudary and plot the heatmap
@@ -251,13 +250,13 @@ def super_heatmap(intensities: pd.DataFrame,
 
 	# Column bars
 	c = 0
-	for (col_name, *kind) in col_attrs:
+	for (col_name, *kind) in col_attrs[::-1]:
 		if kind == []:
 			if len(np.unique(cols_annot.ix[col_name].values)) > 2:
 				kind = ("categorical",)
 			else:
 				kind = ("binary",)
-		if kind == "multi":
+		if kind == ["multi"]:
 			if col_name == "Age":
 				# Make sure that the order of timepoints is correct even when they are not zero padded
 				# Example E7.5 ahould be before E11.5
@@ -271,12 +270,13 @@ def super_heatmap(intensities: pd.DataFrame,
 			else:
 				uq, inverse_uq = np.unique(cols_annot.ix[col_name].values, return_inverse=True)
 			
-			for entry_ix in np.unique(inverse_uq):
+			for entry_ix in np.unique(inverse_uq)[::-1]:
 				columnbar_bbox = [left , bottom + height + c*h_col_bar , width, h_col_bar]
 				column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
 				values, generated_cmap = generate_pcolor_args(inverse_uq == entry_ix, kind="bool")
 				column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
 				column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
+				column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='off', labeltop='off' )
 				plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name + " %s" % uq[entry_ix],
 				ha='right', va='center', fontsize=7,transform = fig.transFigure) 
 				c += 1
