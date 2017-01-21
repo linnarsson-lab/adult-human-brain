@@ -16,16 +16,49 @@ pd.options.mode.chained_assignment = None  # this is because of a warning in pre
 
 
 def loompy2data(filename: str) -> pd.DataFrame:
+	"""Load a loompy file as a pandas dataframe dropping column and row annotation
+	
+	Args
+	----
+	filename : str path to the .loom file
+
+	Returns
+	-------
+	df: pd.DataFrame data matrix with columns:CellId index:Accession 
+	"""
 	ds = loompy.connect(filename)
-	return pd.DataFrame(data=ds[:, :], columns=ds.col_attrs['CellID'], index=ds.row_attrs['Gene']).astype(int)
+	return pd.DataFrame(data=ds[:, :], columns=ds.col_attrs['CellID'], index=ds.row_attrs['Accession']).astype(int)
 
 
 def loompy2annot(filename: str) -> pd.DataFrame:
+	"""Load the column attributes from the loompy file as a pandas dataframe
+	
+	Args
+	----
+	filename : str path to the .loom file
+
+	Returns
+	-------
+	df: pd.DataFrame column annotations index:CellId
+	"""
 	ds = loompy.connect(filename)
 	return pd.DataFrame(ds.col_attrs, index=ds.col_attrs['CellID']).T
 
 
 def loompy2data_annot(filename: str) -> Tuple[loompy.LoomConnection, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+	"""Load a loompy file as a pandas dataframe dropping column and row annotation
+	
+	Args
+	----
+	filename : str path to the .loom file
+
+	Returns
+	-------
+	ds: loompy.LoomConnection the connection to the loom file
+	df: pd.DataFrame data matrix with columns:CellId index:Gene
+	cols_df: pd.DataFrame column annotations index:CellId
+	rows_df: pd.DataFrame column annotations index:Accession
+	"""
 	ds = loompy.connect(filename)
 	ret= (ds,
 			pd.DataFrame(data=ds[:, :],
@@ -40,6 +73,19 @@ def loompy2data_annot(filename: str) -> Tuple[loompy.LoomConnection, pd.DataFram
 
 
 def marker_table(df: pd.DataFrame, groups: np.ndarray, avg_N: int = 30) -> Tuple[DefaultDict, np.ndarray]:
+	"""Produce a marker table using fold enrichemnt * fraction expressing heuristic
+
+	Args
+	----
+	df: pd.Dataframe (rows: Acessions, cols: Cells)
+	groups: labels of the groups (it is assumed to be integers without gaps) shape df.shape[0]
+	avg_N: Average number of genes to select per cluster (actual number depends from the overlaps of the 3 scores)
+
+	Returns
+	-------
+	markers: dict(set) key = group, values sets of Accessions
+	mus : np.ndarray shape=(df.shape[0], len(set(groups)))
+	"""
 	logging.debug("Computing Marker Table")
 	N = int(np.ceil(avg_N / 3))
 	mus = npg.aggregate_numba.aggregate(groups, df.values, func="mean", axis=1)
@@ -88,9 +134,24 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	
 	Args
 	----
+	df
+	cols_df
+	fows_df
+	marker_n
 	
-	Return
-	------
+	Returns
+	-------
+	df_markers
+	rows_df_markers
+	cols_df_sorted
+	accession_list
+	gene_cluster
+	mus
+
+	Note
+	====
+	First it adds a random number to the cols to avoid duplicates cell names
+	Then it filters away the cells flagged as _Valid==False
 	
 	'''
 	
@@ -200,9 +261,9 @@ def generate_pcolor_args(attribute_values: np.ndarray, kind: str = "categorical"
 def calculate_intensities(df_markers: pd.DataFrame) -> pd.DataFrame:
 	logging.debug("Calculating intensites of the pixels")
 	intensities = np.log2(df_markers + 1)
-	intensities = intensities.sub(intensities.mean(1),axis="rows")
-	standard_deviations = intensities.std(1).replace([np.nan, -np.inf], np.inf) # substitute weird value with np.inf to get zero after division 
-	return intensities.div(standard_deviations,axis="rows")
+	intensities = intensities.sub(intensities.mean(1), axis="rows")
+	standard_deviations = intensities.std(1).replace([np.nan, -np.inf], np.inf)  # substitute weird value with np.inf to get zero after division 
+	return intensities.div(standard_deviations, axis="rows")
 
 
 def super_heatmap(intensities: pd.DataFrame,
