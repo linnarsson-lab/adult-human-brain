@@ -41,15 +41,14 @@ def loompy2data_annot(filename: str) -> Tuple[loompy.LoomConnection, pd.DataFram
 
 def marker_table(df: pd.DataFrame, groups: np.ndarray, avg_N: int = 30) -> Tuple[DefaultDict, np.ndarray]:
 	logging.debug("Computing Marker Table")
-	X = df.values
 	N = int(np.ceil(avg_N / 3))
-	mus = npg.aggregate_numba.aggregate(groups, X, func="mean", axis=1)
+	mus = npg.aggregate_numba.aggregate(groups, df.values, func="mean", axis=1)
 	counts_per_group = npg.aggregate_numba.aggregate(groups,1)
 	mu0 = np.sum((mus * counts_per_group) / len(groups), 1)  # faster than X.mean(1)
 	fold = np.zeros_like(mus)
 	iz = mu0 > 0.001  # avoid Nans and useless high precision calculations
 	fold[iz, :] = mus[iz, :] / mu0[iz, None]
-	fs = npg.aggregate_numba.aggregate(groups, X > 0, func="mean", axis=1)
+	fs = npg.aggregate_numba.aggregate(groups, df.values > 0, func="mean", axis=1)
 	
 	# Filters
 	fold *= (mus > 1) * (fold > 1.5)
@@ -116,7 +115,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	
 	# Perform single linkage on correlation of the average pattern of the markers
 	logging.debug("Sort the clusters by single linkage")
-	z = linkage(np.log2(mus_selected.T + 1), 'average','correlation' )
+	z = linkage(np.log2(mus_selected.T + 1), 'average', 'correlation')
 	order = leaves_list(z)
 	
 	logging.debug("Preparing output")
@@ -129,7 +128,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 	labels_sorted = labels_updated[ix0]
 	cols_df_sorted = cols_df.ix[:, ix0]
 	df_sorted = df.ix[:, ix0]
-	cols_df_sorted.loc["Total Molecules",:] = df_sorted.sum(0).values
+	cols_df_sorted.loc["Total Molecules", :] = df_sorted.sum(0).values
 
 	# Generate a list of genes and gene cluster labels
 	accession_list = []  # type: List
@@ -139,7 +138,7 @@ def prepare_heat_map(df: pd.DataFrame, cols_df: pd.DataFrame,
 		gene_cluster += [i]*len(table[i])
 	gene_cluster = np.array(gene_cluster)
 		
-	rows_df_markers = rows_df.ix[:,accession_list]
+	rows_df_markers = rows_df.ix[:, accession_list]
 	rows_df_markers.loc["Cluster", :] = np.array(gene_cluster)
 	
 	return df_sorted.ix[accession_list, :], rows_df_markers, cols_df_sorted, accession_list, gene_cluster, mus
@@ -162,10 +161,10 @@ def generate_pcolor_args(attribute_values: np.ndarray, kind: str = "categorical"
 	
 	Return
 	------
-	
 	values (np.ndarray) : array ready to be passed as first argument to pcolorfast
 	
 	colormap (mpl.color.Colormap) : colormap ready to be passed as cmap argument to pcolorfast
+
 	"""
 	if kind == "categorical":
 		attributes, _, attrs_ix = np.unique(attribute_values, return_index=True, return_inverse=True)
@@ -209,7 +208,7 @@ def calculate_intensities(df_markers: pd.DataFrame) -> pd.DataFrame:
 def super_heatmap(intensities: pd.DataFrame,
 				  cols_annot: pd.DataFrame,
 				  rows_annot: pd.DataFrame,
-				  col_attrs: List[Tuple] = [ ("SampleID",), ("Clusters", ), ("DonorID", ) ],
+				  col_attrs: List[Tuple] = [ ("SampleID",), ("DonorID", ), ("Age", "multi"), ("Clusters", ) ],
 				  row_attrs: List[Tuple] = [ ("Cluster",)]) -> None:
 	'''Plots an interactive and informative heat map
 	
@@ -228,50 +227,86 @@ def super_heatmap(intensities: pd.DataFrame,
 	'''
 	e = 0.03
 	h_col_bar = 0.019
-	n_col_bars = 3
+	n_col_bars = len(col_attrs)
 	w_row_bar = 0.03
-	n_row_bars = 1
+	n_row_bars = len(row_attrs)
 	delta_x = w_row_bar * n_row_bars
 	delta_y = h_col_bar * n_col_bars
 
+	# Add extra column bars if there is a multiple column
+	for (i, *k) in col_attrs:
+		if "multi" in k:
+			n_col_bars += len(np.unique(cols_annot.ix[i].values)) - 1
+
 	fig = plt.figure(figsize=(12,9))
+	# Determine the boudary and plot the heatmap
 	left, bottom, width, height = delta_x + 3*e, 0 + e, 1 - delta_x - 4*e, 1 - delta_y - 2*e
 	heatmap_bbox = [left, bottom, width, height]
 	heatmap_ax = fig.add_axes(heatmap_bbox)
 	heatmap_ax.pcolorfast(intensities.values, cmap=plt.cm.YlOrRd,\
-		vmin=np.percentile(intensities,2.5), vmax=np.percentile(intensities,98.5))
-
-	heatmap_ax.tick_params(axis='x', labeltop='off', labelbottom='off',bottom="off" )
-	heatmap_ax.tick_params(axis='y', labelleft='off',left='off',right='off', labelsize=1)
+		vmin=np.percentile(intensities, 2.5), vmax=np.percentile(intensities, 98.5))
+	# Suppress labels on the heatmap axis
+	heatmap_ax.tick_params(axis='x', labeltop='off', labelbottom='off', bottom="off" )
+	heatmap_ax.tick_params(axis='y', labelleft='off', left='off', right='off', labelsize=1)
 
 	# Column bars
-	for c, (col_name, *kind) in enumerate(col_attrs):
+	c = 0
+	for (col_name, *kind) in col_attrs:
 		if kind == []:
 			if len(np.unique(cols_annot.ix[col_name].values)) > 2:
 				kind = ("categorical",)
 			else:
 				kind = ("binary",)
-		columnbar_bbox = [left , bottom + height + c*h_col_bar , width, h_col_bar]
-		column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
-		values, generated_cmap = generate_pcolor_args(cols_annot.ix[col_name].values, kind=kind[0])
-		column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
-		column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
-		if col_name == "Clusters":
-			column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='on', labeltop='off' )
-			column_bar.tick_params(direction='out', pad=-9, colors='w') 
-			bpos = np.where(np.diff(cols_annot.ix["Clusters"].values))[0]
-			cpos = (np.r_[0, bpos] + np.r_[bpos, cols_annot.shape[1]]) / 2.
-			for b in bpos:
-				heatmap_ax.axvline(b+1, linewidth=0.5, c="darkred", alpha=0.6)
-			uq, ix = np.unique(cols_annot.ix["Clusters"].values, return_index=True)
-			order_pos = uq[np.argsort(ix)]
-			plt.xticks(cpos, order_pos,fontsize=7, ha="center", va="center")
-			for t in column_bar.xaxis.get_major_ticks():
-				t.label1.set_fontweight('bold')
+		if kind == "multi":
+			if col_name == "Age":
+				# Make sure that the order of timepoints is correct even when they are not zero padded
+				# Example E7.5 ahould be before E11.5
+				age_float = []
+				age_dict ={}
+				for age in cols_annot.ix[col_name].values:
+					age_float.append( float(age.strip("pPeE")) )
+					age_dict[age_float[-1]] = age
+				uq, inverse_uq = np.unique(age_float, return_inverse=True)
+				uq = np.array([age_dict[i] for i in uq])
+			else:
+				uq, inverse_uq = np.unique(cols_annot.ix[col_name].values, return_inverse=True)
+			
+			for entry_ix in np.unique(inverse_uq):
+				columnbar_bbox = [left , bottom + height + c*h_col_bar , width, h_col_bar]
+				column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
+				values, generated_cmap = generate_pcolor_args(inverse_uq == entry_ix, kind="bool")
+				column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
+				c += 1
+				column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
+				plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name + " %s" % uq[entry_ix],
+				ha='right', va='center', fontsize=7,transform = fig.transFigure) 
 		else:
-			column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='off', labeltop='off' )
-		plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name,
-			ha='right', va='center', fontsize=7,transform = fig.transFigure)  
+			columnbar_bbox = [left , bottom + height + c*h_col_bar , width, h_col_bar]
+			column_bar = fig.add_axes(columnbar_bbox, sharex=heatmap_ax)
+			values, generated_cmap = generate_pcolor_args(cols_annot.ix[col_name].values, kind=kind[0])
+			column_bar.pcolorfast(values[None,:], cmap=generated_cmap)
+			c += 1
+			column_bar.tick_params(axis='y', left='off', right='off', labelleft='off', labelright='off' )
+			# Special cases
+			if col_name == "Clusters":
+				column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='on', labeltop='off' )
+				column_bar.tick_params(direction='out', pad=-9, colors='w')
+				# boundary and center cluster positions
+				bpos = np.where(np.diff(cols_annot.ix["Clusters"].values))[0]
+				cpos = (np.r_[0, bpos] + np.r_[bpos, cols_annot.shape[1]]) / 2.
+				# vertical cluster lines
+				for b in bpos:
+					heatmap_ax.axvline(b + 1, linewidth=0.5, c="darkred", alpha=0.6)
+				uq, ix = np.unique(cols_annot.ix["Clusters"].values, return_index=True)
+				order_pos = uq[np.argsort(ix)]
+				# labels with names of the clusters
+				plt.xticks(cpos, order_pos, fontsize=7, ha="center", va="center")
+				for t in column_bar.xaxis.get_major_ticks():
+					t.label1.set_fontweight('bold')
+			else:
+				column_bar.tick_params(axis='x', bottom='off', top='off', labelbottom='off', labeltop='off' )
+			plt.text(left-0.1*e, bottom + height + c*h_col_bar + 0.5*h_col_bar, col_name,
+				ha='right', va='center', fontsize=7,transform = fig.transFigure)  
 
 	# Row bars
 	for r, (row_name, *kind) in enumerate(row_attrs):
@@ -290,6 +325,7 @@ def super_heatmap(intensities: pd.DataFrame,
 
 		names = rows_annot.ix["Gene", :].values.astype(str)
 
+		# Locator and formatter to show and hide gene names depnding on zoom level
 		class Y_Locator(ticker.MaxNLocator):
 			def tick_values(self, vmin: float, vmax: float) -> np.ndarray:
 				if vmin < 0:
@@ -305,7 +341,7 @@ def super_heatmap(intensities: pd.DataFrame,
 		row_bar.yaxis.set_major_formatter(ticker.FuncFormatter(my_formatter))
 		row_bar.yaxis.set_major_locator(Y_Locator())
 		
-	fig.canvas.draw()
+	fig.canvas.draw()  # plt.show() might be needed depending the backend and mode of execution
 
 
 def create_markers_file(loom_file_path: str, marker_n: int = 100, overwrite: bool = False) -> None:
