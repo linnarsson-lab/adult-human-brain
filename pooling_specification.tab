@@ -1,1 +1,225 @@
-SampleID	Pool	QC10X06_1	Amygdala	OK10X06_2	Amygdala	OK10X34_1	Amygdala	OK10X34_2	Amygdala	OK10X49_1	Amygdala	OK10X49_2	Amygdala	OK10X49_3	Amygdala	OK10X56_1	Amygdala	FAILED10X56_2	Amygdala	OK10X56_3	Amygdala	OK10X26_1	Cerebellum	OK10X26_2	Cerebellum	OK10X51_1	Cerebellum	OK10X51_2	Cerebellum	OK10X05_1	Cortex1	OK10X05_2	Cortex1	OK10X22_1	Cortex1	OK10X22_2	Cortex1	OK10X38_3	Cortex2	OK10X19_1	Cortex2	FAILED10X19_2	Cortex2	OK10X35_1	Cortex2	OK10X35_2	Cortex2	OK10X36_3	Cortex2	OK10X01_1	Cortex2	OK10X02_1	Cortex2	OK10X20_1	Cortex3	OK10X20_2	Cortex3	OK10X28_2	Cortex3	OK10X28_3	Cortex3	OK10X43_2	DRG	OK10X53_7	DRG	OK10X56_8	Enteric	OK10X07_1	Hippocampus	OK10X36_1	Hippocampus	OK10X36_2	Hippocampus	OK10X38_1	Hippocampus	OK10X38_2	Hippocampus	OK10X43_1	Hippocampus	OK10X46_1	Hippocampus	OK10X04_1	Hippocampus	OK10X04_2	Hippocampus	OK10X22_3	Hippocampus	OK10X22_4	Hippocampus	OK10X06_3	Hypothalamus	OK10X35_3	Hypothalamus	OK10X35_4	Hypothalamus	OK10X50_1	Hypothalamus	OK10X50_2	Hypothalamus	OK10X50_3	Hypothalamus	OK10X50_4	Hypothalamus	OK10X51_3	Hypothalamus	OK10X51_4	Hypothalamus	OK10X56_4	Hypothalamus	FAILED10X56_6	Hypothalamus	OK10X57_1	Hypothalamus	OK10X11_1	Medulla	OK10X33_1	Medulla	OK10X33_2	Medulla	OK10X48_1	Medulla	OK10X48_2	Medulla	OK10X54_1	Medulla	OK10X54_2	Medulla	OK10X54_3	Medulla	OK10X54_4	Medulla	OK10X55_1	Medulla	OK10X55_2	Medulla	OK10X55_3	Medulla	OK10X55_4	Medulla	OK10X51_5	mES	OK10X20_3	MidbrainDorsal	OK10X20_4	MidbrainDorsal	OK10X52_1	MidbrainDorsal	OK10X52_2	MidbrainDorsal	OK10X52_3	MidbrainDorsal	OK10X52_4	MidbrainDorsal	OK10X57_2	MidbrainDorsal	OK10X57_3	MidbrainDorsal	OK10X34_3	MidbrainVentral	OK10X34_4	MidbrainVentral	OK10X52_5	MidbrainVentral	OK10X52_6	MidbrainVentral	OK10X52_7	MidbrainVentral	OK10X52_8	MidbrainVentral	OK10X57_4	MidbrainVentral	OK10X57_5	MidbrainVentral	OK10X04_4	Olfactory	OK10X28_4	Olfactory	OK10X28_5	Olfactory	OK10X49_4	Olfactory	OK10X49_5	Olfactory	OK10X33_3	Pons	OK10X33_4	Pons	OK10X48_3	Pons	OK10X48_4	Pons	OK10X54_5	Pons	OK10X54_6	Pons	OK10X54_7	Pons	OK10X55_5	Pons	OK10X55_6	Pons	OK10X55_7	Pons	OK10X55_8	Pons	OK10X43_3	SpinalCord	OK10X53_1	SpinalCord	OK10X53_2	SpinalCord	OK10X53_3	SpinalCord	OK10X53_4	SpinalCord	OK10X53_5	SpinalCord	OK10X53_6	SpinalCord	OK10X05_3	StriatumDorsal	OK10X05_4	StriatumDorsal	OK10X24_1	StriatumDorsal	OK10X24_2	StriatumDorsal	OK10X26_3	StriatumVentral	OK10X26_4	StriatumVentral	OK10X46_2	StriatumVentral	OK10X46_3	StriatumVentral	OK10X24_3	Thalamus	OK10X24_4	Thalamus	OK10X50_5	Thalamus	OK10X50_6	Thalamus	OK10X50_7	Thalamus	OK10X50_8	Thalamus	OK10X57_6	Thalamus	OK10X57_7	Thalamus	OK10X08_1	Cephalic_E7-8	OK10X09_1		FAILED10X09_2		FAILED10X09_3		FAILED10X10_2	Midbrain_E12-15	OK10X10_3	ForebrainDorsal_E12-15	OK10X10_4		FAILED10X12_2	Midbrain_E12-15	OK10X12_3	ForebrainDorsal_E12-15	OK10X12_4	ForebrainVentral_E12-15	OK10X13_2		FAILED10X13_3		FAILED10X13_4	ForebrainDorsal_E12-15	OK10X13_5	ForebrainVentral_E12-15	OK10X14_2	Hindbrain_E12-15	OK10X14_3	Midbrain_E12-15	OK10X14_4	ForebrainDorsal_E12-15	OK10X15_2	Midbrain_E12-15	OK10X15_3	Midbrain_E12-15	OK10X15_4	ForebrainDorsal_E12-15	OK10X15_5	ForebrainVentral_E12-15	OK10X16_2	Midbrain_E12-15	OK10X16_3	Midbrain_E12-15	OK10X16_4	ForebrainDorsal_E12-15	OK10X16_5	ForebrainVentral_E12-15	OK10X17_2	Hindbrain_E16-18	OK10X17_3	Midbrain_E16-18	OK10X17_4	ForebrainDorsal_E16-18	OK10X17_5	ForebrainVentrolateral_E16-18	OK10X18_2	Hindbrain_E16-18	OK10X18_3	Midbrain_E16-18	OK10X18_4	ForebrainDorsal_E16-18	OK10X18_5	ForebrainVentrolateral_E16-18	OK10X21_2	Cephalic_E7-8	OK10X23_2	Cephalic_E7-8	OK10X23_3	Hindbrain_E9-11	OK10X23_4	Midbrain_E9-11	OK10X25_2	Hindbrain_E9-11	OK10X25_3	Midbrain_E9-11	OK10X25_4	Forebrain_E9-11	OK10X25_5	Forebrain_E9-11	OK10X25_6	Midbrain_E9-11	OK10X25_7	Hindbrain_E9-11	OK10X27_2	Hindbrain_E9-11	OK10X27_3	Midbrain_E9-11	OK10X27_7	Forebrain_E9-11	OK10X29_2	Hindbrain_E12-15	OK10X29_3	Midbrain_E12-15	OK10X30_4	ForebrainDorsal_E16-18	OK10X30_5	ForebrainVentrolateral_E16-18	OK10X31_5	ForebrainVentrolateral_E16-18	OK10X32_2	ForebrainDorsal_E16-18	OK10X32_3	Hindbrain_E16-18	OK10X32_4	ForebrainVentrothalamic_E16-18	OK10X32_5	Midbrain_E16-18	OK10X32_6	ForebrainVentrolateral_E16-18	OK10X37_2	Cephalic_E7-8	OK10X39_2	Cephalic_E7-8	OK10X39_3	Cephalic_E7-8	OK10X40_3	Hindbrain_E9-11	OK10X40_4	Midbrain_E9-11	OK10X40_5	Forebrain_E9-11	OK10X40_6	Midbrain_E9-11	OK10X41_3	Hindbrain_E12-15	OK10X41_6	ForebrainVentral_E12-15	OK10X42_3	Hindbrain_E12-15	OK10X44_3	Hindbrain_E12-15	OK10X45_2	Hindbrain_E16-18	OK10X45_4	ForebrainDorsal_E16-18	OK10X45_5	ForebrainVentrolateral_E16-18	OK10X45_6	ForebrainVentrothalamic_E16-18	OK10X47_2	Cortex_P7	OK10X47_3	Cortex_P7	OK10X58_5	Forebrain_E9-11	OK10X59_3	Hindbrain_E9-11	OK10X59_5	ForebrainDorsal_E12-15	OK10X60_3	Hindbrain_E12-15	OK10X68_6	Hindbrain_E16-18	OK10X69_4	ForebrainVentrothalamic_E16-18	OK10X70_3	ForebrainVentrothalamic_E16-18	OK10X70_4	Midbrain_E16-18	OK10X70_5	ForebrainDorsal_E16-18	OK10X70_6	ForebrainVentrothalamic_E16-18	OK10X71_3	ForebrainDorsal_E12-15	OK10X71_5	Forebrain_E9-11	OK
+SampleID	Pool	QC	Project		
+10X01_1	Cortex2	OK	Adolescent	10X01_1.loom	TRUE
+10X02_1	Cortex2	OK	Adolescent	10X02_1.loom	TRUE
+10X04_1	Hippocampus	OK	Adolescent	10X04_1.loom	TRUE
+10X04_2	Hippocampus	OK	Adolescent	10X04_2.loom	TRUE
+10X04_3	Olfactory	FAILED	Adolescent	10X04_3.loom	TRUE
+10X04_4	Olfactory	OK	Adolescent	10X04_4.loom	TRUE
+10X05_1	Cortex1	OK	Adolescent	10X05_1.loom	TRUE
+10X05_2	Cortex1	OK	Adolescent	10X05_2.loom	TRUE
+10X05_3	StriatumDorsal	OK	Adolescent	10X05_3.loom	TRUE
+10X05_4	StriatumDorsal	OK	Adolescent	10X05_4.loom	TRUE
+10X06_1	Amygdala	OK	Adolescent	10X06_1.loom	TRUE
+10X06_2	Amygdala	OK	Adolescent	10X06_2.loom	TRUE
+10X06_3	Hypothalamus	OK	Adolescent	10X06_3.loom	TRUE
+10X07_1	Hippocampus	OK	Adolescent	10X07_1.loom	TRUE
+10X08_1	Cephalic_E7-8	OK	Development	10X08_1.loom	TRUE
+10X09_1		FAILED	Development	10X09_1.loom	TRUE
+10X09_2		FAILED	Development	10X09_2.loom	TRUE
+10X09_3		FAILED	Development	10X09_3.loom	TRUE
+10X10_2	Midbrain_E12-15	OK	Development	10X10_2.loom	TRUE
+10X10_3	ForebrainDorsal_E12-15	OK	Development	10X10_3.loom	TRUE
+10X10_4		FAILED	Development	10X10_4.loom	TRUE
+10X11_1	Medulla	OK	Adolescent	10X11_1.loom	TRUE
+10X12_2	Midbrain_E12-15	OK	Development	10X12_2.loom	TRUE
+10X12_3	ForebrainDorsal_E12-15	OK	Development	10X12_3.loom	TRUE
+10X12_4	ForebrainVentral_E12-15	OK	Development	10X12_4.loom	TRUE
+10X13_2		FAILED	Development	10X13_2.loom	TRUE
+10X13_3		FAILED	Development	10X13_3.loom	TRUE
+10X13_4	ForebrainDorsal_E12-15	OK	Development	10X13_4.loom	TRUE
+10X13_5	ForebrainVentral_E12-15	OK	Development	10X13_5.loom	TRUE
+10X14_2	Hindbrain_E12-15	OK	Development	10X14_2.loom	TRUE
+10X14_3	Midbrain_E12-15	OK	Development	10X14_3.loom	TRUE
+10X14_4	ForebrainDorsal_E12-15	OK	Development	10X14_4.loom	TRUE
+10X15_2	Midbrain_E12-15	OK	Development	10X15_2.loom	TRUE
+10X15_3	Midbrain_E12-15	OK	Development	10X15_3.loom	TRUE
+10X15_4	ForebrainDorsal_E12-15	OK	Development	10X15_4.loom	TRUE
+10X15_5	ForebrainVentral_E12-15	OK	Development	10X15_5.loom	TRUE
+10X16_2	Midbrain_E12-15	OK	Development	10X16_2.loom	TRUE
+10X16_3	Midbrain_E12-15	OK	Development	10X16_3.loom	TRUE
+10X16_4	ForebrainDorsal_E12-15	OK	Development	10X16_4.loom	TRUE
+10X16_5	ForebrainVentral_E12-15	OK	Development	10X16_5.loom	TRUE
+10X17_2	Hindbrain_E16-18	OK	Development	10X17_2.loom	TRUE
+10X17_3	Midbrain_E16-18	OK	Development	10X17_3.loom	TRUE
+10X17_4	ForebrainDorsal_E16-18	OK	Development	10X17_4.loom	TRUE
+10X17_5	ForebrainVentrolateral_E16-18	OK	Development	10X17_5.loom	TRUE
+10X18_2	Hindbrain_E16-18	OK	Development	10X18_2.loom	TRUE
+10X18_3	Midbrain_E16-18	OK	Development	10X18_3.loom	TRUE
+10X18_4	ForebrainDorsal_E16-18	OK	Development	10X18_4.loom	TRUE
+10X18_5	ForebrainVentrolateral_E16-18	OK	Development	10X18_5.loom	TRUE
+10X19_1	Cortex2	FAILED	Adolescent	10X19_1.loom	TRUE
+10X19_2	Cortex2	OK	Adolescent	10X19_2.loom	TRUE
+10X19_3	Hypothalamus	FAILED	Adolescent	10X19_3.loom	TRUE
+10X19_4	Hypothalamus	FAILED	Adolescent	10X19_4.loom	TRUE
+10X20_1	Cortex3	OK	Adolescent	10X20_1.loom	TRUE
+10X20_2	Cortex3	OK	Adolescent	10X20_2.loom	TRUE
+10X20_3	MidbrainDorsal	OK	Adolescent	10X20_3.loom	TRUE
+10X20_4	MidbrainDorsal	OK	Adolescent	10X20_4.loom	TRUE
+10X21_2	Cephalic_E7-8	OK	Development	10X21_2.loom	TRUE
+10X22_1	Cortex1	OK	Adolescent	10X22_1.loom	TRUE
+10X22_2	Cortex1	OK	Adolescent	10X22_2.loom	TRUE
+10X22_3	Hippocampus	OK	Adolescent	10X22_3.loom	TRUE
+10X22_4	Hippocampus	OK	Adolescent	10X22_4.loom	TRUE
+10X23_2	Cephalic_E7-8	OK	Development	10X23_2.loom	TRUE
+10X23_3	Hindbrain_E9-11	OK	Development	10X23_3.loom	TRUE
+10X23_4	Midbrain_E9-11	OK	Development	10X23_4.loom	TRUE
+10X24_1	StriatumDorsal	OK	Adolescent	10X24_1.loom	TRUE
+10X24_2	StriatumDorsal	OK	Adolescent	10X24_2.loom	TRUE
+10X24_3	Thalamus	OK	Adolescent	10X24_3.loom	TRUE
+10X24_4	Thalamus	OK	Adolescent	10X24_4.loom	TRUE
+10X25_2	Hindbrain_E9-11	OK	Development	10X25_2.loom	TRUE
+10X25_3	Midbrain_E9-11	OK	Development	10X25_3.loom	TRUE
+10X25_4	Forebrain_E9-11	OK	Development	10X25_4.loom	TRUE
+10X25_5	Forebrain_E9-11	OK	Development	10X25_5.loom	TRUE
+10X25_6	Midbrain_E9-11	OK	Development	10X25_6.loom	TRUE
+10X25_7	Hindbrain_E9-11	OK	Development	10X25_7.loom	TRUE
+10X26_1	Cerebellum	OK	Adolescent	10X26_1.loom	TRUE
+10X26_2	Cerebellum	OK	Adolescent	10X26_2.loom	TRUE
+10X26_3	StriatumVentral	OK	Adolescent	10X26_3.loom	TRUE
+10X26_4	StriatumVentral	OK	Adolescent	10X26_4.loom	TRUE
+10X27_2	Hindbrain_E9-11	OK	Development	10X27_2.loom	TRUE
+10X27_3	Midbrain_E9-11	OK	Development	10X27_3.loom	TRUE
+10X27_7	Forebrain_E9-11	OK	Development	10X27_7.loom	TRUE
+10X28_2	Cortex3	OK	Adolescent	10X28_2.loom	TRUE
+10X28_3	Cortex3	OK	Adolescent	10X28_3.loom	TRUE
+10X28_4	Olfactory	OK	Adolescent	10X28_4.loom	TRUE
+10X28_5	Olfactory	OK	Adolescent	10X28_5.loom	TRUE
+10X29_2	Hindbrain_E12-15	OK	Development	10X29_2.loom	TRUE
+10X29_3	Midbrain_E12-15	OK	Development	10X29_3.loom	TRUE
+10X30_4	ForebrainDorsal_E16-18	OK	Development	10X30_4.loom	TRUE
+10X30_5	ForebrainVentrolateral_E16-18	OK	Development	10X30_5.loom	TRUE
+10X31_5	ForebrainVentrolateral_E16-18	OK	Development	10X31_5.loom	TRUE
+10X32_2	ForebrainDorsal_E16-18	OK	Development	10X32_2.loom	TRUE
+10X32_3	Hindbrain_E16-18	OK	Development	10X32_3.loom	TRUE
+10X32_4	ForebrainVentrothalamic_E16-18	OK	Development	10X32_4.loom	TRUE
+10X32_5	Midbrain_E16-18	OK	Development	10X32_5.loom	TRUE
+10X32_6	ForebrainVentrolateral_E16-18	OK	Development	10X32_6.loom	TRUE
+10X33_1	Medulla	OK	Adolescent	10X33_1.loom	TRUE
+10X33_2	Medulla	OK	Adolescent	10X33_2.loom	TRUE
+10X33_3	Pons	OK	Adolescent	10X33_3.loom	TRUE
+10X33_4	Pons	OK	Adolescent	10X33_4.loom	TRUE
+10X34_1	Amygdala	OK	Adolescent	10X34_1.loom	TRUE
+10X34_2	Amygdala	OK	Adolescent	10X34_2.loom	TRUE
+10X34_3	MidbrainVentral	OK	Adolescent	10X34_3.loom	TRUE
+10X34_4	MidbrainVentral	OK	Adolescent	10X34_4.loom	TRUE
+10X35_1	Cortex2	OK	Adolescent	10X35_1.loom	TRUE
+10X35_2	Cortex2	OK	Adolescent	10X35_2.loom	TRUE
+10X35_3	Hypothalamus	OK	Adolescent	10X35_3.loom	TRUE
+10X35_4	Hypothalamus	OK	Adolescent	10X35_4.loom	TRUE
+10X36_1	Hippocampus	OK	Adolescent	10X36_1.loom	TRUE
+10X36_2	Hippocampus	OK	Adolescent	10X36_2.loom	TRUE
+10X36_3	Cortex2	OK	Adolescent	10X36_3.loom	TRUE
+10X37_2	Cephalic_E7-8	OK	Development	10X37_2.loom	TRUE
+10X38_1	Hippocampus	OK	Adolescent	10X38_1.loom	TRUE
+10X38_2	Hippocampus	OK	Adolescent	10X38_2.loom	TRUE
+10X38_3	Cortex2	OK	Adolescent	10X38_3.loom	TRUE
+10X39_2	Cephalic_E7-8	OK	Development	10X39_2.loom	TRUE
+10X39_3	Cephalic_E7-8	OK	Development	10X39_3.loom	TRUE
+10X40_3	Hindbrain_E9-11	OK	Development	10X40_3.loom	TRUE
+10X40_4	Midbrain_E9-11	OK	Development	10X40_4.loom	TRUE
+10X40_5	Forebrain_E9-11	OK	Development	10X40_5.loom	TRUE
+10X40_6	Midbrain_E9-11	OK	Development	10X40_6.loom	TRUE
+10X41_3	Hindbrain_E12-15	OK	Development	10X41_3.loom	TRUE
+10X41_6	ForebrainVentral_E12-15	OK	Development	10X41_6.loom	TRUE
+10X42_3	Hindbrain_E12-15	OK	Development	10X42_3.loom	TRUE
+10X43_1	Hippocampus	OK	Adolescent	10X43_1.loom	TRUE
+10X43_2	DRG	OK	Adolescent	10X43_2.loom	TRUE
+10X43_3	SpinalCord	OK	Adolescent	10X43_3.loom	TRUE
+10X44_3	Hindbrain_E12-15	OK	Development	10X44_3.loom	TRUE
+10X45_2	Hindbrain_E16-18	OK	Development	10X45_2.loom	TRUE
+10X45_4	ForebrainDorsal_E16-18	OK	Development	10X45_4.loom	TRUE
+10X45_5	ForebrainVentrolateral_E16-18	OK	Development	10X45_5.loom	TRUE
+10X45_6	ForebrainVentrothalamic_E16-18	OK	Development	10X45_6.loom	TRUE
+10X46_1	Hippocampus	OK	Adolescent	10X46_1.loom	TRUE
+10X46_2	StriatumVentral	OK	Adolescent	10X46_2.loom	TRUE
+10X46_3	StriatumVentral	OK	Adolescent	10X46_3.loom	TRUE
+10X47_2	Cortex_P7	OK	Development	10X47_2.loom	TRUE
+10X47_3	Cortex_P7	OK	Development	10X47_3.loom	TRUE
+10X48_1	Medulla	OK	Adolescent	10X48_1.loom	TRUE
+10X48_2	Medulla	OK	Adolescent	10X48_2.loom	TRUE
+10X48_3	Pons	OK	Adolescent	10X48_3.loom	TRUE
+10X48_4	Pons	OK	Adolescent	10X48_4.loom	TRUE
+10X49_1	Amygdala	OK	Adolescent	10X49_1.loom	TRUE
+10X49_2	Amygdala	OK	Adolescent	10X49_2.loom	TRUE
+10X49_3	Amygdala	OK	Adolescent	10X49_3.loom	TRUE
+10X49_4	Olfactory	OK	Adolescent	10X49_4.loom	TRUE
+10X49_5	Olfactory	OK	Adolescent	10X49_5.loom	TRUE
+10X50_1	Hypothalamus	OK	Adolescent	10X50_1.loom	TRUE
+10X50_2	Hypothalamus	OK	Adolescent	10X50_2.loom	TRUE
+10X50_3	Hypothalamus	OK	Adolescent	10X50_3.loom	TRUE
+10X50_4	Hypothalamus	OK	Adolescent	10X50_4.loom	TRUE
+10X50_5	Thalamus	OK	Adolescent	10X50_5.loom	TRUE
+10X50_6	Thalamus	OK	Adolescent	10X50_6.loom	TRUE
+10X50_7	Thalamus	OK	Adolescent	10X50_7.loom	TRUE
+10X50_8	Thalamus	OK	Adolescent	10X50_8.loom	TRUE
+10X51_1	Cerebellum	OK	Adolescent	10X51_1.loom	TRUE
+10X51_2	Cerebellum	OK	Adolescent	10X51_2.loom	TRUE
+10X51_3	Hypothalamus	OK	Adolescent	10X51_3.loom	TRUE
+10X51_4	Hypothalamus	OK	Adolescent	10X51_4.loom	TRUE
+10X51_5	mES	OK	Adolescent	10X51_5.loom	TRUE
+10X52_1	MidbrainDorsal	OK	Adolescent	10X52_1.loom	TRUE
+10X52_2	MidbrainDorsal	OK	Adolescent	10X52_2.loom	TRUE
+10X52_3	MidbrainDorsal	OK	Adolescent	10X52_3.loom	TRUE
+10X52_4	MidbrainDorsal	OK	Adolescent	10X52_4.loom	TRUE
+10X52_5	MidbrainVentral	OK	Adolescent	10X52_5.loom	TRUE
+10X52_6	MidbrainVentral	OK	Adolescent	10X52_6.loom	TRUE
+10X52_7	MidbrainVentral	OK	Adolescent	10X52_7.loom	TRUE
+10X52_8	MidbrainVentral	OK	Adolescent	10X52_8.loom	TRUE
+10X53_1	SpinalCord	OK	Adolescent	10X53_1.loom	TRUE
+10X53_2	SpinalCord	OK	Adolescent	10X53_2.loom	TRUE
+10X53_3	SpinalCord	OK	Adolescent	10X53_3.loom	TRUE
+10X53_4	SpinalCord	OK	Adolescent	10X53_4.loom	TRUE
+10X53_5	SpinalCord	OK	Adolescent	10X53_5.loom	TRUE
+10X53_6	SpinalCord	OK	Adolescent	10X53_6.loom	TRUE
+10X53_7	DRG	OK	Adolescent	10X53_7.loom	TRUE
+10X54_1	Medulla	OK	Adolescent	10X54_1.loom	TRUE
+10X54_2	Medulla	OK	Adolescent	10X54_2.loom	TRUE
+10X54_3	Medulla	OK	Adolescent	10X54_3.loom	TRUE
+10X54_4	Medulla	OK	Adolescent	10X54_4.loom	TRUE
+10X54_5	Pons	OK	Adolescent	10X54_5.loom	TRUE
+10X54_6	Pons	OK	Adolescent	10X54_6.loom	TRUE
+10X54_7	Pons	OK	Adolescent	10X54_7.loom	TRUE
+10X54_8	Pons	OK	Adolescent	10X54_8.loom	TRUE
+10X55_1	Medulla	OK	Adolescent	10X55_1.loom	TRUE
+10X55_2	Medulla	OK	Adolescent	10X55_2.loom	TRUE
+10X55_3	Medulla	OK	Adolescent	10X55_3.loom	TRUE
+10X55_4	Medulla	OK	Adolescent	10X55_4.loom	TRUE
+10X55_5	Pons	OK	Adolescent	10X55_5.loom	TRUE
+10X55_6	Pons	OK	Adolescent	10X55_6.loom	TRUE
+10X55_7	Pons	OK	Adolescent	10X55_7.loom	TRUE
+10X55_8	Pons	OK	Adolescent	10X55_8.loom	TRUE
+10X56_1	Amygdala	FAILED	Adolescent	10X56_1.loom	TRUE
+10X56_2	Amygdala	OK	Adolescent	10X56_2.loom	TRUE
+10X56_3	Amygdala	OK	Adolescent	10X56_3.loom	TRUE
+10X56_4	Hypothalamus	FAILED	Adolescent	10X56_4.loom	TRUE
+10X56_6	Hypothalamus	OK	Adolescent	10X56_6.loom	TRUE
+10X56_8	Enteric	OK	Adolescent	10X56_8.loom	TRUE
+10X57_1	Hypothalamus	OK	Adolescent	10X57_1.loom	TRUE
+10X57_2	MidbrainDorsal	OK	Adolescent	10X57_2.loom	TRUE
+10X57_3	MidbrainDorsal	OK	Adolescent	10X57_3.loom	TRUE
+10X57_4	MidbrainVentral	OK	Adolescent	10X57_4.loom	TRUE
+10X57_5	MidbrainVentral	OK	Adolescent	10X57_5.loom	TRUE
+10X57_6	Thalamus	OK	Adolescent	10X57_6.loom	TRUE
+10X57_7	Thalamus	OK	Adolescent	10X57_7.loom	TRUE
+10X58_5	Forebrain_E9-11	OK	Development	10X58_5.loom	TRUE
+10X59_3	Hindbrain_E9-11	OK	Development	10X59_3.loom	TRUE
+10X59_5	ForebrainDorsal_E12-15	OK	Development	10X59_5.loom	TRUE
+10X60_3	Hindbrain_E12-15	OK	Development	10X60_3.loom	TRUE
+10X61_5	Hindbrain_E12-15	OK	Development	10X61_5.loom	TRUE
+10X62_3	Midbrain_E12-15	OK	Development	10X62_3.loom	TRUE
+10X64_3	ForebrainDorsal_E12-15	OK	Development	10X64_3.loom	TRUE
+10X66_3	Midbrain_E16-18	OK	Development	10X66_3.loom	TRUE
+10X66_4	Hindbrain_E16-18	OK	Development	10X66_4.loom	TRUE
+10X68_3	ForebrainVentrothalamic_E16-18	OK	Development	10X68_3.loom	TRUE
+10X68_4	ForebrainVentrothalamic_E16-18	OK	Development	10X68_4.loom	TRUE
+10X68_6	Hindbrain_E16-18	OK	Development	10X68_6.loom	TRUE
+10X69_4	ForebrainVentrothalamic_E16-18	OK	Development	10X69_4.loom	TRUE
+10X70_3	ForebrainVentrothalamic_E16-18	OK	Development	10X70_3.loom	TRUE
+10X70_4	Midbrain_E16-18	OK	Development	10X70_4.loom	TRUE
+10X70_5	ForebrainDorsal_E16-18	OK	Development	10X70_5.loom	TRUE
+10X70_6	ForebrainVentrothalamic_E16-18	OK	Development	10X70_6.loom	TRUE
+10X70_7	Midbrain_E16-18	OK	Development	10X70_7.loom	TRUE
+10X71_3	ForebrainDorsal_E12-15	OK	Development	10X71_3.loom	TRUE
+10X71_4	ForebrainVentral_E12-15	OK	Development	10X71_4.loom	TRUE
+10X71_5	Forebrain_E9-11	OK	Development	10X71_5.loom	TRUE
+10X73_5	Midbrain_E12-15	OK	Development	10X73_5.loom	TRUE
