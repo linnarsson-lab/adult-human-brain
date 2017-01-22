@@ -18,7 +18,8 @@ setup(
         'palettable',
         'tqdm'
     ],
-
+    # loom command
+    scripts=['cytograph/markerheatmap'],
     # metadata
     author="Linnarsson Lab",
     author_email="sten.linnarsson@ki.se",

@@ -7,7 +7,7 @@ from scipy.special import beta, betainc, betaln
 import loompy
 
 
-def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	Derive enrichment and trinary scores for all genes
 
@@ -30,14 +30,15 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 		regarding marker genes.
 		i usually rank the genes by some kind of enrichment score.
 		score1 = mean of gene within the cluster / mean of gene in all cells
-		score2 = fraction of positive cells within cluster / fraction of positive cells in all cells
+		score2 = fraction of positive cells within cluster
 
 		enrichment score = score1 * score2^power   (where power == 0.5 or 1) i usually use 1 for 10x data
 	"""
 
 	n_labels = np.max(labels) + 1
 
-	enrichment = np.empty((ds.shape[0], n_labels))
+	scores1 = np.empty((ds.shape[0], n_labels))
+	scores2 = np.empty((ds.shape[0], n_labels))
 	trinary_pat = np.empty((ds.shape[0], n_labels))
 	trinary_prob = np.empty((ds.shape[0], n_labels))
 
@@ -59,10 +60,11 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 					score2[lbl] = 0
 				else:
 					score1[lbl] = np.mean(sel) / mu0
-					score2[lbl] = np.count_nonzero(sel) / f0
-			enrichment[row, :] = score1 * score2
+					score2[lbl] = np.count_nonzero(sel) #  f0
+			scores1[row, :] = score1
+			scores2[row, :] = score2
 			trinary_prob[row, :], trinary_pat[row, :] = betabinomial_trinarize_array(data, labels, pep, f)
-	return (enrichment, trinary_prob, trinary_pat)
+	return (scores1, scores2, trinary_prob, trinary_pat)
 
 
 def p_half(k: int, n: int, f: float) -> float:

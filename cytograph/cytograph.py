@@ -186,8 +186,8 @@ class Cytograph:
 			sfdp_all[cells] = sfdp_pos
 
 		logging.info("Marker enrichment and trinarization")
-		(enrichment, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
-		save_diff_expr(ds, self.build_dir, tissue, enrichment, trinary_pat, trinary_prob)
+		(scores1, scores2, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
+		save_diff_expr(ds, self.build_dir, tissue, scores1*scores2, trinary_pat, trinary_prob)
 
 		# Auto-annotation
 		logging.info("Auto-annotating cell types and states")
