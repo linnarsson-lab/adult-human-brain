@@ -378,8 +378,18 @@ def super_heatmap(intensities: pd.DataFrame,
 				kind = ("binary",)
 		rowbar_bbox = [left-w_row_bar, bottom, w_row_bar, height]
 		row_bar = fig.add_axes(rowbar_bbox, sharey=heatmap_ax)
-		values, generated_cmap = generate_pcolor_args(rows_annot.ix[row_name].values, kind=kind[0])
-		row_bar.pcolorfast(values[:,None], cmap=generated_cmap)
+		r_values = rows_annot.ix[row_name].values
+		if np.equal(np.mod(r_values[0], 1), 0):
+			# Try to avoid that, because of an empty marker list, the colors of
+			# cell clusters and gene clusters stop to be the same
+			missing = np.setdiff1d( np.arange(np.max(r_values)+1), r_values )
+			logging.debug("Missing markers for clusters: %s" % missing)
+			r_values = np.r_[r_values, missing]
+			values, generated_cmap = generate_pcolor_args(r_values, kind=kind[0])
+			row_bar.pcolorfast(values[:len(r_values),None], cmap=generated_cmap)
+		else:
+			values, generated_cmap = generate_pcolor_args(r_values, kind=kind[0])
+			row_bar.pcolorfast(values[:,None], cmap=generated_cmap)
 		row_bar.tick_params(axis='both', bottom='off', top='off',
 							right='on',left='off',labelright="off",labelleft="on",labelbottom='off',
 							direction='in', labelsize=9, colors='k')
