@@ -52,7 +52,7 @@ class PCAProjection:
 			transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
 			j += n_cells_in_batch
 
-		# Must select significant components only one, and reuse for future transformations
+		# Must select significant components only once, and reuse for future transformations
 		if self.sigs is None:
 			pvalue_KS = np.zeros(transformed.shape[1])  # pvalue of each component
 			for i in range(1, transformed.shape[1]):
