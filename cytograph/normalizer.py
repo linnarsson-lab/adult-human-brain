@@ -23,14 +23,13 @@ class Normalizer:
 		if totals is None:
 			self.totals = ds.map(np.sum, axis=1)
 
-	def transform(self, vals: np.ndarray, cells: np.ndarray = None, totals: np.ndarray = None) -> np.ndarray:
+	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""
 		Normalize a matrix using the previously calculated aggregate statistics
 
 		Args:
 			vals (ndarray):		Matrix of shape (n_genes, n_cells)
 			cells (ndarray):	Optional indices of the cells that are represented in vals
-			totals (ndarray):	Optional count totals for the cells in vals
 
 		Returns:
 			vals_adjusted (ndarray):	The normalized values
@@ -46,6 +45,10 @@ class Normalizer:
 			# Scale to unit standard deviation per gene
 			vals = self._div0(vals, self.sd[:, None])
 		return vals
+
+	def fit_transform(self, ds: loompy.LoomConnection, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
+		self.fit(ds)
+		return self.transform(vals, cells)
 
 	def _div0(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
 		""" ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """

@@ -49,7 +49,8 @@ class Cytograph:
 			n_components: int = 50,
 			pep: float = 0.05,
 			f: float = 0.2,
-			sfdp: bool = False
+			sfdp: bool = False,
+			auto_annotate: bool = True
 		) -> None:
 
 		self.sample_dir = os.path.join(root, sample_dir)
@@ -64,6 +65,7 @@ class Cytograph:
 		self.pep = pep
 		self.f = f
 		self.plot_sfdp = sfdp
+		self.auto_annotate = auto_annotate
 
 	def list_tissues(self) -> List[str]:
 		temp = {}  # type: Dict[str, int]
@@ -128,6 +130,7 @@ class Cytograph:
 		logging.info("%d of %d cells were valid", n_valid, n_total)
 		logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
 		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+		self.cells = cells
 
 		# logging.info("Facet learning")
 		# labels = facets(ds, cells, config["facet_learning"])
@@ -144,11 +147,12 @@ class Cytograph:
 		temp = np.zeros(ds.shape[0])
 		temp[genes] = 1
 		ds.set_attr("_Selected", temp, axis=0)
-		plot_cv_mean(genes, normalizer.mu, normalizer.std, os.path.join(self.build_dir, tissue))
+		plot_cv_mean(genes, normalizer.mu, normalizer.sd, os.path.join(self.build_dir, tissue))
 
 		logging.info("PCA projection")
 		self.pca = cg.PCAProjection(genes, max_n_components=self.n_components)
-		pca_transformed = self.pca.fit_transform(ds, normalizer)
+		pca_transformed = self.pca.fit_transform(ds, normalizer, cells=cells)
+		self.pca_transformed = pca_transformed
 
 		logging.info("FastICA projection")
 		self.ica = FastICA()
@@ -160,6 +164,7 @@ class Cytograph:
 		logging.info("Generating KNN graph")
 		knn = kneighbors_graph(transformed, mode='distance', n_neighbors=self.k)
 		knn = knn.tocoo()
+		self.knn = knn
 
 		logging.info("Louvain-Jaccard clustering")
 		lj = cg.LouvainJaccard(resolution=self.lj_resolution)
@@ -168,9 +173,12 @@ class Cytograph:
 		# Make labels for excluded cells == -1
 		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 		labels_all[cells] = labels
+		self.lj_graph = lj.graph
+		self.labels = labels_all
 
 		# Mutual KNN
 		mknn = knn.minimum(knn.transpose()).tocoo()
+		self.mknn = mknn
 
 		logging.info("t-SNE layout")
 		tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
@@ -178,29 +186,39 @@ class Cytograph:
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		# Place the valid cells where they belong
 		tsne_all[cells] = tsne_pos
+		self.tsne = tsne_all
 
 		if self.plot_sfdp:
 			logging.info("SFDP layout")
 			sfdp_pos = cg.SFDP().layout(lj.graph)
 			sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
 			sfdp_all[cells] = sfdp_pos
+			self.sfdp = sfdp_all
 
 		logging.info("Marker enrichment and trinarization")
 		(scores1, scores2, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
-		save_diff_expr(ds, self.build_dir, tissue, scores1*scores2, trinary_pat, trinary_prob)
+		save_diff_expr(ds, self.build_dir, tissue, scores1 * scores2, trinary_pat, trinary_prob)
+		self.enrichment = scores1 * scores2
+		self.trinary_prob = trinary_prob
 
 		# Auto-annotation
-		logging.info("Auto-annotating cell types and states")
-		aa = cg.AutoAnnotator(ds, root=self.annotation_root)
-		(tags, annotations) = aa.annotate(ds, trinary_prob)
-		sizes = np.bincount(labels_all + 1)
-		save_auto_annotation(self.build_dir, tissue, sizes, annotations, tags)
+		tags = None  # type: np.ndarray
+		annotations = None  # type: np.ndarray
+		if self.auto_annotate:
+			logging.info("Auto-annotating cell types and states")
+			aa = cg.AutoAnnotator(ds, root=self.annotation_root)
+			(tags, annotations) = aa.annotate(ds, trinary_prob)
+			sizes = np.bincount(labels_all + 1)
+			save_auto_annotation(self.build_dir, tissue, sizes, annotations, tags)
+			self.aa_tags = tags
+			self.aa_annotations = annotations
 
 		logging.info("Plotting clusters on graph")
-		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
-		plot_clusters(mknn, labels, transformed[:, :2], tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
+		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+		plot_clusters(mknn, labels, pca_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
+		plot_clusters(mknn, labels, ica_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_ICA"))
 		if self.plot_sfdp:
-			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, plt_labels=True, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
+			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
 
 		logging.info("Saving attributes")
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
@@ -212,20 +230,6 @@ class Cytograph:
 		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 
-		self.pca_transformed = transformed
-		self.tsne = tsne_all
-		if self.plot_sfdp:
-			self.sfdp = sfdp_all
-		self.knn = knn
-		self.mknn = mknn
-		self.lj_graph = lj.graph
-		self.labels = labels_all
-		self.cells = cells
-		self.aa_tags = tags
-		self.aa_annotations = annotations
-		self.enrichment = enrichment
-		self.trinary_prob = trinary_prob
-		self.pca = transformed
 		logging.info("Done.")
 
 
@@ -283,11 +287,12 @@ def save_diff_expr(ds: loompy.LoomConnection, build_dir: str, tissue: str, enric
 			f.write("\n")
 
 
-def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, plt_labels: bool = True, outfile: str = None) -> None:
+def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, outfile: str = None) -> None:
 	# Plot auto-annotation
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(knn)
 	ax = fig.add_subplot(111)
+	plt_labels = True if tags is not None else False
 
 	# Draw the KNN graph first, with gray transparent edges
 	if title is not None:
@@ -297,17 +302,17 @@ def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int,
 	# Then draw the nodes, colored by label
 	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
 	nx.draw_networkx_nodes(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, linewidths=0)
-	if plt_labels:
-		for lbl in range(0, max(labels) + 1):
-			if np.sum(labels == lbl) == 0:
-				continue
-			(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-			text_labels = ["#" + str(lbl + 1)]
+	for lbl in range(0, max(labels) + 1):
+		if np.sum(labels == lbl) == 0:
+			continue
+		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
+		text_labels = ["#" + str(lbl + 1)]
+		if plt_labels:
 			for ix, a in enumerate(annotations[:, lbl]):
 				if a >= 0.5:
 					text_labels.append(tags[ix].abbreviation)
-			text = "\n".join(text_labels)
-			ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
+		text = "\n".join(text_labels)
+		ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
 	if outfile is not None:
 		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
