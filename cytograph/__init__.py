@@ -12,3 +12,5 @@ from .normalizer import Normalizer
 from .projection import PCAProjection
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
+from .metagraph import MetaGraph
+

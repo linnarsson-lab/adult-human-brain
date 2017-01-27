@@ -43,6 +43,7 @@ class Cytograph:
 			pool_config: str = "pooling_specification.tab",
 			build_root: str = "loom_builds",
 			annotation_root: str = "../auto-annotation",
+			classification_build: str = "build_20170114_225636",
 			k: int = 30,
 			lj_resolution: float = 1.0,
 			n_genes: int = 2000,
@@ -57,6 +58,7 @@ class Cytograph:
 		self.build_root = os.path.join(root, build_root)
 		self.pool_config = os.path.join(root, pool_config)
 		self.annotation_root = os.path.join(root, annotation_root)
+		self.classification_build = classification_build
 		self.build_dir = None  # type: str
 		self.k = k
 		self.lj_resolution = lj_resolution
@@ -66,6 +68,8 @@ class Cytograph:
 		self.f = f
 		self.plot_sfdp = sfdp
 		self.auto_annotate = auto_annotate
+
+		# if self.classification_build is not None:
 
 	def list_tissues(self) -> List[str]:
 		temp = {}  # type: Dict[str, int]
@@ -169,7 +173,6 @@ class Cytograph:
 		logging.info("Louvain-Jaccard clustering")
 		lj = cg.LouvainJaccard(resolution=self.lj_resolution)
 		labels = lj.fit_predict(knn)
-		# g = lj.graph
 		# Make labels for excluded cells == -1
 		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 		labels_all[cells] = labels
@@ -195,6 +198,9 @@ class Cytograph:
 			sfdp_all[cells] = sfdp_pos
 			self.sfdp = sfdp_all
 
+		logging.info("Creating metagraph")
+		mg = cg.MetaGraph().make(knn, labels)
+
 		logging.info("Marker enrichment and trinarization")
 		(scores1, scores2, trinary_prob, trinary_pat) = cg.expression_patterns(ds, labels_all[cells], self.pep, self.f, cells)
 		save_diff_expr(ds, self.build_dir, tissue, scores1 * scores2, trinary_pat, trinary_prob)
@@ -214,11 +220,12 @@ class Cytograph:
 			self.aa_annotations = annotations
 
 		logging.info("Plotting clusters on graph")
-		plot_clusters(mknn, labels, tsne_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
-		plot_clusters(mknn, labels, pca_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
-		plot_clusters(mknn, labels, ica_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_ICA"))
+		plot_clusters(None, mknn, labels, tsne_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+		plot_clusters(None, mknn, labels, pca_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
+		plot_clusters(None, mknn, labels, ica_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_ICA"))
 		if self.plot_sfdp:
-			plot_clusters(mknn, labels, sfdp_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
+			plot_clusters(None, mknn, labels, sfdp_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_SFDP"))
+			plot_clusters(mg, mknn, labels, sfdp_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_metagraph"))
 
 		logging.info("Saving attributes")
 		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
@@ -249,7 +256,7 @@ def save_auto_annotation(build_dir: str, tissue: str, sizes: np.ndarray, annotat
 	with open(os.path.join(build_dir, tissue.replace(" ", "_") + "_annotations.tab"), "w") as f:
 		f.write("\t")
 		for j in range(annotations.shape[1]):
-			f.write(str(j + 1) + " (" + str(sizes[j]) + ")\t")
+			f.write(str(j) + " (" + str(sizes[j]) + ")\t")
 		f.write("\n")
 		for ix, tag in enumerate(tags):
 			f.write(str(tag) + "\t")
@@ -263,11 +270,11 @@ def save_diff_expr(ds: loompy.LoomConnection, build_dir: str, tissue: str, enric
 		f.write("Gene\t")
 		f.write("Valid\t")
 		for ix in range(enrichment.shape[1]):
-			f.write("Enr_" + str(ix + 1) + "\t")
+			f.write("Enr_" + str(ix) + "\t")
 		for ix in range(trinary_pat.shape[1]):
-			f.write("Trin_" + str(ix + 1) + "\t")
+			f.write("Trin_" + str(ix) + "\t")
 		for ix in range(trinary_prob.shape[1]):
-			f.write("Prob_" + str(ix + 1) + "\t")
+			f.write("Prob_" + str(ix) + "\t")
 		f.write("\n")
 
 		for row in range(enrichment.shape[0]):
@@ -287,32 +294,46 @@ def save_diff_expr(ds: loompy.LoomConnection, build_dir: str, tissue: str, enric
 			f.write("\n")
 
 
-def plot_clusters(knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, outfile: str = None) -> None:
+def plot_clusters(mg: nx.Graph, knn: np.ndarray, labels: np.ndarray, pos: Dict[int, Tuple[int, int]], tags: np.ndarray, annotations: np.ndarray, title: str = None, outfile: str = None) -> None:
 	# Plot auto-annotation
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(knn)
 	ax = fig.add_subplot(111)
 	plt_labels = True if tags is not None else False
 
-	# Draw the KNN graph first, with gray transparent edges
 	if title is not None:
-		plt.title(title, fontsize=14, fontweight='bold')
-	nx.draw_networkx_edges(g, pos=pos, alpha=0.1, width=0.1, edge_color='gray')
+		plt.title(title, fontsize=12, fontweight='bold')
 
-	# Then draw the nodes, colored by label
-	block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
-	nx.draw_networkx_nodes(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, linewidths=0)
+	if mg is None:
+		# Draw the KNN graph first, with gray transparent edges
+		nx.draw_networkx_edges(g, pos=pos, alpha=0.1, width=0.1, edge_color='gray')
+		# Then draw the nodes, colored by label
+		block_colors = (np.array(Tableau_20.colors) / 255)[np.mod(labels, 20)]
+		nx.draw_networkx_nodes(g, pos=pos, node_color=block_colors, node_size=10, alpha=0.5, linewidths=0)
+
+	mg_pos = []
 	for lbl in range(0, max(labels) + 1):
 		if np.sum(labels == lbl) == 0:
 			continue
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-		text_labels = ["#" + str(lbl + 1)]
+		mg_pos.append((x, y))
+		text_labels = ["#" + str(lbl)]
 		if plt_labels:
 			for ix, a in enumerate(annotations[:, lbl]):
 				if a >= 0.5:
 					text_labels.append(tags[ix].abbreviation)
 		text = "\n".join(text_labels)
 		ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
+
+	# Finally, draw the metagraph
+	if mg is not None:
+		edges = mg.edges()
+		weights = [mg[u][v]['weight'] for u, v in mg.edges()]
+		sizes = [d['size'] for n, d in mg.nodes(data=True)]
+		colors = (np.array(Tableau_20.colors) / 255)[np.mod(np.fromiter(range(0, max(labels)), dtype='int'), 20)]
+		nx.draw_networkx_edges(mg, edge_color='pink', ax=ax, pos=mg_pos, edges=edges, width=weights, alpha=0.2)
+		nx.draw_networkx_nodes(mg, ax=ax, pos=mg_pos, node_size=sizes, node_color=colors, alpha=0.5)
+
 	if outfile is not None:
 		fig.savefig(outfile + "_annotated.pdf")
 		plt.close()
