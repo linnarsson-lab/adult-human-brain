@@ -45,7 +45,7 @@ def loompy2annot(filename: str) -> pd.DataFrame:
 	return pd.DataFrame(ds.col_attrs, index=ds.col_attrs['CellID']).T
 
 
-def loompy2data_annot(filename: str) -> Tuple[loompy.LoomConnection, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def loompy2data_annot(filename: str, dtype: type = int) -> Tuple[loompy.LoomConnection, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
 	"""Load a loompy file as a pandas dataframe dropping column and row annotation
 	
 	Args
@@ -63,13 +63,35 @@ def loompy2data_annot(filename: str) -> Tuple[loompy.LoomConnection, pd.DataFram
 	ret= (ds,
 			pd.DataFrame(data=ds[:, :],
 						columns=ds.col_attrs['CellID'],
-						index=ds.row_attrs['Accession']).astype(int),
+						index=ds.row_attrs['Accession'], dtype=dtype),
 			pd.DataFrame( ds.col_attrs,
 						index=ds.col_attrs['CellID'] ).T,
 			pd.DataFrame( ds.row_attrs,
 						index=ds.row_attrs['Accession'] ).T)
 	ds.close()
 	return ret
+
+
+def loompy2valid_data_annot(filename: str, dtype: type = int) -> Tuple[loompy.LoomConnection, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+	"""Load valid cells from a loompy file as a pandas dataframe dropping column and row annotation
+	Based on the _Valid column attribute
+	Args
+	----
+	filename : str path to the .loom file
+
+	Returns
+	-------
+	ds: loompy.LoomConnection the connection to the loom file
+	df: pd.DataFrame data matrix with columns:CellId index:Gene
+	cols_df: pd.DataFrame column annotations index:CellId
+	rows_df: pd.DataFrame column annotations index:Accession
+	"""
+	ds, df, cols_df, rows_df = loompy2data_annot(filename, dtype)
+	# Filter Valid
+	bool_selection = (cols_df.ix["_Valid", :] == 1)
+	df = df.ix[:, bool_selection]
+	cols_df = cols_df.ix[:, bool_selection]
+	return ds, df, cols_df, rows_df
 
 
 def marker_table(df: pd.DataFrame, groups: np.ndarray, avg_N: int = 30) -> Tuple[DefaultDict, np.ndarray]:
