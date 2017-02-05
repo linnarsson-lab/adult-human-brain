@@ -19,7 +19,8 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 		cells (nump array):		Indices of cells to include
 
 	Returns:
-		enrichment (numpy 2d array):	Array of (n_genes, n_labels)
+		score1 (numpy 2d array):	Array of (n_genes, n_labels)
+		score2 (numpy 2d array):	Array of (n_genes, n_labels)
 		trinary (numpy 2d array):		Array of (n_genes, n_labels)
 
 	Remarks:

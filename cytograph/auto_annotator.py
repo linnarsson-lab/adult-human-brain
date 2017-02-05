@@ -40,7 +40,7 @@ class AutoAnnotator(object):
 		errors = False
 		for cur, dirs, files in os.walk(root):
 			for file in files:
-				if file[-3:] == ".md":
+				if file[-3:] == ".md" and file[-9:] != "README.md":
 					try:
 						tag = CellTag(cur[root_len:], os.path.join(cur, file))
 						for pos in tag.positives:
