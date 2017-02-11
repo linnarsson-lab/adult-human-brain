@@ -22,7 +22,6 @@ class Classifier:
 	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
-		self.ds_training = None  # type: loompy.LoomConnection
 		self.classes = classes
 		self.n_genes = n_genes
 		self.n_components = n_components
@@ -31,6 +30,7 @@ class Classifier:
 		self.pca = None  # type: cg.PCAProjection
 		self.ica = None  # type: FastICA
 		self.use_ica = use_ica
+		self.mu = None  # type: np.ndarray
 
 	def generate(self) -> None:
 		"""
@@ -45,7 +45,7 @@ class Classifier:
 				with open(os.path.join(self.build_dir, f), mode='r') as infile:
 					reader = csv.reader(infile, delimiter="\t")
 					for row in reader:
-						if len(row) == 2:
+						if len(row) == 2 and row[0][0] != '#':
 							class_defs[int(row[0])] = row[1]
 				# logging.info(", ".join(class_defs.values()))
 				self._generate_samples_for_file(tissue, class_defs)
@@ -56,8 +56,9 @@ class Classifier:
 		"""
 		ds = loompy.connect(os.path.join(self.build_dir, tissue + ".loom"))
 		fname = os.path.join(self.build_dir, self.classes + ".loom")
+		ds_training = None  # type: loompy.LoomConnection
 		if os.path.exists(fname):
-			self.ds_training = loompy.connect(fname)
+			ds_training = loompy.connect(fname)
 
 		# select cells
 		labels = ds.col_attrs["Clusters"]
@@ -72,11 +73,11 @@ class Classifier:
 			for key in class_defs:
 				class_labels[labels[selection] == key] = class_defs[key]
 			class_labels = class_labels.astype(str)
-			if self.ds_training is None:
+			if ds_training is None:
 				loompy.create(fname, vals, row_attrs=ds.row_attrs, col_attrs={"Class": class_labels})
-				self.ds_training = loompy.connect(fname)
+				ds_training = loompy.connect(fname)
 			else:
-				self.ds_training.add_columns(vals, {"Class": class_labels})
+				ds_training.add_columns(vals, {"Class": class_labels})
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		"""
@@ -86,6 +87,7 @@ class Classifier:
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
+		self.mu = normalizer.mu
 
 		logging.info("Feature selection")
 		genes = cg.FeatureSelection(2000).fit(ds)
@@ -115,6 +117,7 @@ class Classifier:
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
+		normalizer.mu = self.mu		# Use the same row means as were used during training
 
 		logging.info("PCA projection")
 		transformed = self.pca.transform(ds, normalizer)
@@ -128,20 +131,25 @@ class Classifier:
 
 		return (labels, self.label_encoder.inverse_transform(labels))
 
-	def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]={}) -> None:
+	def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]=None) -> Dict[str, loompy.LoomConnection]:
+		if dsout is None:
+			dsout = {}
 		for (ix, selection, vals) in ds.batch_scan(axis=1):
 			for lbl in range(np.max(labels) + 1):
 				subset = np.intersect1d(np.where(labels == lbl)[0], selection)
 				if subset.shape[0] == 0:
 					continue
-				m = vals[subset - ix, :]
+				m = vals[:, subset - ix]
 				ca = {}
 				for key in ds.col_attrs:
 					ca[key] = ds.col_attrs[key][subset]
 				name = names[lbl]
 				if name == "Neurons":
 					name = name + "_" + tissue
-				if name not in ds:
-					dsout[name] = loompy.create(os.path.join(self.build_dir, name + ".loom"), m, ds.row_attrs, ca)
+				if name.startswith("Exclude"):
+					pass
+				if name not in dsout:
+					dsout[name] = loompy.create(os.path.join(self.build_dir, "Class_" + name + ".loom"), m, ds.row_attrs, ca)
 				else:
 					dsout[name].add_columns(m, ca)
+		return dsout

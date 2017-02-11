@@ -41,7 +41,11 @@ def validate_genes(ds: loompy.LoomConnection) -> None:
 	valid = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
 	ds.set_attr("_Valid", valid, axis=0)
 
-def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_file: str, attrs: Dict = {}, make_doublets: bool = False, do_validate_genes: bool = False) -> Tuple[int, int]:
+
+def preprocess(loom_folder: str, build_folder: str, sample_ids: np.ndarray, out_file: str, attrs: Dict = None, make_doublets: bool = False, do_validate_genes: bool = False) -> Tuple[int, int]:
+	if attrs is None:
+		attrs = {}
+
 	# Keep track of temporary copies of the loom files
 	temp_files = []
 	n_valid = 0

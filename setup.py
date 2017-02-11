@@ -13,10 +13,13 @@ setup(
         'scikit-learn',
         'scipy',
         'annoy',
-        'numpy-groupies',
+        'numpy_groupies',
         'networkx',
         'palettable',
-        'tqdm'
+        'tqdm',
+        'pygraphviz',
+        'python-louvain',
+        'luigi'
     ],
     # loom command
     scripts=['cytograph/markerheatmap'],

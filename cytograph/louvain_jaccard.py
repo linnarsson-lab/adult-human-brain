@@ -41,4 +41,4 @@ class LouvainJaccard:
 			self.graph.add_edge(edge[0], edge[1], {'weight': weights[i]})
 
 		partitions = community.best_partition(self.graph, resolution=self.resolution)
-		return np.fromiter(partitions.values(), dtype='int')
+		return np.array([partitions[key] for key in range(knn.shape[0])])

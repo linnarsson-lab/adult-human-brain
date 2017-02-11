@@ -1,11 +1,14 @@
 import copy
 import json
 import logging
+import traceback
+import sys
 import os
 import csv
 from datetime import datetime
 from typing import *
 from multiprocessing import Pool
+import pickle
 import loompy
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,18 +25,9 @@ from sklearn.preprocessing import scale
 from sklearn.svm import SVR
 from scipy.stats import ks_2samp
 import networkx as nx
-# import community
 import cytograph as cg
 
 colors20 = np.array(Tableau_20.mpl_colors)
-
-
-# Run like this:
-#
-# import cytograph as cg
-# c = cg.Cytograph("path_to_root")
-# c.process("Cortex1")
-#
 
 
 class Cytograph:
@@ -51,14 +45,17 @@ class Cytograph:
 			pep: float = 0.05,
 			f: float = 0.2,
 			sfdp: bool = False,
-			auto_annotate: bool = True
+			auto_annotate: bool = True,
+			classify: bool = False
 		) -> None:
 
 		self.sample_dir = os.path.join(root, sample_dir)
 		self.build_root = os.path.join(root, build_root)
 		self.pool_config = os.path.join(root, pool_config)
 		self.annotation_root = os.path.join(root, annotation_root)
-		self.classification_build = classification_build
+		self.classification_build = os.path.join(root, build_root, classification_build)
+		self.classify = classify
+		self.classifier = None  # type: cg.Classifier
 		self.build_dir = None  # type: str
 		self.k = k
 		self.lj_resolution = lj_resolution
@@ -68,8 +65,18 @@ class Cytograph:
 		self.f = f
 		self.plot_sfdp = sfdp
 		self.auto_annotate = auto_annotate
+		self.prepare_classifier()
+		self.split_datasets = {}  # type: Dict[str, loompy.LoomConnection]
 
-		# if self.classification_build is not None:
+	def prepare_classifier(self) -> None:
+		if self.classify and self.classification_build is not None:
+			logging.info("Retraining SVM classifier")
+			self.classifier = cg.Classifier(self.classification_build, "mainClass", n_per_cluster=50, use_ica=False)
+			tr_fname = os.path.join(self.classification_build, "mainClass.loom")
+			if not os.path.exists(tr_fname):
+				self.classifier.generate()
+			ds_training = loompy.connect(tr_fname)
+			self.classifier.fit(ds_training)
 
 	def list_tissues(self) -> List[str]:
 		temp = {}  # type: Dict[str, int]
@@ -108,8 +115,9 @@ class Cytograph:
 			self._process_one(tissue)
 		except Exception as e:
 			logging.error(str(e))
+			traceback.print_exc(file=sys.stdout)
 
-	def _process_one(self, tissue: str) -> None:
+	def _process_one(self, tissue: str, preprocess: bool = True) -> None:
 		samples = []  # type: List[str]
 		with open(self.pool_config, 'r') as f:
 			for row in csv.reader(f, delimiter="\t"):
@@ -124,23 +132,18 @@ class Cytograph:
 		# logging.basicConfig(filename=os.path.join(build_dir, tissue.replace(" ", "_") + ".log"))
 		logging.info("Processing: " + tissue)
 
-		# Preprocessing
-		logging.info("Preprocessing " + tissue + " " + str(samples))
-		cg.preprocess(self.sample_dir, self.build_dir, samples, fname, {"title": tissue}, False, True)
+		if preprocess:
+			logging.info("Preprocessing " + tissue + " " + str(samples))
+			cg.preprocess(self.sample_dir, self.build_dir, samples, fname, {"title": tissue, "build": self.build_dir}, False, True)
 
 		ds = loompy.connect(fname)
+
 		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 		n_total = ds.shape[1]
 		logging.info("%d of %d cells were valid", n_valid, n_total)
 		logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
 		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 		self.cells = cells
-
-		# logging.info("Facet learning")
-		# labels = facets(ds, cells, config["facet_learning"])
-		# logging.info(labels.shape)
-		# n_labels = np.max(labels, axis=0) + 1
-		# logging.info("Found " + str(n_labels) + " clusters")
 
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(False)
@@ -169,6 +172,8 @@ class Cytograph:
 		knn = kneighbors_graph(transformed, mode='distance', n_neighbors=self.k)
 		knn = knn.tocoo()
 		self.knn = knn
+		with open("knn.pickle", "wb") as f:
+			pickle.dump(knn, f)
 
 		logging.info("Louvain-Jaccard clustering")
 		lj = cg.LouvainJaccard(resolution=self.lj_resolution)
@@ -183,13 +188,13 @@ class Cytograph:
 		mknn = knn.minimum(knn.transpose()).tocoo()
 		self.mknn = mknn
 
-		logging.info("t-SNE layout")
-		tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
+		# logging.info("t-SNE layout")
+		# tsne_pos = TSNE(init=transformed[:, :2]).fit_transform(transformed)
 		# Place all cells in the lower left corner
-		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+		# tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		# Place the valid cells where they belong
-		tsne_all[cells] = tsne_pos
-		self.tsne = tsne_all
+		# tsne_all[cells] = tsne_pos
+		# self.tsne = tsne_all
 
 		if self.plot_sfdp:
 			logging.info("SFDP layout")
@@ -219,8 +224,25 @@ class Cytograph:
 			self.aa_tags = tags
 			self.aa_annotations = annotations
 
+		if self.classify and self.classifier is not None:
+			logging.info("Classification")
+			(classes, class_labels) = self.classifier.predict(ds)
+			self.split_datasets = self.classifier.split(ds, tissue, classes, class_labels, self.split_datasets)
+
+			# Save classification table
+			with open(os.path.join(self.build_dir, tissue.replace(" ", "_") + "_classifications.tab"), "w") as f:
+				f.write("\t")
+				for i in range(max(labels_all) + 1):
+					f.write(str(i) + "\t")
+				f.write("\n")
+				for j in range(max(classes) + 1):
+					f.write(self.classifier.label_encoder.classes_[j] + "\t")
+					for i in range(max(labels_all) + 1):
+						f.write(str(np.logical_and(classes == j, labels_all == i).sum()) + "\t")
+					f.write("\n")
+
 		logging.info("Plotting clusters on graph")
-		plot_clusters(None, mknn, labels, tsne_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
+		# plot_clusters(None, mknn, labels, tsne_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_tSNE"))
 		plot_clusters(None, mknn, labels, pca_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_PCA"))
 		plot_clusters(None, mknn, labels, ica_transformed[:, :2], tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_ICA"))
 		if self.plot_sfdp:
@@ -228,8 +250,8 @@ class Cytograph:
 			plot_clusters(mg, mknn, labels, sfdp_pos, tags, annotations, title=tissue, outfile=os.path.join(self.build_dir, tissue + "_metagraph"))
 
 		logging.info("Saving attributes")
-		ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
-		ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
+		# ds.set_attr("_tSNE_X", tsne_all[:, 0], axis=1)
+		# ds.set_attr("_tSNE_Y", tsne_all[:, 1], axis=1)
 		if self.plot_sfdp:
 			ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
 			ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
