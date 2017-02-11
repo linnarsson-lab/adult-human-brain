@@ -237,3 +237,17 @@ ZF02	ZF_skin	OK	Zebrafish
 10X74_4	ForebrainDorsal_E12-15	OK	Development
 10X75_1	Sympathetic	OK	Adolescent
 10X_100k	CortexHippocampus	OK	Development
+Cephalic_E7-8	All_dev	OK	Development
+Forebrain_E9-11	All_dev	OK	Development
+Midbrain_E9-11	All_dev	OK	Development
+Hindbrain_E9-11	All_dev	OK	Development
+ForebrainDorsal_E12-15	All_dev	OK	Development
+ForebrainVentral_E12-15	All_dev	OK	Development
+Midbrain_E12-15	All_dev	OK	Development
+Hindbrain_E12-15	All_dev	OK	Development
+ForebrainDorsal_E16-18	All_dev	OK	Development
+ForebrainVentrolateral_E16-18	All_dev	OK	Development
+ForebrainVentrothalamic_E16-18	All_dev	OK	Development
+Midbrain_E16-18	All_dev	OK	Development
+Hindbrain_E16-18	All_dev	OK	Development
+Cortex_P7	All_dev	OK	Development
