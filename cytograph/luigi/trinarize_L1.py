@@ -19,7 +19,7 @@ class TrinarizeL1(luigi.Task):
 	"""
 	tissue = luigi.Parameter()
 
-	def requires(self) -> cg.PrepareTissuePool:
+	def requires(self) -> luigi.Task:
 		return cg.ClusterLayoutL1(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:

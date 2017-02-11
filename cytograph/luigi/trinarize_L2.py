@@ -21,7 +21,7 @@ class TrinarizeL2(luigi.Task):
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 
-	def requires(self) -> cg.PrepareTissuePool:
+	def requires(self) -> luigi.Task:
 		return cg.ClusterLayoutL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
 
 	def output(self) -> luigi.Target:

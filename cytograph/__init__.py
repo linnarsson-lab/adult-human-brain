@@ -14,4 +14,5 @@ from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer
 from .pool_spec import PoolSpec
 from .cluster_layout import cluster_layout
+from .plots import plot_cv_mean, plot_graph
 from .luigi import *

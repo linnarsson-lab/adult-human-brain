@@ -7,6 +7,7 @@ import luigi
 import cytograph as cg
 import loompy
 
+
 class PrepareTissuePool(luigi.Task):
 	"""
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
