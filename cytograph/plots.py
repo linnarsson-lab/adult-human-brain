@@ -35,7 +35,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	valid = ds.col_attrs["_Valid"].astype('bool')
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
-	sfdp = np.vstack((ds.col_attrs["_SFDP_X"], ds.col_attrs["_SFDP_Y"])).transpose()[valid, :]
+	sfdp = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
 	labels = ds.col_attrs["Clusters"][valid]
 
 	fig = plt.figure(figsize=(5, 5))

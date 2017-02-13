@@ -1,7 +1,8 @@
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, Popen
 from typing import *
 import tempfile
 import os
+from struct import calcsize, pack, unpack
 import shutil
 import logging
 import numpy as np
@@ -65,6 +66,53 @@ class SFDP:
 		coords = coords[coords[:, 0].argsort()][:, -2:]
 		shutil.rmtree(tempdir)
 		return coords
+
+
+def _read_unpack(fmt: str, fh: Any) -> Any:
+	return unpack(fmt, fh.read(calcsize(fmt)))
+
+
+class TSNE:
+	def __init__(self, theta: float = 0.5, perplexity: float = 50, n_dims: int = 2, max_iter: int = 1000) -> None:
+		self.theta = theta
+		self.perplexity = perplexity
+		self.n_dims = n_dims
+		self.max_iter = max_iter
+	
+	def layout(self, transformed: np.ndarray) -> None:
+		n_cells = transformed[0]
+		n_components = transformed[1]
+		with tempfile.TemporaryDirectory() as td:
+			with open(os.path.join(td, 'tsne.dat'), 'wb') as data_file:
+				# Write the bh_tsne header
+				data_file.write(pack('iiddii', n_cells, n_components, self.theta, self.perplexity, self.n_dims, self.max_iter))
+				# Then write the data
+				for ix in range(n_cells):
+					sample = transformed[ix, :]
+					data_file.write(pack('{}d'.format(len(sample)), *sample))
+
+			# Call bh_tsne and let it do its thing
+			with open(os.devnull, 'w') as dev_null:
+				bh_tsne_p = Popen(("bh_tsne", ), cwd=td)
+				bh_tsne_p.wait()
+				if bh_tsne_p.returncode != 0:
+					logging.error("TSNE layout failed to execute external binary 'bh_tsne' (check $PATH)")
+					raise RuntimeError()
+
+			# Read and pass on the results
+			with open(os.path.join(td, 'result.dat'), 'rb') as output_file:
+				# The first two integers are just the number of samples and the
+				#   dimensionality
+				_, n_dims = _read_unpack('ii', output_file)
+				# Collect the results, but they may be out of order
+				results = [_read_unpack('{}d'.format(n_dims), output_file) for _ in range(n_cells)]
+				# Now collect the landmark data so that we can return the data in
+				#   the order it arrived
+				results = [(_read_unpack('i', output_file), e) for e in results]
+				# Put the results in order and yield it
+				results.sort()
+				xy = [result for _, result in results]
+				return np.array(xy)
 
 
 class OpenOrd:

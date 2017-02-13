@@ -11,6 +11,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.linear_model import LogisticRegressionCV
 import loompy
 
 
@@ -19,7 +20,7 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
+	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False, method: str = "svc") -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
 		self.classes = classes
@@ -31,6 +32,7 @@ class Classifier:
 		self.ica = None  # type: FastICA
 		self.use_ica = use_ica
 		self.mu = None  # type: np.ndarray
+		self.method = method
 
 	def generate(self) -> None:
 		"""
@@ -108,7 +110,10 @@ class Classifier:
 		logging.info("Fitting linear SVM")
 		# optimize the classsifier on the training set, then score on the test set
 		train_X, test_X, train_Y, test_Y = train_test_split(transformed, true_labels, test_size=0.5, random_state=0)
-		self.clf = GridSearchCV(LinearSVC(), {'C': [0.01, 0.1, 1, 10, 100]}, cv=5)
+		if self.method == "svc":
+			self.clf = GridSearchCV(LinearSVC(), {'C': [0.01, 0.1, 1, 10, 100]}, cv=5)
+		else:
+			self.clf = LogisticRegressionCV(Cs=10, multi_class='multinomial', solver='sag')
 		self.clf.fit(train_X, train_Y)
 		logging.info("Optimal C = %f", self.clf.best_params_["C"])
 		logging.info("Performance:\n" + classification_report(test_Y, self.clf.predict(test_X), target_names=self.label_encoder.classes_))

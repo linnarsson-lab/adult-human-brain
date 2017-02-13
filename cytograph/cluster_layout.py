@@ -29,6 +29,7 @@ class clustering(luigi.Config):
 	use_ica = luigi.BoolParameter(default=True)
 	k = luigi.IntParameter(default=30)
 	lj_resolution = luigi.FloatParameter(default=1.0)
+	layout_method = luigi.Parameter(default='sfdp')
 
 
 def cluster_layout(ds: loompy.LoomConnection) -> None:
@@ -74,10 +75,18 @@ def cluster_layout(ds: loompy.LoomConnection) -> None:
 	labels_all[cells] = labels
 	ds.set_attr("Clusters", labels_all, axis=1)
 
-	logging.info("SFDP layout")
-	sfdp_pos = cg.SFDP().layout(lj.graph)
-	sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
-	sfdp_all[cells] = sfdp_pos
-	ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
-	ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
+	if clustering().layout_method == "sfdp":
+		logging.info("SFDP layout")
+		sfdp_pos = cg.SFDP().layout(lj.graph)
+		sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
+		sfdp_all[cells] = sfdp_pos
+		ds.set_attr("_X", sfdp_all[:, 0], axis=1)
+		ds.set_attr("_Y", sfdp_all[:, 1], axis=1)
+	else:
+		logging.info("TSNE layout")
+		tsne_pos = cg.TSNE().layout(transformed)
+		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
+		tsne_all[cells] = tsne_pos
+		ds.set_attr("_X", tsne_all[:, 0], axis=1)
+		ds.set_attr("_Y", tsne_all[:, 1], axis=1)
 
