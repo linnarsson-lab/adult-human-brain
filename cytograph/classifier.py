@@ -20,7 +20,7 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False, method: str = "svc") -> None:
+	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
 		self.classes = classes
@@ -32,7 +32,6 @@ class Classifier:
 		self.ica = None  # type: FastICA
 		self.use_ica = use_ica
 		self.mu = None  # type: np.ndarray
-		self.method = method
 
 	def generate(self) -> None:
 		"""
@@ -107,15 +106,11 @@ class Classifier:
 		self.label_encoder.fit(list(set(ds.col_attrs["Class"])))
 		true_labels = self.label_encoder.transform(ds.col_attrs["Class"])
 
-		logging.info("Fitting linear SVM")
+		logging.info("Fitting classifier")
 		# optimize the classsifier on the training set, then score on the test set
 		train_X, test_X, train_Y, test_Y = train_test_split(transformed, true_labels, test_size=0.5, random_state=0)
-		if self.method == "svc":
-			self.clf = GridSearchCV(LinearSVC(), {'C': [0.01, 0.1, 1, 10, 100]}, cv=5)
-		else:
-			self.clf = LogisticRegressionCV(Cs=10, multi_class='multinomial', solver='sag')
+		self.clf = LogisticRegressionCV(Cs=10, multi_class='multinomial', solver='sag')
 		self.clf.fit(train_X, train_Y)
-		logging.info("Optimal C = %f", self.clf.best_params_["C"])
 		logging.info("Performance:\n" + classification_report(test_Y, self.clf.predict(test_X), target_names=self.label_encoder.classes_))
 
 	def predict(self, ds: loompy.LoomConnection) -> np.ndarray:
@@ -131,10 +126,28 @@ class Classifier:
 			logging.info("FastICA projection")
 			transformed = self.ica.transform(transformed)
 
-		logging.info("Class prediction by linear SVM")
+		logging.info("Class prediction")
 		labels = self.clf.predict(transformed)
 
 		return (labels, self.label_encoder.inverse_transform(labels))
+
+	def predict_proba(self, ds: loompy.LoomConnection) -> np.ndarray:
+		logging.info("Normalization")
+		normalizer = cg.Normalizer(False)
+		normalizer.fit(ds)
+		normalizer.mu = self.mu		# Use the same row means as were used during training
+
+		logging.info("PCA projection")
+		transformed = self.pca.transform(ds, normalizer)
+
+		if self.use_ica:
+			logging.info("FastICA projection")
+			transformed = self.ica.transform(transformed)
+
+		logging.info("Class prediction")
+		probs = self.clf.predict_proba(transformed)
+
+		return (probs, self.label_encoder.classes_)
 
 	def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]=None) -> Dict[str, loompy.LoomConnection]:
 		if dsout is None:

@@ -28,6 +28,8 @@ class Classify(luigi.Task):
 			logging.info("Classification of major cell types")
 			logging.info("Note: as side-effect, the column attribute 'Class' will be set")
 			ds = loompy.connect(self.input()[1].fn)
-			(_, labels) = clf.predict(ds)
-			ds.set_attr("Class", labels, axis=1)
-			np.savetxt(fname, labels, fmt="%s")
+			(probs, labels) = clf.predict_proba(ds)
+			ds.set_attr("Class", labels[np.argmax(probs, axis=1)], axis=1)
+			for ix, label in enumerate(labels):
+				ds.set_attr("Class_" + label, probs[:, ix], axis=1)
+			np.savetxt(fname, probs)

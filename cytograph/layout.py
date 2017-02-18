@@ -79,17 +79,34 @@ class TSNE:
 		self.n_dims = n_dims
 		self.max_iter = max_iter
 	
-	def layout(self, transformed: np.ndarray) -> None:
-		n_cells = transformed[0]
-		n_components = transformed[1]
+	def layout(self, transformed: np.ndarray, n_dims: int, initial_pos: np.ndarray = None) -> None:
+		"""
+		Compute Barnes-Hut approximate t-SNE layout
+
+		Args:
+			transformed:	The (typically) PCA-transformed input data, shape: (n_samples, n_components)
+			n_dims:			2 or 3
+			initial_pos:	Initial layout, or None to use the first components of 'transformed'
+		
+		Remarks:
+			Requires 'bh_tsne' to be available on the $PATH
+		"""
+		n_cells = transformed.shape[0]
+		n_components = transformed.shape[1]
+		if initial_pos is None:
+			initial_pos = transformed[:, :n_dims]
 		with tempfile.TemporaryDirectory() as td:
-			with open(os.path.join(td, 'tsne.dat'), 'wb') as data_file:
+			with open(os.path.join(td, 'data.dat'), 'wb') as data_file:
 				# Write the bh_tsne header
 				data_file.write(pack('iiddii', n_cells, n_components, self.theta, self.perplexity, self.n_dims, self.max_iter))
+				# Write the initial positions
+				for ix in range(n_cells):
+					pos = initial_pos[ix, :]
+					data_file.write(pack('{}d'.format(pos.shape[0]), *pos))
 				# Then write the data
 				for ix in range(n_cells):
 					sample = transformed[ix, :]
-					data_file.write(pack('{}d'.format(len(sample)), *sample))
+					data_file.write(pack('{}d'.format(sample.shape[0]), *sample))
 
 			# Call bh_tsne and let it do its thing
 			with open(os.devnull, 'w') as dev_null:

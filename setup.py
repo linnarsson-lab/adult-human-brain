@@ -12,7 +12,6 @@ setup(
         'numpy',
         'scikit-learn',
         'scipy',
-        'annoy',
         'numpy_groupies',
         'networkx',
         'palettable',

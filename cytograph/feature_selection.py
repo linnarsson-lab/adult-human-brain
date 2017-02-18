@@ -27,7 +27,7 @@ class FeatureSelection:
 			ndarray of selected genes (list of ints)
 		"""
 		if mu is None or sd is None:
-			(mu, std) = ds.map((np.mean, np.std), axis=0, selection=cells)
+			(mu, sd) = ds.map((np.mean, np.std), axis=0, selection=cells)
 
 		valid = np.logical_and(
 			np.logical_and(
@@ -37,8 +37,8 @@ class FeatureSelection:
 			ds.row_attrs["Gene"] != "Tsix"
 		).astype('int')
 
-		ok = np.logical_and(mu > 0, std > 0)
-		cv = std[ok] / mu[ok]
+		ok = np.logical_and(mu > 0, sd > 0)
+		cv = sd[ok] / mu[ok]
 		log2_m = np.log2(mu[ok])
 		log2_cv = np.log2(cv)
 

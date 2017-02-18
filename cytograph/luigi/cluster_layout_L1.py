@@ -21,8 +21,6 @@ from scipy.stats import ks_2samp
 import networkx as nx
 
 
-
-
 class ClusterLayoutL1(luigi.Task):
 	"""
 	Luigi Task to cluster a Loom file by Louvain-Jaccard, and perform SFDP layout

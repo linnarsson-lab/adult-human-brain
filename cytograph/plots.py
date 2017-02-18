@@ -17,7 +17,7 @@ def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
 	selected = ds.row_attrs["_Selected"].astype('bool')
 	excluded = (1 - ds.row_attrs["_Valid"]).astype('bool')
 
-	fig = plt.figure(figsize=(4, 3))
+	fig = plt.figure(figsize=(8, 6))
 	ax1 = fig.add_subplot(111)
 	h1 = ax1.scatter(mu, cv, c='grey', alpha=0.5, marker=".", edgecolors="none")
 	h2 = ax1.scatter(mu[excluded], cv[excluded], alpha=0.5, marker=".", edgecolors="none")
@@ -38,7 +38,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	sfdp = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
 	labels = ds.col_attrs["Clusters"][valid]
 
-	fig = plt.figure(figsize=(5, 5))
+	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(mknn)
 	ax = fig.add_subplot(111)
 
@@ -60,5 +60,5 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 		ax.text(x, y, text, fontsize=8, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
 	ax.axis('off')
 	plt.tight_layout()
-	fig.savefig(out_file, format="png", dpi=144)
+	fig.savefig(out_file, format="png", dpi=300)
 	plt.close()

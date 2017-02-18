@@ -4,7 +4,7 @@ from .auto_annotator import AutoAnnotator, CellTag
 from .prommt import ProMMT
 from .facet_learning import Facet, FacetLearning
 from .louvain_jaccard import LouvainJaccard
-from .layout import OpenOrd, SFDP
+from .layout import OpenOrd, SFDP, TSNE
 from .normalizer import Normalizer
 from .projection import PCAProjection
 from .feature_selection import FeatureSelection
