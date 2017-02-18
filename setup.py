@@ -16,7 +16,6 @@ setup(
         'networkx',
         'palettable',
         'tqdm',
-        'pygraphviz',
         'python-louvain',
         'luigi'
     ],

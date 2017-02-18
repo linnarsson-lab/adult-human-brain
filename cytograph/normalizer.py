@@ -3,6 +3,7 @@ import loompy
 import numpy as np
 import logging
 
+
 class Normalizer:
 	"""
 	Normalize and optionally standardize a dataset, dealing properly with edge cases such as division by zero.
@@ -21,7 +22,7 @@ class Normalizer:
 		if mu is None or sd is None:
 			(self.sd, self.mu) = ds.map([np.std, np.mean], axis=0)
 		if totals is None:
-			self.totals = ds.map(np.sum, axis=1)
+			self.totals = ds.map(np.sum, chunksize=100, axis=1)
 
 	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""

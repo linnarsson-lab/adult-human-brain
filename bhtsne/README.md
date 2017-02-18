@@ -7,7 +7,7 @@ Modified from https://github.com/lvdmaaten/bhtsne to allow specifying the initia
 ## Compiling
 
 ```bash
-g++ sptree.cpp tsne.cpp -o bhtsne -O2
+g++ sptree.cpp tsne.cpp -o bh_tsne -O2
 ```
 
 ## Usage

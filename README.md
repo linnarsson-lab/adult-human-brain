@@ -13,7 +13,10 @@
 
 ## Installation
 
-1. Install [Anaconda](https://www.continuum.io/downloads)
-2. Clone this repository
-3. Run `python setup.py install`
+1. Install [Anaconda](https://www.continuum.io/downloads) 4.3.0, Python 3.6 version
+2. `git clone https://github.com/linnarsson-lab/cytograph.git`
+3. `cd bhtsne`
+4. `g++ sptree.cpp tsne.cpp -o bhtsne -O2`
+5. `cd ..`
+3. `python setup.py install`
 
