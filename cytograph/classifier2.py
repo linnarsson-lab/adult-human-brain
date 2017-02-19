@@ -32,7 +32,7 @@ class Classifier2:
 		self.use_ica = use_ica
 		self.mu = None  # type: np.ndarray
 		self.classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Ependymal"]
-		self.clfs = None  # type: Dict[str, LogisticRegressionCV]
+		self.clfs = {}  # type: Dict[str, LogisticRegressionCV]
 
 	def generate(self) -> None:
 		"""
@@ -108,7 +108,7 @@ class Classifier2:
 
 			logging.info("Fitting classifier")
 			# optimize the classsifier on the training set, then score on the test set
-			train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels, test_size=0.5, random_state=0)
+			train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels[cls], test_size=0.5, random_state=0)
 			self.clfs[cls] = LogisticRegressionCV(Cs=10, solver='sag')
 			self.clfs[cls].fit(train_X, train_Y)
 			logging.info("Performance:\n" + classification_report(test_Y, self.clfs[cls].predict(test_X), target_names=["Not " + cls, cls]))

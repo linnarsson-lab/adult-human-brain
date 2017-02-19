@@ -17,7 +17,7 @@ class AutoAnnotateL1(luigi.Task):
 	tissue = luigi.Parameter()
 
 	def requires(self) -> luigi.Task:
-		return cg.Trinarize(tissue=self.tissue)
+		return cg.TrinarizeL1(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".aa.tab"))

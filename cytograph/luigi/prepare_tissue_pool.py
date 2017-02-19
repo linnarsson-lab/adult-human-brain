@@ -49,7 +49,7 @@ class PrepareTissuePool(luigi.Task):
 			with open(self.input()[0].fn, "rb") as f:
 				clf = pickle.load(f)
 			(probs, labels) = clf.predict_proba(ds)
-			labels = [x.replace("-", "_") for x in labels]
+			labels = np.array([x.replace("-", "_") for x in labels])
 			ds.set_attr("Class", labels[np.argmax(probs, axis=1)], axis=1)
 			for ix, label in enumerate(labels):
 				ds.set_attr("Class_" + label, probs[:, ix], axis=1)

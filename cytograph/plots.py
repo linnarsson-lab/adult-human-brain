@@ -83,17 +83,18 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 	for ix, cls in enumerate(classes):
 		ax = fig.add_subplot(4, 2, ix + 1)
 		cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix]])
-		ax.set_title(classes[ix])
+		ax.set_title("P(" + classes[ix] + ")")
 		nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-		nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class_" + classes[ix]], node_size=10, alpha=0.4, linewidths=0, cmap=cmap)
+		nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class_" + classes[ix]][valid], node_size=10, alpha=0.4, linewidths=0, cmap=cmap)
 		ax.axis('off')
 		cells = ds.col_attrs["Class"] == classes[ix]
-		combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
+		if np.sum(cells) > 0:
+			combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
 
 	ax = fig.add_subplot(4, 2, 8)
-	ax.set_title("Classes")
+	ax.set_title("Class")
 	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=combined_colors, node_size=10, alpha=0.4, linewidths=0)
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=combined_colors[valid], node_size=10, alpha=0.4, linewidths=0)
 	ax.axis('off')
 
 	plt.tight_layout()

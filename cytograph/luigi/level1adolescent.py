@@ -19,4 +19,5 @@ class Level1Adolescent(luigi.WrapperTask):
 		for tissue in tissues:
 			yield cg.PlotCVMeanL1(tissue=tissue)
 			yield cg.PlotGraphL1(tissue=tissue)
+			yield cg.PlotClassesL1(tissue=tissue)
 			yield cg.MarkerEnrichmentL1(tissue=tissue)
