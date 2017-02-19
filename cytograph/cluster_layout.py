@@ -62,7 +62,7 @@ def cluster_layout(ds: loompy.LoomConnection) -> None:
 		transformed = FastICA().fit_transform(pca_transformed)
 
 	logging.info("Generating KNN graph")
-	nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=-1)
+	nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=4)
 	nn.fit(transformed)
 	knn = nn.kneighbors_graph(mode='distance')
 	knn = knn.tocoo()
