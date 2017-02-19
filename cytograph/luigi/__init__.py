@@ -18,3 +18,4 @@ from .trinarize_L1 import TrinarizeL1
 from .trinarize_L2 import TrinarizeL2
 from .level1adolescent import Level1Adolescent
 from .level2adolescent import Level2Adolescent
+from .plot_classes_L1 import PlotClassesL1

@@ -23,9 +23,9 @@ class SplitAndPool(luigi.Task):
 	def requires(self) -> luigi.Task:
 		tissues = cg.PoolSpec().tissues_for_project(self.project)
 		if self.tissue == "All":
-			return [(cg.PrepareTissuePool(tissue=tissue), cg.Classify(tissue=tissue)) for tissue in tissues]
+			return [cg.PrepareTissuePool(tissue=tissue) for tissue in tissues]
 		else:
-			return [(cg.PrepareTissuePool(tissue=self.tissue), cg.Classify(tissue=self.tissue))]
+			return [cg.PrepareTissuePool(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".loom"))
@@ -33,7 +33,7 @@ class SplitAndPool(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
-			for (clustered, _) in self.input():
+			for clustered in self.input():
 				ds = loompy.connect(clustered.fn)
 				labels = ds.col_attrs["Class"]
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
