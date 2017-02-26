@@ -75,7 +75,7 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 	fig = plt.figure(figsize=(10, 20))
 	g = nx.from_scipy_sparse_matrix(mknn)
-	classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Ependymal"]
+	classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune"]
 	colors = [plt.cm.get_cmap('Vega10')((ix + 0.5) / 10) for ix in range(10)]
 
 	combined_colors = np.zeros((ds.shape[1], 4)) + np.array((0.5, 0.5, 0.5, 0))
@@ -90,6 +90,16 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 		cells = ds.col_attrs["Class"] == classes[ix]
 		if np.sum(cells) > 0:
 			combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
+
+	ax = fig.add_subplot(4, 2, ix + 2)
+	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 1]])
+	ax.set_title("Erythrocytes")
+	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class"][valid] == "Erythrocyte", node_size=10, alpha=0.4, linewidths=0, cmap=cmap)
+	ax.axis('off')
+	cells = ds.col_attrs["Class"] == "Erythrocyte"
+	if np.sum(cells) > 0:
+		combined_colors[cells] = np.array([1, 0, 0, 0])
 
 	ax = fig.add_subplot(4, 2, 8)
 	ax.set_title("Class")

@@ -45,12 +45,29 @@ class PrepareTissuePool(luigi.Task):
 			valid_genes = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
 			ds.set_attr("_Valid", valid_genes, axis=0)
 			ds.set_attr("_Valid", np.concatenate(valid_cells), axis=1)
+
 			logging.info("Classifying cells by major class")
 			with open(self.input()[0].fn, "rb") as f:
-				clf = pickle.load(f)
-			(probs, labels) = clf.predict_proba(ds)
-			labels = np.array([x.replace("-", "_") for x in labels])
-			ds.set_attr("Class", labels[np.argmax(probs, axis=1)], axis=1)
+				clf = pickle.load(f)  # type: cg.Classifier
+			(probs, labels, classes) = clf.predict_proba(ds)
+			mapping = {
+				"Astrocyte": "Astrocyte",
+				"Ependymal": "Astrocyte",
+				"Neurons": "Neurons",
+				"Oligos": "Oligos",
+				"Cycling": "Cycling",
+				"Immune": "Immune",
+				"Vascular": "Vascular",
+				"OEC": "Astrocyte",
+				"Schwann": "Oligos",
+				"Excluded": "Excluded"
+			}
+			classes = np.array([mapping[c] for c in classes])
+			# add erythrocytes
+			hbb = np.where(ds.Gene == "Hbb-bs")[0][0]
+			ery = np.where(ds[hbb, :] > 0)[0]
+			classes[ery] = "Erythrocyte"
+			ds.set_attr("Class", classes, axis=1)
 			for ix, label in enumerate(labels):
 				ds.set_attr("Class_" + label, probs[:, ix], axis=1)
 			ds.close()

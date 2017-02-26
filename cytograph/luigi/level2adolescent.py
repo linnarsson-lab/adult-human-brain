@@ -16,11 +16,17 @@ class Level2Adolescent(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Ependymal"]
 		for tissue in tissues:
 			yield cg.PlotCVMeanL2(project="Adolescent", tissue=tissue, major_class="Neurons")
 			yield cg.PlotGraphL2(project="Adolescent", tissue=tissue, major_class="Neurons")
 			yield cg.MarkerEnrichmentL2(project="Adolescent", tissue=tissue, major_class="Neurons")
+
+		for tissue in tissues:
+			yield cg.PlotCVMeanL2(project="Adolescent", tissue=tissue, major_class="Excluded")
+			yield cg.PlotGraphL2(project="Adolescent", tissue=tissue, major_class="Excluded")
+			yield cg.MarkerEnrichmentL2(project="Adolescent", tissue=tissue, major_class="Excluded")
+
+		classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Ependymal"]
 		for cls in classes:
 			yield cg.PlotCVMeanL2(project="Adolescent", tissue="All", major_class=cls)
 			yield cg.PlotGraphL2(project="Adolescent", tissue="All", major_class=cls)

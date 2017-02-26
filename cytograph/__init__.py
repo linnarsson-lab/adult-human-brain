@@ -9,7 +9,6 @@ from .normalizer import Normalizer
 from .projection import PCAProjection
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
-from .classifier2 import Classifier2
 from .metagraph import MetaGraph
 from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer

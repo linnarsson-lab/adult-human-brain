@@ -20,25 +20,26 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, classes: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
+	def __init__(self, build_dir: str, class_annotations: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
-		self.classes = classes
+		self.class_annotations = class_annotations
 		self.n_genes = n_genes
 		self.n_components = n_components
-		self.clf = None  # type: GridSearchCV
-		self.label_encoder = None  # type: LabelEncoder
+		self.labels = {}  # type: Dict[str, np.ndarray]
 		self.pca = None  # type: cg.PCAProjection
 		self.ica = None  # type: FastICA
 		self.use_ica = use_ica
 		self.mu = None  # type: np.ndarray
+		self.classes = None  # type: List[str]
+		self.clfs = {}  # type: Dict[str, LogisticRegressionCV]
 
 	def generate(self) -> None:
 		"""
 		Scan the build folder and generate training datasets
 		"""
 		for f in os.listdir(self.build_dir):
-			if f.endswith(self.classes + ".txt"):
+			if f.endswith(self.class_annotations + ".txt"):
 				tissue = f.split("_")[0]
 				# Load the class definitions
 				logging.info("Loading class definitions from " + f)
@@ -56,7 +57,7 @@ class Classifier:
 		Add to a classification dataset (training, test, validation) from one particular tissue
 		"""
 		ds = loompy.connect(os.path.join(self.build_dir, tissue + ".loom"))
-		fname = os.path.join(self.build_dir, self.classes + ".loom")
+		fname = os.path.join(self.build_dir, self.class_annotations + ".loom")
 		ds_training = None  # type: loompy.LoomConnection
 		if os.path.exists(fname):
 			ds_training = loompy.connect(fname)
@@ -102,34 +103,16 @@ class Classifier:
 			self.ica = FastICA()
 			transformed = self.ica.fit_transform(transformed)
 
-		self.label_encoder = LabelEncoder()
-		self.label_encoder.fit(list(set(ds.col_attrs["Class"])))
-		true_labels = self.label_encoder.transform(ds.col_attrs["Class"])
+		self.classes = list(set(ds.col_attrs["Class"]))
+		for cls in self.classes:
+			self.labels[cls] = (ds.col_attrs["Class"] == cls).astype('int')
 
-		logging.info("Fitting classifier")
-		# optimize the classsifier on the training set, then score on the test set
-		train_X, test_X, train_Y, test_Y = train_test_split(transformed, true_labels, test_size=0.5, random_state=0)
-		self.clf = LogisticRegressionCV(Cs=10, multi_class='multinomial', solver='sag')
-		self.clf.fit(train_X, train_Y)
-		logging.info("Performance:\n" + classification_report(test_Y, self.clf.predict(test_X), target_names=self.label_encoder.classes_))
-
-	def predict(self, ds: loompy.LoomConnection) -> np.ndarray:
-		logging.info("Normalization")
-		normalizer = cg.Normalizer(False)
-		normalizer.fit(ds)
-		normalizer.mu = self.mu		# Use the same row means as were used during training
-
-		logging.info("PCA projection")
-		transformed = self.pca.transform(ds, normalizer)
-
-		if self.use_ica:
-			logging.info("FastICA projection")
-			transformed = self.ica.transform(transformed)
-
-		logging.info("Class prediction")
-		labels = self.clf.predict(transformed)
-
-		return (labels, self.label_encoder.inverse_transform(labels))
+			logging.info("Fitting classifier")
+			# optimize the classsifier on the training set, then score on the test set
+			train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels[cls], test_size=0.5, random_state=0)
+			self.clfs[cls] = LogisticRegressionCV(Cs=10, solver='sag')
+			self.clfs[cls].fit(train_X, train_Y)
+			logging.info("Performance:\n" + classification_report(test_Y, self.clfs[cls].predict(test_X), target_names=["Not " + cls, cls]))
 
 	def predict_proba(self, ds: loompy.LoomConnection) -> np.ndarray:
 		logging.info("Normalization")
@@ -145,9 +128,29 @@ class Classifier:
 			transformed = self.ica.transform(transformed)
 
 		logging.info("Class prediction")
-		probs = self.clf.predict_proba(transformed)
+		temp = []
+		for cls in self.classes:
+			temp.append(self.clfs[cls].predict_proba(transformed)[:, 1])
+		probs = np.vstack(temp).transpose()
 
-		return (probs, self.label_encoder.classes_)
+		logging.info(probs.shape)
+
+		# Now, we want to keep only cells that have P > 0.5 for one class and P < 0.2 for all others (except Cycling)
+		single_positives = np.sum(probs > 0.5, axis=1) == 1
+		probs_nocycling = np.delete(probs, np.where(self.classes == "Cycling")[0], axis=1)
+		other_negatives = np.sum(probs_nocycling > 0.2, axis=1) <= 1
+		selected = np.logical_and(single_positives, other_negatives)
+		selected_labels = []  # type: List[str]
+		for ix in range(ds.shape[1]):
+			if selected[ix]:
+				cls = self.classes[np.argmax(probs[ix, :])]
+				if cls.startswith("Exclude"):
+					selected_labels.append("Excluded")
+				else:
+					selected_labels.append(cls)
+			else:
+				selected_labels.append("Excluded")
+		return (probs, self.classes, selected_labels)
 
 	def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]=None) -> Dict[str, loompy.LoomConnection]:
 		if dsout is None:

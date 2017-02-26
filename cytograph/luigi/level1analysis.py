@@ -9,13 +9,15 @@ import cytograph as cg
 import luigi
 
 
-class Level1Adolescent(luigi.WrapperTask):
+class Level1Analysis(luigi.WrapperTask):
 	"""
-	Luigi Task to run all Level 2 analyses for adolescent mouse
+	Luigi Task to run all Level 1 analyses
 	"""
 
+	project = luigi.Parameter(default="Adolescent")
+
 	def requires(self) -> Iterator[luigi.Task]:
-		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
+		tissues = cg.PoolSpec().tissues_for_project(self.project)
 		for tissue in tissues:
 			yield cg.PlotCVMeanL1(tissue=tissue)
 			yield cg.PlotGraphL1(tissue=tissue)
