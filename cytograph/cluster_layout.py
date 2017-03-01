@@ -32,7 +32,7 @@ class clustering(luigi.Config):
 	use_sfdp = luigi.BoolParameter(default=False)
 
 
-def cluster_layout(ds: loompy.LoomConnection) -> None:
+def cluster_layout(ds: loompy.LoomConnection, use_existing_clusters: bool = False) -> None:
 	n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 	n_total = ds.shape[1]
 	logging.info("%d of %d cells were valid", n_valid, n_total)
@@ -61,34 +61,26 @@ def cluster_layout(ds: loompy.LoomConnection) -> None:
 		logging.info("FastICA projection")
 		transformed = FastICA().fit_transform(pca_transformed)
 
-	logging.info("Generating KNN graph")
-	nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=4)
-	nn.fit(transformed)
-	knn = nn.kneighbors_graph(mode='distance')
-	knn = knn.tocoo()
-	ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
-	mknn = knn.minimum(knn.transpose()).tocoo()
-	ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
+	if not use_existing_clusters:
+		logging.info("Generating KNN graph")
+		nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=4)
+		nn.fit(transformed)
+		knn = nn.kneighbors_graph(mode='distance')
+		knn = knn.tocoo()
+		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
+		mknn = knn.minimum(knn.transpose()).tocoo()
+		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 
-	logging.info("Louvain-Jaccard clustering")
-	lj = cg.LouvainJaccard(resolution=clustering().lj_resolution)
-	labels = lj.fit_predict(knn)
-	# Make labels for excluded cells == -1
-	labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-	labels_all[cells] = labels
-	ds.set_attr("Clusters", labels_all, axis=1)
-
-	sfdp_pos = None  # type: np.ndarray
-	if clustering().use_sfdp:
-		logging.info("SFDP layout")
-		sfdp_pos = cg.SFDP().layout_knn(mknn)
-		sfdp_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(sfdp_pos, axis=0)
-		sfdp_all[cells] = sfdp_pos
-		ds.set_attr("_SFDP_X", sfdp_all[:, 0], axis=1)
-		ds.set_attr("_SFDP_Y", sfdp_all[:, 1], axis=1)
+		logging.info("Louvain-Jaccard clustering")
+		lj = cg.LouvainJaccard(resolution=clustering().lj_resolution)
+		labels = lj.fit_predict(knn)
+		# Make labels for excluded cells == -1
+		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+		labels_all[cells] = labels
+		ds.set_attr("Clusters", labels_all, axis=1)
 
 	logging.info("TSNE layout")
-	tsne_pos = cg.TSNE().layout(transformed, 2, sfdp_pos)
+	tsne_pos = cg.TSNE().layout(transformed, 2)
 	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 	tsne_all[cells] = tsne_pos
 	ds.set_attr("_X", tsne_all[:, 0], axis=1)

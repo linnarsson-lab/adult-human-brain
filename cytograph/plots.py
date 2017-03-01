@@ -73,38 +73,50 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 	sfdp = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
 	labels = ds.col_attrs["Clusters"][valid]
 
-	fig = plt.figure(figsize=(10, 20))
+	fig = plt.figure(figsize=(24, 18))
 	g = nx.from_scipy_sparse_matrix(mknn)
-	classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune"]
-	colors = [plt.cm.get_cmap('Vega10')((ix + 0.5) / 10) for ix in range(10)]
+	classes = ["Neurons", "Astrocyte", "Ependymal", "OEC", "Oligos", "Schwann", "Cycling", "Vascular", "Immune"]
+	colors = [plt.cm.get_cmap('Vega20')((ix + 0.5) / 20) for ix in range(20)]
 
 	combined_colors = np.zeros((ds.shape[1], 4)) + np.array((0.5, 0.5, 0.5, 0))
 	
 	for ix, cls in enumerate(classes):
-		ax = fig.add_subplot(4, 2, ix + 1)
+		ax = fig.add_subplot(3, 4, ix + 1)
 		cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix]])
 		ax.set_title("P(" + classes[ix] + ")")
 		nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-		nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class_" + classes[ix]][valid], node_size=10, alpha=0.4, linewidths=0, cmap=cmap)
+		nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class_" + classes[ix]][valid], node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
 		ax.axis('off')
-		cells = ds.col_attrs["Class"] == classes[ix]
+		cells = ds.col_attrs["Class0"] == classes[ix]
 		if np.sum(cells) > 0:
 			combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
 
-	ax = fig.add_subplot(4, 2, ix + 2)
+	ax = fig.add_subplot(3, 4, ix + 2)
 	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 1]])
 	ax.set_title("Erythrocytes")
 	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class"][valid] == "Erythrocyte", node_size=10, alpha=0.4, linewidths=0, cmap=cmap)
+	ery_color = np.array([[1, 1, 1, 0], [0.9, 0.71, 0.76, 0]])[(ds.col_attrs["Class"][valid] == "Erythrocyte").astype('int')]
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ery_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
 	ax.axis('off')
-	cells = ds.col_attrs["Class"] == "Erythrocyte"
+	cells = ds.col_attrs["Class0"] == "Erythrocyte"
 	if np.sum(cells) > 0:
-		combined_colors[cells] = np.array([1, 0, 0, 0])
+		combined_colors[cells] = np.array([1, 0.71, 0.76, 0])
 
-	ax = fig.add_subplot(4, 2, 8)
+	ax = fig.add_subplot(3, 4, ix + 3)
+	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 2]])
+	ax.set_title("Excluded")
+	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
+	exc_color = np.array([[1, 1, 1, 0], [0.5, 0.5, 0.5, 0]])[(ds.col_attrs["Class0"][valid] == "Excluded").astype('int')]
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ery_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
+	ax.axis('off')
+	cells = ds.col_attrs["Class0"] == "Excluded"
+	if np.sum(cells) > 0:
+		combined_colors[cells] = np.array([0.5, 0.5, 0.5, 0])
+
+	ax = fig.add_subplot(3, 4, 12)
 	ax.set_title("Class")
 	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=combined_colors[valid], node_size=10, alpha=0.4, linewidths=0)
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=combined_colors[valid], node_size=10, alpha=0.6, linewidths=0)
 	ax.axis('off')
 
 	plt.tight_layout()

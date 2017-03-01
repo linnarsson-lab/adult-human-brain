@@ -16,7 +16,9 @@ from .split_and_pool import SplitAndPool
 from .train_classifier import TrainClassifier
 from .trinarize_L1 import TrinarizeL1
 from .trinarize_L2 import TrinarizeL2
-from .level1adolescent import Level1Adolescent
-from .level2adolescent import Level2Adolescent
+from .level1_analysis import Level1Analysis
+from .level2_analysis import Level2Analysis
 from .plot_classes_L1 import PlotClassesL1
 from .plot_classes_L2 import PlotClassesL2
+from .pool_layout_L3 import PoolLayoutL3
+

@@ -60,14 +60,29 @@ class PrepareTissuePool(luigi.Task):
 				"Vascular": "Vascular",
 				"OEC": "Astrocyte",
 				"Schwann": "Oligos",
-				"Excluded": "Excluded"
+				"Excluded": "Excluded",
+				"Unknown": "Excluded"
 			}
-			classes = np.array([mapping[c] for c in classes])
+			classes = np.array(classes, dtype=np.object_)
+			classes_pooled = np.array([mapping[c] for c in classes], dtype=np.object_)
+
 			# add erythrocytes
 			hbb = np.where(ds.Gene == "Hbb-bs")[0][0]
-			ery = np.where(ds[hbb, :] > 0)[0]
+			ery = np.where(ds[hbb, :] > 2)[0]
 			classes[ery] = "Erythrocyte"
-			ds.set_attr("Class", classes, axis=1)
+			classes_pooled[ery] = "Erythrocyte"
+
+			# mask invalid cells
+			classes[ds.col_attrs["_Valid"] == 0] = "Excluded"
+			classes_pooled[ds.col_attrs["_Valid"] == 0] = "Excluded"
+			ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
+			ds.set_attr("Class0", classes.astype('str'), axis=1)
+
+			# make excluded cells invalid
+			temp = ds.col_attrs["_Valid"]
+			temp[ds.col_attrs["Class"] == "Excluded"] = 0
+			ds.set_attr("_Valid", temp, axis=1)
+
 			for ix, label in enumerate(labels):
 				ds.set_attr("Class_" + label, probs[:, ix], axis=1)
 			ds.close()

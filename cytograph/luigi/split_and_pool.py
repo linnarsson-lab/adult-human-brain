@@ -28,7 +28,10 @@ class SplitAndPool(luigi.Task):
 			return [cg.PrepareTissuePool(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".loom"))
+		if self.project == "Development":
+			return luigi.LocalTarget(os.path.join("loom_builds", "Development_All.loom"))
+		else:
+			return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".loom"))
 		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
@@ -37,10 +40,14 @@ class SplitAndPool(luigi.Task):
 				ds = loompy.connect(clustered.fn)
 				labels = ds.col_attrs["Class"]
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
-					subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
-					if subset.shape[0] == 0:
-						continue
-					m = vals[:, subset - ix]
+					if self.project == "Adolescent":
+						subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
+						if subset.shape[0] == 0:
+							continue
+						m = vals[:, subset - ix]
+					else:
+						subset = selection
+						m = vals
 					ca = {}
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][subset]

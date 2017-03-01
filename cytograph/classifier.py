@@ -133,13 +133,12 @@ class Classifier:
 			temp.append(self.clfs[cls].predict_proba(transformed)[:, 1])
 		probs = np.vstack(temp).transpose()
 
-		logging.info(probs.shape)
+		cyc = np.where(np.array(self.classes) == "Cycling")[0][0]
 
 		# Now, we want to keep only cells that have P > 0.5 for one class and P < 0.2 for all others (except Cycling)
 		single_positives = np.sum(probs > 0.5, axis=1) == 1
-		probs_nocycling = np.delete(probs, np.where(self.classes == "Cycling")[0], axis=1)
-		other_negatives = np.sum(probs_nocycling > 0.2, axis=1) <= 1
-		selected = np.logical_and(single_positives, other_negatives)
+		other_negatives = (np.sum(probs > 0.2, axis=1) - probs[:, cyc] > 0.2) <= 1
+		selected = np.logical_or(np.logical_and(single_positives, other_negatives), probs[:, cyc] > 0.5)
 		selected_labels = []  # type: List[str]
 		for ix in range(ds.shape[1]):
 			if selected[ix]:
