@@ -1,7 +1,6 @@
 
 from .auto_annotate_L1 import AutoAnnotateL1
 from .auto_annotate_L2 import AutoAnnotateL2
-from .classify import Classify
 from .cluster_layout_L1 import ClusterLayoutL1
 from .cluster_layout_L2 import ClusterLayoutL2
 from .marker_enrichment_L1 import MarkerEnrichmentL1
