@@ -19,10 +19,12 @@ from sklearn.preprocessing import scale
 from sklearn.svm import SVR
 from scipy.stats import ks_2samp
 import networkx as nx
+import hdbscan
 
 
 # Config classes should be camel cased
 class clustering(luigi.Config):
+	method = luigi.Parameter(default="lj")  # or "hdbscan"
 	n_genes = luigi.IntParameter(default=2000)
 	standardize = luigi.BoolParameter(default=False)
 	n_components = luigi.IntParameter(default=50)
@@ -80,7 +82,7 @@ def cluster_layout(ds: loompy.LoomConnection, use_existing_clusters: bool = Fals
 		ds.set_attr("Clusters", labels_all, axis=1)
 
 	logging.info("TSNE layout")
-	tsne_pos = cg.TSNE().layout(transformed, 2)
+	tsne_pos = cg.TSNE(n_dims=2).layout(transformed)
 	tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 	tsne_all[cells] = tsne_pos
 	ds.set_attr("_X", tsne_all[:, 0], axis=1)

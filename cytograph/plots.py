@@ -107,7 +107,7 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax.set_title("Excluded")
 	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
 	exc_color = np.array([[1, 1, 1, 0], [0.5, 0.5, 0.5, 0]])[(ds.col_attrs["Class0"][valid] == "Excluded").astype('int')]
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ery_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
+	nx.draw_networkx_nodes(g, pos=sfdp, node_color=exc_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
 	ax.axis('off')
 	cells = ds.col_attrs["Class0"] == "Excluded"
 	if np.sum(cells) > 0:

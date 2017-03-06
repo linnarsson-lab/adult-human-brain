@@ -79,7 +79,7 @@ class TSNE:
 		self.n_dims = n_dims
 		self.max_iter = max_iter
 	
-	def layout(self, transformed: np.ndarray, n_dims: int, initial_pos: np.ndarray = None) -> None:
+	def layout(self, transformed: np.ndarray, initial_pos: np.ndarray = None) -> None:
 		"""
 		Compute Barnes-Hut approximate t-SNE layout
 
@@ -94,7 +94,7 @@ class TSNE:
 		n_cells = transformed.shape[0]
 		n_components = transformed.shape[1]
 		if initial_pos is None:
-			initial_pos = transformed[:, :n_dims]
+			initial_pos = transformed[:, :self.n_dims]
 		with tempfile.TemporaryDirectory() as td:
 			with open(os.path.join(td, 'data.dat'), 'wb') as data_file:
 				# Write the bh_tsne header

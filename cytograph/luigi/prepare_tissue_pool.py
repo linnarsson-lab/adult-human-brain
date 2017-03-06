@@ -7,6 +7,7 @@ import logging
 import luigi
 import cytograph as cg
 import loompy
+import numpy.core.defchararray as npstr
 
 
 class PrepareTissuePool(luigi.Task):
@@ -14,6 +15,7 @@ class PrepareTissuePool(luigi.Task):
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
 	"""
 	tissue = luigi.Parameter()
+	asclassified = luigi.BoolParameter(default=False)
 
 	def requires(self) -> List[luigi.Task]:
 		samples = cg.PoolSpec().samples_for_tissue(self.tissue)
@@ -33,6 +35,16 @@ class PrepareTissuePool(luigi.Task):
 				ds = loompy.connect(sample)
 				(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 				valid_cells.append(np.logical_and(mols >= 600, (mols / genes) >= 1.2).astype('int'))
+
+				logging.info("Computing mito/ribo ratio")
+				mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
+				ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
+				ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
+				mitox = ds[mito, :]
+				ribox = ds[ribo, :]
+				ratio = (mitox.sum(axis=0) + 1) / (ribox.sum(axis=0) + 1)
+				ds.set_attr("MitoRiboRatio", ratio, axis=1)
+
 				ds.close()
 
 			logging.info("Creating combined loom file")
@@ -78,10 +90,11 @@ class PrepareTissuePool(luigi.Task):
 			ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
 			ds.set_attr("Class0", classes.astype('str'), axis=1)
 
-			# make excluded cells invalid
-			temp = ds.col_attrs["_Valid"]
-			temp[ds.col_attrs["Class"] == "Excluded"] = 0
-			ds.set_attr("_Valid", temp, axis=1)
+			if self.asclassified:
+				# make excluded cells invalid
+				temp = ds.col_attrs["_Valid"]
+				temp[ds.col_attrs["Class"] == "Excluded"] = 0
+				ds.set_attr("_Valid", temp, axis=1)
 
 			for ix, label in enumerate(labels):
 				ds.set_attr("Class_" + label, probs[:, ix], axis=1)
