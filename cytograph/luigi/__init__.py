@@ -19,5 +19,6 @@ from .level1_analysis import Level1Analysis
 from .level2_analysis import Level2Analysis
 from .plot_classes_L1 import PlotClassesL1
 from .plot_classes_L2 import PlotClassesL2
+from .plot_classes_L3 import PlotClassesL3
 from .pool_layout_L3 import PoolLayoutL3
 

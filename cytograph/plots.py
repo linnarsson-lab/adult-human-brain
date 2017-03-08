@@ -65,6 +65,50 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	plt.close()
 
 
+def plot_classification(ds: loompy.LoomConnection, out_file: str) -> None:
+	n_cells = ds.shape[1]
+	valid = ds.col_attrs["_Valid"].astype('bool')
+	(a, b, w) = ds.get_edges("MKNN", axis=1)
+	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
+	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
+	labels = ds.col_attrs["Clusters"][valid]
+
+	fig = plt.figure(figsize=(10, 10))
+	g = nx.from_scipy_sparse_matrix(mknn)
+	classes = ["Neurons", "Astrocyte", "Ependymal", "OEC", "Oligos", "Schwann", "Cycling", "Vascular", "Immune"]
+	colors = [plt.cm.get_cmap('Vega20')((ix + 0.5) / 20) for ix in range(20)]
+
+	combined_colors = np.zeros((ds.shape[1], 4)) + np.array((0.5, 0.5, 0.5, 0))
+	
+	for ix, cls in enumerate(classes):
+		cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix]])
+		cells = ds.col_attrs["Class0"] == classes[ix]
+		if np.sum(cells) > 0:
+			combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
+
+	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 1]])
+	ery_color = np.array([[1, 1, 1, 0], [0.9, 0.71, 0.76, 0]])[(ds.col_attrs["Class"][valid] == "Erythrocyte").astype('int')]
+	cells = ds.col_attrs["Class0"] == "Erythrocyte"
+	if np.sum(cells) > 0:
+		combined_colors[cells] = np.array([1, 0.71, 0.76, 0])
+
+	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 2]])
+	exc_color = np.array([[1, 1, 1, 0], [0.5, 0.5, 0.5, 0]])[(ds.col_attrs["Class0"][valid] == "Excluded").astype('int')]
+	cells = ds.col_attrs["Class0"] == "Excluded"
+	if np.sum(cells) > 0:
+		combined_colors[cells] = np.array([0.5, 0.5, 0.5, 0])
+
+	ax = fig.add_subplot(1, 1, 1)
+	ax.set_title("Class")
+	nx.draw_networkx_edges(g, pos=pos, alpha=0.2, width=0.1, edge_color='gray')
+	nx.draw_networkx_nodes(g, pos=pos, node_color=combined_colors[valid], node_size=10, alpha=0.6, linewidths=0)
+	ax.axis('off')
+
+	plt.tight_layout()
+	fig.savefig(out_file, format="png", dpi=300)
+	plt.close()
+
+
 def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 	n_cells = ds.shape[1]
 	valid = ds.col_attrs["_Valid"].astype('bool')

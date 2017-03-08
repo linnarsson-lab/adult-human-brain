@@ -63,16 +63,16 @@ def cluster_layout(ds: loompy.LoomConnection, use_existing_clusters: bool = Fals
 		logging.info("FastICA projection")
 		transformed = FastICA().fit_transform(pca_transformed)
 
-	if not use_existing_clusters:
-		logging.info("Generating KNN graph")
-		nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=4)
-		nn.fit(transformed)
-		knn = nn.kneighbors_graph(mode='distance')
-		knn = knn.tocoo()
-		ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
-		mknn = knn.minimum(knn.transpose()).tocoo()
-		ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
+	logging.info("Generating KNN graph")
+	nn = NearestNeighbors(n_neighbors=clustering().k, algorithm="ball_tree", n_jobs=4)
+	nn.fit(transformed)
+	knn = nn.kneighbors_graph(mode='distance')
+	knn = knn.tocoo()
+	ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
+	mknn = knn.minimum(knn.transpose()).tocoo()
+	ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 
+	if not use_existing_clusters:
 		logging.info("Louvain-Jaccard clustering")
 		lj = cg.LouvainJaccard(resolution=clustering().lj_resolution)
 		labels = lj.fit_predict(knn)
