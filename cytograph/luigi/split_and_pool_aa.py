@@ -53,8 +53,8 @@ class SplitAndPoolAa(luigi.Task):
 			'NProg', '@N', '@GABA', '@DMid', 'EPN', 'DG-GC', '@CHind', 'COP', '@Eye', '@Habe', 'CHRD', 'EHProg', '@BMono',
 			'@PMid', 'MGL', 'Rgl', 'OPC', 'FGut', 'AEMeso', 'PyrL6b', 'PyrL4-5a', '@RDie', 'FrontM', 'OLIG', 'StemM']
 		endomesodermal_abbr = [
-			'PERI', '@Msn', 'Dermo', 'ExVE', 'AVE', 'CFacM', 'PxMeso', 'DVE', 'CrPr', 'PLAT', 'VSM','LEUKO', 'GUM',
-			'Tropho', 'MFIB', 'VLMC', '@Angio', 'EDEndo', 'CARD', 'Angio', 'VEC', 'VEC-FC', 'CrCr', 'Eryp','EFace',
+			'PERI', '@Msn', 'Dermo', 'ExVE', 'AVE', 'CFacM', 'PxMeso', 'DVE', 'CrPr', 'PLAT', 'VSM', 'LEUKO', 'GUM',
+			'Tropho', 'MFIB', 'VLMC', '@Angio', 'EDEndo', 'CARD', 'Angio', 'VEC', 'VEC-FC', 'CrCr', 'Eryp', 'EFace',
 			'LPMeso', 'PVM', 'ERY', 'OstCho']
 		lineage_abbr = {"Ectodermal": ectodermal_abbr, "Endomesodermal": endomesodermal_abbr}[self.lineage]
 
@@ -69,11 +69,13 @@ class SplitAndPoolAa(luigi.Task):
 					content = f.readlines()[1:]
 					for line in content:
 						tags.append(line.rstrip("\n").split('\t')[1].split(","))
+				# Select the tags that belong to the lineage
 				selected_tags = []
 				for i, t in enumerate(tags):
 					if np.any(np.in1d(i, lineage_abbr)):
 						selected_tags.append(i)
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
+					# Filter the cells that belong to the selected tags
 					subset = np.intersect1d(np.where(np.in1d(labels, selected_tags))[0], selection)
 					if subset.shape[0] == 0:
 						continue
@@ -81,6 +83,7 @@ class SplitAndPoolAa(luigi.Task):
 					ca = {}
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][subset]
+					# Add data to the loom file
 					if dsout is None:
 						dsout = loompy.create(out_file, m, ds.row_attrs, ca)
 					else:

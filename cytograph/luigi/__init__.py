@@ -12,6 +12,7 @@ from .plot_graph_L2 import PlotGraphL2
 from .prepare_tissue_pool import PrepareTissuePool
 from .sample import Sample
 from .split_and_pool import SplitAndPool
+from .split_and_pool_aa import SplitAndPoolAa
 from .train_classifier import TrainClassifier
 from .trinarize_L1 import TrinarizeL1
 from .trinarize_L2 import TrinarizeL2
