@@ -72,7 +72,7 @@ class SplitAndPoolAa(luigi.Task):
 				# Select the tags that belong to the lineage
 				selected_tags = []
 				for i, t in enumerate(tags):
-					if np.any(np.in1d(i, lineage_abbr)):
+					if np.any(np.in1d(t, lineage_abbr)):
 						selected_tags.append(i)
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
 					# Filter the cells that belong to the selected tags
