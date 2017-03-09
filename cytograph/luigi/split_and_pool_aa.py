@@ -43,7 +43,7 @@ class SplitAndPoolAa(luigi.Task):
 		return [[cg.ClusterLayoutL1(tissue=tissue), cg.AutoAnnotateL1(tissue=tissue)] for tissue in targets_map[self.target]]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + self.target + ".loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".loom"))
 		
 	def run(self) -> None:
 		# The following code needs to be updated whenever autoannotation is updated

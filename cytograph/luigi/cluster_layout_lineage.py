@@ -21,17 +21,28 @@ from scipy.stats import ks_2samp
 import networkx as nx
 
 
-class ClusterLayoutL1(luigi.Task):
+# Config classes should be camel cased
+class clustering(luigi.Config):
+	n_genes = luigi.IntParameter(default=2000)
+	standardize = luigi.BoolParameter(default=False)
+	n_components = luigi.IntParameter(default=50)
+	use_ica = luigi.BoolParameter(default=True)
+	k = luigi.IntParameter(default=30)
+	lj_resolution = luigi.FloatParameter(default=1.0)
+
+
+class ClusterLayoutLineage(luigi.Task):
 	"""
 	Luigi Task to cluster a Loom file by Louvain-Jaccard, and perform SFDP layout
 	"""
-	tissue = luigi.Parameter()
+	lineage = luigi.Parameter(default="Ectodermal")  # Alternativelly Endomesodermal
+	target = luigi.Parameter(default="All")  # one between Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral, ForebrainVentrothalamic, Midbrain, Hindbrain
 
 	def requires(self) -> luigi.Task:
-		return cg.PrepareTissuePool(tissue=self.tissue)
+		return cg.SplitAndPoolAa(lineage=self.lineage, target=self.target)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".LJ.loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".LJ.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
