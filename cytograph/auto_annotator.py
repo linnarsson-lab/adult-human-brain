@@ -72,6 +72,21 @@ class AutoAnnotator(object):
 		if errors:
 			raise ValueError("Error loading cell tag definitions")
 
+	def load_defs(self) -> None:
+		errors = False
+		root_len = len(self.root)
+		for cur, dirs, files in os.walk(self.root):
+			for file in files:
+				if file[-3:] == ".md" and file[-9:] != "README.md":
+					try:
+						tag = CellTag(cur[root_len:], os.path.join(cur, file))
+						self.tags.append(tag)
+					except ValueError as e:
+						logging.error(file + ": " + str(e))
+						errors = True
+		if errors:
+			raise ValueError("Error loading cell tag definitions")
+
 	def annotate(self, in_file: str) -> np.ndarray:
 		d = pd.read_csv(in_file, sep='\t', index_col=0)
 		self.genes = d.index.values

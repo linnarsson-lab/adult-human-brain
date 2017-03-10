@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi
-
+from collections import defaultdict
 
 class SplitAndPoolAa(luigi.Task):
 	"""
@@ -47,16 +47,14 @@ class SplitAndPoolAa(luigi.Task):
 		
 	def run(self) -> None:
 		# The following code needs to be updated whenever autoannotation is updated
-		ectodermal_abbr = [
-			'NProgF', 'ANPlt', 'SCHWA', 'DG-MSY', 'OB-OEC', '@OL', 'AC', '@IEG', 'CRC', '@p2AL', '@SER', 'IEar',
-			'HRgl3', '@DA', 'CNC', 'CrMN', 'NblastL1', '@Pall', 'PSN', '@VGLUT2', 'PyrL6b', 'NblastM', 'Nose', '@pTh',
-			'NProg', '@N', '@GABA', '@DMid', 'EPN', 'DG-GC', '@CHind', 'COP', '@Eye', '@Habe', 'CHRD', 'EHProg', '@BMono',
-			'@PMid', 'MGL', 'Rgl', 'OPC', 'FGut', 'AEMeso', 'PyrL6b', 'PyrL4-5a', '@RDie', 'FrontM', 'OLIG', 'StemM']
-		endomesodermal_abbr = [
-			'PERI', '@Msn', 'Dermo', 'ExVE', 'AVE', 'CFacM', 'PxMeso', 'DVE', 'CrPr', 'PLAT', 'VSM', 'LEUKO', 'GUM',
-			'Tropho', 'MFIB', 'VLMC', '@Angio', 'EDEndo', 'CARD', 'Angio', 'VEC', 'VEC-FC', 'CrCr', 'Eryp', 'EFace',
-			'LPMeso', 'PVM', 'ERY', 'OstCho']
-		lineage_abbr = {"Ectodermal": ectodermal_abbr, "Endomesodermal": endomesodermal_abbr}[self.lineage]
+		aa = cg.AutoAnnotator()
+		aa.load_defs()
+		categories_dict = defaultdict(list)  # type: DefaultDict
+		for t in aa.tags:
+			for c in t.categories:
+				categories_dict[c].append(t.abbreviation)
+
+		lineage_abbr = categories_dict[self.lineage]
 
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
