@@ -21,7 +21,7 @@ class SplitAndPoolAa(luigi.Task):
 	All (default), Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral, ForebrainVentrothalamic, Midbrain, Hindbrain
 	"""
 	# project = luigi.Parameter(default="Development")  # For now this works only for development
-	lineage = luigi.Parameter(default="Ectodermal")  # Alternativelly Endomesodermal
+	lineage = luigi.Parameter(default="Ectodermal")  # One of the categories in the autoannotation files
 	target = luigi.Parameter(default="All")  # one between Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral, ForebrainVentrothalamic, Midbrain, Hindbrain
 
 	def requires(self) -> luigi.Task:
