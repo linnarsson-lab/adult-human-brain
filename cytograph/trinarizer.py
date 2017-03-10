@@ -25,7 +25,7 @@ class Trinarizer:
 		j = 0
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			for j, row in enumerate(selection):
-				data = vals[j, :]
+				data = np.round(vals[j, :])
 				self.trinary_prob[row, :] = self._betabinomial_trinarize_array(data, labels, self.f, n_labels)
 
 		return self.trinary_prob

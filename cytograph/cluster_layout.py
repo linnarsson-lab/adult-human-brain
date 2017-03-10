@@ -32,9 +32,11 @@ class clustering(luigi.Config):
 	k = luigi.IntParameter(default=30)
 	lj_resolution = luigi.FloatParameter(default=1.0)
 	use_sfdp = luigi.BoolParameter(default=False)
+	min_cluster_size = luigi.IntParameter(default=10)
+	min_samples = luigi.IntParameter(default=10)
 
 
-def cluster_layout(ds: loompy.LoomConnection, use_existing_clusters: bool = False) -> None:
+def cluster_layout(ds: loompy.LoomConnection, keep_existing_clusters: bool = False) -> None:
 	n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 	n_total = ds.shape[1]
 	logging.info("%d of %d cells were valid", n_valid, n_total)
@@ -72,14 +74,23 @@ def cluster_layout(ds: loompy.LoomConnection, use_existing_clusters: bool = Fals
 	mknn = knn.minimum(knn.transpose()).tocoo()
 	ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 
-	if not use_existing_clusters:
-		logging.info("Louvain-Jaccard clustering")
-		lj = cg.LouvainJaccard(resolution=clustering().lj_resolution)
-		labels = lj.fit_predict(knn)
-		# Make labels for excluded cells == -1
-		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-		labels_all[cells] = labels
-		ds.set_attr("Clusters", labels_all, axis=1)
+	if not keep_existing_clusters:
+		if clustering().method == 'lj':
+			logging.info("Louvain-Jaccard clustering")
+			lj = cg.LouvainJaccard(resolution=clustering().lj_resolution)
+			labels = lj.fit_predict(knn)
+			# Make labels for excluded cells == -1
+			labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+			labels_all[cells] = labels
+			ds.set_attr("Clusters", labels_all, axis=1)
+		if clustering().method == 'hdbscan':
+			logging.info("HDBSCAN clustering in 3D t-SNE space")
+			manifold = cg.TSNE(n_dims=3).layout(transformed)
+			clusterer = hdbscan.HDBSCAN(min_cluster_size=clustering().min_cluster_size, min_samples=clustering().min_samples)
+			labels = clusterer.fit_predict(manifold)
+			labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+			labels_all[cells] = labels
+			ds.set_attr("Clusters", labels_all, axis=1)
 
 	logging.info("TSNE layout")
 	tsne_pos = cg.TSNE(n_dims=2).layout(transformed)

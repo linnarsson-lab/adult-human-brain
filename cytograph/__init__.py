@@ -16,3 +16,4 @@ from .pool_spec import PoolSpec
 from .cluster_layout import cluster_layout
 from .plots import plot_cv_mean, plot_graph, plot_classes, plot_classification
 from .luigi import *
+from .magic import magic_imputation

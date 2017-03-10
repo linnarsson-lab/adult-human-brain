@@ -26,6 +26,7 @@ class ClusterLayoutL1(luigi.Task):
 	Luigi Task to cluster a Loom file by Louvain-Jaccard, and perform SFDP layout
 	"""
 	tissue = luigi.Parameter()
+	use_magic = luigi.BoolParameter(default=False)
 
 	def requires(self) -> luigi.Task:
 		return cg.PrepareTissuePool(tissue=self.tissue)
@@ -35,7 +36,13 @@ class ClusterLayoutL1(luigi.Task):
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			logging.info("Creating temporary copy of the input file")
-			copyfile(self.input().fn, out_file)
+			if self.use_magic:
+				logging.info("Imputing expression values using MAGIC")
+				ds = loompy.connect(self.input().fn)
+				cg.magic_imputation(ds, out_file)
+				ds.close()
+			else:
+				logging.info("Creating temporary copy of the input file")
+				copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			cg.cluster_layout(ds)

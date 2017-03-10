@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 
+
 class CellTag:
 	def __init__(self, category: str, file: str) -> None:
 		self.category = category
