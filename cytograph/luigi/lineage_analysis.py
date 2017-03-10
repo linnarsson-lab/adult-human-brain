@@ -32,7 +32,7 @@ class LineageAnalysis(luigi.WrapperTask):
 			targets = ["Cortex"]
 		elif self.targetset == "Everything":
 			targets = [
-				"ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic","Midbrain", "Hindbrain",
+				"ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain",
 				"All", "AllForebrain", "Cortex"]
 
 		for ll in lineages:
