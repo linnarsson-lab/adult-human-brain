@@ -6,6 +6,7 @@
         "*.egg-info": true,
         "**/*.pyc": true,
         "**/*.js": true,
-        "**/*.map": true
+        "**/*.map": true,
+        "**/__pycache__": true
     }
 }
