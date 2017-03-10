@@ -3,6 +3,7 @@ import os
 import logging
 import numpy as np
 import pandas as pd
+import re
 
 class CellTag:
 	def __init__(self, category: str, file: str) -> None:
@@ -17,12 +18,17 @@ class CellTag:
 					genes = line[12:].strip().split()
 					self.positives = [x[1:] for x in genes if x.startswith("+")]
 					self.negatives = [x[1:] for x in genes if x.startswith("-")]
+				if line.startswith("categories:"):
+					str_categories = line[11:].strip()
+					self.categories = re.split(r"\W+",str_categories)
 		if not hasattr(self, "name"):
 			raise ValueError("'name' was missing")
 		if not hasattr(self, "abbreviation"):
 			raise ValueError("'abbreviation' was missing")
 		if not hasattr(self, "positives"):
 			raise ValueError("positive markers were missing")
+		if not hasattr(self, "categories"):
+			raise ValueError("categories were missing")
 		if not hasattr(self, "negatives"):
 			self.negatives = []
 
