@@ -5,6 +5,7 @@ from typing import *
 import numpy as np
 from scipy.special import beta, betainc, betaln
 import loompy
+import numpy_groupies as npg
 
 
 def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -142,3 +143,17 @@ def betabinomial_trinarize_array(array: np.ndarray, labels: np.ndarray, pep: flo
 	expr_by_label[np.where(ps < pep)[0]] = 0
 
 	return (ps, expr_by_label)
+
+
+def save_cluster_avg(input_file: str, output_file: str) -> None:
+	ds = loompy.connect(input_file)
+	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+	labels = ds.col_attrs["Clusters"][cells]
+	Nclust = np.max(labels) + 1
+	ca = {"Cluster": np.arange(Nclust), "OriginalFile": np.array([input_file] * Nclust)}
+	ra = {"Accession": ds.row_attrs["Accession"], "Gene": ds.row_attrs["Gene"]}
+	m = np.empty((ds.shape[0], Nclust))
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+		vals_avg = npg.aggregate_numba.aggregate(labels, vals, func="mean", axis=1)
+		m[selection, :] = vals_avg
+	dsout = loompy.create(output_file, m, ra, ca)
