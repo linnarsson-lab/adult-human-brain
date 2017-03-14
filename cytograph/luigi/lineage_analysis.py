@@ -39,5 +39,7 @@ class LineageAnalysis(luigi.WrapperTask):
 			for tt in targets:
 				yield cg.PlotCVMeanLineage(lineage=ll, target=tt)
 				yield cg.PlotGraphLineage(lineage=ll, target=tt)
+				yield cg.PlotGraphAgeLineage(lineage=ll, target=tt)
 				yield cg.MarkerEnrichmentLineage(lineage=ll, target=tt)
 				yield cg.PlotClassesLineage(lineage=ll, target=tt)
+				yield cg.ExpressionAverageLineage(lineage=ll, target=tt)

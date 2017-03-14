@@ -5,6 +5,7 @@ from .auto_annotate_lineage import AutoAnnotateLineage
 from .cluster_layout_L1 import ClusterLayoutL1
 from .cluster_layout_L2 import ClusterLayoutL2
 from .cluster_layout_lineage import ClusterLayoutLineage
+from .expression_average_lineage import ExpressionAverageLineage
 from .marker_enrichment_L1 import MarkerEnrichmentL1
 from .marker_enrichment_L2 import MarkerEnrichmentL2
 from .marker_enrichment_lineage import MarkerEnrichmentLineage
@@ -13,6 +14,7 @@ from .plot_cv_mean_L2 import PlotCVMeanL2
 from .plot_cv_mean_lineage import PlotCVMeanLineage
 from .plot_graph_L1 import PlotGraphL1
 from .plot_graph_L2 import PlotGraphL2
+from .plot_graph_age_lineage import PlotGraphAgeLineage
 from .plot_graph_lineage import PlotGraphLineage
 from .prepare_tissue_pool import PrepareTissuePool
 from .sample import Sample
