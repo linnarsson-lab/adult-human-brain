@@ -2,6 +2,11 @@ from typing import *
 import loompy
 import numpy as np
 import logging
+import luigi
+
+
+class normalizer(luigi.Config):
+	level = luigi.IntParameter(default=10000)
 
 
 class Normalizer:
@@ -36,7 +41,7 @@ class Normalizer:
 			vals_adjusted (ndarray):	The normalized values
 		"""
 		# Adjust total count per cell to 10,000
-		vals = vals / (self.totals[cells] + 1) * 10000
+		vals = vals / (self.totals[cells] + 1) * normalizer().level
 
 		# Log transform
 		vals = np.log(vals + 1)
