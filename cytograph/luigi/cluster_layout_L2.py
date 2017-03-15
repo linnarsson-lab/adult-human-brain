@@ -21,16 +21,6 @@ from scipy.stats import ks_2samp
 import networkx as nx
 
 
-# Config classes should be camel cased
-class clustering(luigi.Config):
-	n_genes = luigi.IntParameter(default=2000)
-	standardize = luigi.BoolParameter(default=False)
-	n_components = luigi.IntParameter(default=50)
-	use_ica = luigi.BoolParameter(default=True)
-	k = luigi.IntParameter(default=30)
-	lj_resolution = luigi.FloatParameter(default=1.0)
-
-
 class ClusterLayoutL2(luigi.Task):
 	"""
 	Luigi Task to cluster a Loom file by Louvain-Jaccard, and perform SFDP layout
