@@ -15,7 +15,7 @@ class Trinarizer:
 		self.genes = None  # type: np.ndarray
 
 	def fit(self, ds: loompy.LoomConnection) -> np.ndarray:
-		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+		cells = np.where(ds.col_attrs["Clusters"] >= 0)[0]
 		labels = ds.col_attrs["Clusters"][cells]
 		n_labels = np.max(labels) + 1
 		logging.info("n_labels %d", n_labels)
