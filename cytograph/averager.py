@@ -10,7 +10,7 @@ class Averager:
 	def __init__(self, func: str = "mean") -> None:
 		self.func = func
 
-	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, age_stats: bool = True) -> None:
+	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, age_stats: bool = True, sample_stats: bool = True,) -> None:
 		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 		labels = ds.col_attrs["Clusters"][cells]
 		Nclust = np.max(labels) + 1
@@ -19,7 +19,9 @@ class Averager:
 		if age_stats:
 			for age in set(ds.Age):
 				ca["N_cells_%s" % age] = npg.aggregate_numba.aggregate(labels, ds.col_attrs["Age"][cells] == age, func="sum")
-
+		if sample_stats:
+			for chip in set(ds.SampleID):
+				ca["N_inChip_%s" % age] = npg.aggregate_numba.aggregate(labels, ds.col_attrs["SampleID"][cells] == chip, func="sum")
 		m = np.empty((ds.shape[0], Nclust))
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			vals_avg = npg.aggregate_numba.aggregate(labels, vals, func=self.func, axis=1)
