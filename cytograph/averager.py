@@ -30,6 +30,10 @@ class Averager:
 			ca["Age75thPercentile"] = npg.aggregate_numpy.aggregate(labels, number_of_days[cells], func=lambda x: np.percentile(x, 50, interpolation="linear"))
 			ca["Age95thPercentile"] = npg.aggregate_numpy.aggregate(labels, number_of_days[cells], func=lambda x: np.percentile(x, 95, interpolation="linear"))
 
+			for age in set(ds.Age):
+				ca["N_cells_%s" % age] = npg.aggregate_numba.aggregate(labels, ds.col_attrs["Age"][cells] == age, func="sum")
+
+
 		m = np.empty((ds.shape[0], Nclust))
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			vals_avg = npg.aggregate_numba.aggregate(labels, vals, func=self.func, axis=1)
