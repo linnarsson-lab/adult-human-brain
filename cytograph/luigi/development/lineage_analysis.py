@@ -18,7 +18,7 @@ class LineageAnalysis(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		if self.lineage == "All":
-			lineages = ["Ectodermal", "Endomesodermal"]
+			lineages = ["Ectodermal", "Endomesodermal", "Radialglialike"]
 		else:
 			lineages = [self.lineage]
 
@@ -34,6 +34,11 @@ class LineageAnalysis(luigi.WrapperTask):
 			targets = [
 				"ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain",
 				"All", "AllForebrain", "Cortex"]
+		else:
+			if self.targetset in ["ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain", "All", "AllForebrain", "Cortex"]:
+				targets = [self.targetset]
+			else:
+				raise KeyError
 
 		for ll in lineages:
 			for tt in targets:
