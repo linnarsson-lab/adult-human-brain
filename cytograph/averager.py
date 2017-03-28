@@ -40,7 +40,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		if key not in aggr_ca_by:
 			continue
 		func = aggr_ca_by[key]
-		elif func == "tally":
+		if func == "tally":
 			for val in set(ds.col_attrs[key]):
 				ca[key + "_" + val] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
 		elif func == "geom":
