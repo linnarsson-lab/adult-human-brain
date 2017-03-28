@@ -24,9 +24,10 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		
 		Aggregation functions can be any valid aggregation function from here: https://github.com/ml31415/numpy-groupies
 
-		In addition, you can specify (for column attributes, not main matrix):
+		In addition, you can specify:
 			"drop" to drop an attribute
 			"tally" to count the number of occurences of each value of a categorical attribute
+			"geom" to calculate the geometric mean
 	"""
 	ca: Dict[str, np.ndarray] = {}
 	if select is not None:
@@ -44,11 +45,16 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		elif func == "tally":
 			for val in set(ds.col_attrs[key]):
 				ca[key + "_" + val] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
+		elif func == "geom":
+			ca[key] = np.exp(npg.aggregate_numba.aggregate(labels, np.log(ds.col_attrs[key][cols]), func="mean"))
 		else:
 			ca[key] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols], func=func)
 	m = np.empty((ds.shape[0], n_groups))
 	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
-		vals_aggr = npg.aggregate_numba.aggregate(labels, vals, func=aggr_by, axis=1)
+		if aggr_by == "geom":
+			vals_aggr = np.exp(npg.aggregate_numba.aggregate(labels, np.log(vals), func="mean", axis=1))
+		else:
+			vals_aggr = npg.aggregate_numba.aggregate(labels, vals, func=aggr_by, axis=1)
 		m[selection, :] = vals_aggr
 
 

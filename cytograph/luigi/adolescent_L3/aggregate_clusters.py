@@ -29,7 +29,7 @@ class AggregateClusters(luigi.Task):
 			yield cg.TrinarizeL2(project=self.project, tissue="All", major_class="Development")
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.project + ".agglomerated.loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.project + ".aggregated.L3.loom"))
 		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
