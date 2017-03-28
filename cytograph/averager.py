@@ -29,7 +29,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			"tally" to count the number of occurences of each value of a categorical attribute
 			"geom" to calculate the geometric mean
 	"""
-	ca: Dict[str, np.ndarray] = {}
+	ca = {}  # type: Dict[str, np.ndarray]
 	if select is not None:
 		cols = np.where(select)[0]
 	else:
