@@ -1,5 +1,6 @@
 from math import exp, lgamma, log
 import logging
+import os
 from typing import *
 import numpy as np
 import loompy
@@ -12,7 +13,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 
 	Args:
 		ds			The Loom file
-		out_file	The name of the output Loom file
+		out_file	The name of the output Loom file (will be appended to if it exists)
 		select		Bool array giving the columns to include (or None, to include all)
 		group_by	The column attribute to group by
 		aggr_by 	The aggregation function for the main matrix
@@ -56,6 +57,12 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		else:
 			vals_aggr = npg.aggregate_numba.aggregate(labels, vals, func=aggr_by, axis=1)
 		m[selection, :] = vals_aggr
+	if os.path.exists(out_file):
+		dsout = loompy.connect(out_file)
+		dsout.add_columns(m, ca)
+		dsout.close()
+	else:
+		loompy.create(out_file, m, ds.row_attrs, ca)
 
 
 class Averager:
