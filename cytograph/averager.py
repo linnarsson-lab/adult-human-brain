@@ -66,18 +66,15 @@ class Averager:
 	def __init__(self, func: str = "mean") -> None:
 		self.func = func
 
-	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, age_stats: bool = True, sample_stats: bool = True,) -> None:
+	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, category_summary: Tuple = ("Age", "SampleID")) -> None:
 		cells = np.where(ds.col_attrs["Clusters"] >= 0)[0]
 		labels = ds.col_attrs["Clusters"][cells]
 		Nclust = np.max(labels) + 1
 		ca = {"Cluster": np.arange(Nclust), "OriginalFile": np.array([output_file] * Nclust)}
 		ra = {"Accession": ds.row_attrs["Accession"], "Gene": ds.row_attrs["Gene"]}
-		if age_stats:
-			for age in set(ds.Age):
-				ca["N_cells_%s" % age] = npg.aggregate_numba.aggregate(labels, ds.col_attrs["Age"][cells] == age, func="sum")
-		if sample_stats:
-			for chip in set(ds.SampleID):
-				ca["N_inChip_%s" % age] = npg.aggregate_numba.aggregate(labels, ds.col_attrs["SampleID"][cells] == chip, func="sum")
+		for category_class in category_summary:
+			for unique_element in set(ds.col_attrs[category_class]):
+				ca["%s_%s" % (category_class, unique_element)] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[category_class][cells] == unique_element, func="sum")
 		m = np.empty((ds.shape[0], Nclust))
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			vals_avg = npg.aggregate_numba.aggregate(labels, vals, func=self.func, axis=1)
