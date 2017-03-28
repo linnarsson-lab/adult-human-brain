@@ -26,7 +26,6 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		Aggregation functions can be any valid aggregation function from here: https://github.com/ml31415/numpy-groupies
 
 		In addition, you can specify:
-			"drop" to drop an attribute
 			"tally" to count the number of occurences of each value of a categorical attribute
 			"geom" to calculate the geometric mean
 	"""
@@ -39,10 +38,8 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 	n_groups = len(set(labels))
 	for key in ds.col_attrs.keys():
 		if key not in aggr_ca_by:
-			raise KeyError("The aggregation function for '" + key + "' was not specified")
-		func = aggr_ca_by[key]
-		if func == "drop":
 			continue
+		func = aggr_ca_by[key]
 		elif func == "tally":
 			for val in set(ds.col_attrs[key]):
 				ca[key + "_" + val] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
