@@ -6,8 +6,15 @@ import loompy
 from scipy.special import beta, betainc, betaln
 import numpy as np
 import cytograph as cg
+import pandas as pd
 
 
+def load_trinaries(in_file: str) -> Tuple[np.ndarray, np.ndarray]:
+	d = pd.read_csv(in_file, sep='\t', index_col=0)
+	genes = d.index.values
+	return (genes, d.values[:, :-1])
+
+	
 class Trinarizer:
 	def __init__(self, f: float = 0.2) -> None:
 		self.f = f
