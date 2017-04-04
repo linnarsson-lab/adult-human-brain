@@ -32,13 +32,21 @@ class SplitAndPoolAa(luigi.Task):
 
 	def requires(self) -> luigi.Task:
 
+		def EP2int(timepoint: str) -> int:
+			if "P" in timepoint:
+				return int(timepoint.lstrip("P")) + 19
+			else:
+				return int(timepoint.lstrip("E"))
+
 		def time_check(tissue_name: str, time_par: str) -> bool:
-			earlytime, latertime = time_par.split("-")
+			earlytime_s, latertime_s = time_par.split("-")
 			try:
-				tissue_earlytime, tissue_latertime = tissue_name.split("_")[-1].split("-")
+				tissue_earlytime_s, tissue_latertime_s = tissue_name.split("_")[-1].split("-")
 			except ValueError:
-				tissue_earlytime = tissue_name.split("_")[-1]
-				tissue_latertime = tissue_earlytime
+				tissue_earlytime_s = tissue_name.split("_")[-1]
+				tissue_latertime_s = tissue_earlytime_s
+			earlytime, latertime = EP2int(earlytime_s), EP2int(latertime_s)
+			tissue_earlytime, tissue_latertime = EP2int(tissue_earlytime_s), EP2int(tissue_latertime_s)
 			return (earlytime <= tissue_earlytime) and (latertime >= tissue_latertime)
 
 		targets_map = {

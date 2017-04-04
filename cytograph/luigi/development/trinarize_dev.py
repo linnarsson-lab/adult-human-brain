@@ -13,18 +13,22 @@ class trinarization(luigi.Config):
 	f = luigi.FloatParameter(default=0.2)
 
 
-class TrinarizeLineage(luigi.Task):
+class TrinarizeDev(luigi.Task):
 	"""
 	Luigi Task to calculate trinarization of genes across clusters
 	"""
 	lineage = luigi.Parameter(default="Ectodermal")
 	target = luigi.Parameter(default="All")
+	time = luigi.Parameter(default="E7-E18")
 
 	def requires(self) -> luigi.Task:
-		return cg.ClusterLayoutLineage(lineage=self.lineage, target=self.target)
+		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target, time=self.time)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".trinary.tab"))
+		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".trinary.loom"))
+		else:
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.trinary.loom" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

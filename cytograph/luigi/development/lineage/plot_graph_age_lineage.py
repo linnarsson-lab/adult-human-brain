@@ -19,7 +19,7 @@ class PlotGraphAgeLineage(luigi.Task):
 	target = luigi.Parameter(default="All")
 
 	def requires(self) -> List[luigi.Task]:
-		return [cg.ClusterLayoutLineage(lineage=self.lineage, target=self.target), cg.AutoAnnotateLineage(lineage=self.lineage, target=self.target)]
+		return [cg.ClusterLayoutDev(lineage=self.lineage, target=self.target), cg.AutoAnnotateDev(lineage=self.lineage, target=self.target)]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknnage.png"))

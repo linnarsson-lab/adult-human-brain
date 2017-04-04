@@ -18,7 +18,7 @@ class ExpressionAverageTime(luigi.Task):
 	target = luigi.Parameter(default="All")
 
 	def requires(self) -> luigi.Task:
-		return cg.SplitAndPoolAa(lineage=self.lineage, target=self.target, time=self.time)
+		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target, time=self.time)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.timeavg.loom" % (self.lineage, self.target, self.time)))

@@ -11,18 +11,22 @@ import luigi
 from palettable.tableau import Tableau_20
 
 
-class PlotGraphLineage(luigi.Task):
+class PlotGraphDev(luigi.Task):
 	"""
 	Luigi Task to plot the MKNN graph, level 2
 	"""
 	lineage = luigi.Parameter(default="Ectodermal")
 	target = luigi.Parameter(default="All")
+	time = luigi.Parameter(default="E7-E18")
 
 	def requires(self) -> List[luigi.Task]:
-		return [cg.ClusterLayoutLineage(lineage=self.lineage, target=self.target), cg.AutoAnnotateLineage(lineage=self.lineage, target=self.target)]
+		return [cg.ClusterLayoutDev(lineage=self.lineage, target=self.target, time=self.time), cg.AutoAnnotateDev(lineage=self.lineage, target=self.target, time=self.time)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknn.png"))
+		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknn.loom"))
+		else:
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.mknn.loom" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph")
