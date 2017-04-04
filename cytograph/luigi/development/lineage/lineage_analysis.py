@@ -12,26 +12,36 @@ import luigi
 class LineageAnalysis(luigi.WrapperTask):
 	"""
 	Luigi Task to run all Lineage Analysis analyses
+
+	`lineage` cane be:
+	Ectodermal (default), Endomesodermal, Radialglialike, Neuroectodermal, Neuronal
+
+	`targetset` can be:
+	FMH will run targets: "ForebrainAll", "Midbrain", "Hindbrain"
+	MainRegions will run targets: "ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain"
+	Postnatal will run targets: "Cortex"
+	Everything will run targets: "ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain","All", "ForebrainAll", "Cortex"
+	or any of the specific a single target argument:
+	"ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain", "All", "ForebrainAll", "Cortex"
+
 	"""
 	lineage = luigi.Parameter(default="Ectodermal")  # `All` or one of the allowed lineage parameters of SplitAndPoolAa (currently Ectodermal, Endomesodermal)
 	targetset = luigi.Parameter(default="MainRegions")  # MainRegions, AllMerged, ForebrainMerged, Postnatal, Everything
 
 	def requires(self) -> Iterator[luigi.Task]:
 		if self.lineage == "All":
-			lineages = ["Ectodermal", "Endomesodermal", "Radialglialike"]
+			lineages = ["Ectodermal", "Endomesodermal", "Radialglialike", "Neuroectodermal", "Neuronal"]
 		else:
 			lineages = [self.lineage]
-
-		if self.targetset == "MainRegions":
+		
+		if self.targetset == "FMH":
+			targets = ["ForebrainAll", "Midbrain", "Hindbrain"]
+		elif self.targetset == "MainRegions":
 			targets = ["ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain"]
-		elif self.targetset == "AllMerged":
-			targets = ["All"]
-		elif self.targetset == "ForebrainMerged":
-			targets = ["AllForebrain"]
 		elif self.targetset == "Postnatal":
 			targets = ["Cortex"]
 		elif self.targetset == "Everything":
-			targets = ["ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain","All", "AllForebrain", "Cortex"]
+			targets = ["ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain","All", "ForebrainAll", "Cortex"]
 		else:
 			if self.targetset in ["ForebrainDorsal", "ForebrainVentrolateral", "ForebrainVentrothalamic", "Midbrain", "Hindbrain", "All", "AllForebrain", "Cortex"]:
 				targets = [self.targetset]
