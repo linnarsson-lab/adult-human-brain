@@ -24,9 +24,9 @@ class PlotGraphDev(luigi.Task):
 
 	def output(self) -> luigi.Target:
 		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
-			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknn.loom"))
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknn.png"))
 		else:
-			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.mknn.loom" % (self.lineage, self.target, self.time)))
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.mknn.png" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph")
