@@ -23,3 +23,5 @@ class Level1Analysis(luigi.WrapperTask):
 			yield cg.PlotGraphL1(tissue=tissue)
 			yield cg.PlotClassesL1(tissue=tissue)
 			yield cg.MarkerEnrichmentL1(tissue=tissue)
+			if self.project == "Development":
+				yield cg.PlotGraphAgeL1(tissue=tissue)

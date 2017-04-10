@@ -11,18 +11,17 @@ import luigi
 from palettable.tableau import Tableau_20
 
 
-class PlotGraphAgeLineage(luigi.Task):
+class PlotGraphAgeL1(luigi.Task):
 	"""
 	Luigi Task to plot the MKNN graph, level 2
 	"""
-	lineage = luigi.Parameter(default="Ectodermal")
-	target = luigi.Parameter(default="All")
+	tissue = luigi.Parameter()
 
 	def requires(self) -> List[luigi.Task]:
-		return [cg.ClusterLayoutDev(lineage=self.lineage, target=self.target), cg.AutoAnnotateDev(lineage=self.lineage, target=self.target)]
+		return [cg.ClusterLayoutL1(tissue=self.tissue), cg.AutoAnnotateL1(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".mknnage.png"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".mknnage.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph age")
