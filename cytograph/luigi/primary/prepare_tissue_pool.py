@@ -63,6 +63,12 @@ class PrepareTissuePool(luigi.Task):
 			ds.set_attr("_Valid", valid_genes, axis=0)
 			ds.set_attr("_Valid", np.concatenate(valid_cells), axis=1)
 
+			# TODO : change the luigi pipeline so that is more general and the exception below is not needed
+			if "Yiwen" in self.tissue:
+				logging.info("Classification cannot be performed on Human data. Ending Pooling. @Yiwen")
+				ds.close()
+				return
+
 			logging.info("Classifying cells by major class")
 			with open(self.input()[0].fn, "rb") as f:
 				clf = pickle.load(f)  # type: cg.Classifier
