@@ -237,5 +237,5 @@ ZF02	ZF_skin	OK	Zebrafish
 10X74_4	ForebrainDorsal_E12-15	OK	Development
 10X75_1	Sympathetic	OK	Adolescent
 10X_100k	CortexHippocampus	OK	10XGenomics
-Yiwen_dataset	All	OK	Yiwen
-C1_all	All	OK	C1_all
+Yiwen_dataset	Yiwen_All	OK	Yiwen
+C1_all	C1_All	OK	C1_all
