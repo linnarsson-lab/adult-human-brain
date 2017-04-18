@@ -37,14 +37,19 @@ class PrepareTissuePool(luigi.Task):
 				valid_cells.append(np.logical_and(mols >= 600, (mols / genes) >= 1.2).astype('int'))
 
 				logging.info("Computing mito/ribo ratio")
-				mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
-				ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
-				ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
-				mitox = ds[mito, :]
-				ribox = ds[ribo, :]
-				ratio = (mitox.sum(axis=0) + 1) / (ribox.sum(axis=0) + 1)
-				ds.set_attr("MitoRiboRatio", ratio, axis=1)
-
+				try:
+					mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
+					ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
+					ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
+					if (len(ribo) == 0) or (len(mito) == 0):
+						# I raise this kind of error becouse is the same it would be raised if this happen
+						raise UnboundLocalError
+					mitox = ds[mito, :]
+					ribox = ds[ribo, :]
+					ratio = (mitox.sum(axis=0) + 1) / (ribox.sum(axis=0) + 1)
+					ds.set_attr("MitoRiboRatio", ratio, axis=1)
+				except UnboundLocalError:
+					pass
 				ds.close()
 
 			logging.info("Creating combined loom file")
