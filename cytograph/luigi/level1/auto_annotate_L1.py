@@ -9,6 +9,8 @@ import numpy as np
 import cytograph as cg
 import luigi
 
+class autoannotate(luigi.Config):
+	species = luigi.Parameter(default="Mm")
 
 class AutoAnnotateL1(luigi.Task):
 	"""
@@ -24,6 +26,11 @@ class AutoAnnotateL1(luigi.Task):
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			aa = cg.AutoAnnotator()
+			if autoannotate().species == "Mm":
+				aa = cg.AutoAnnotator()
+			elif autoannotate().species == "Hs":
+				aa = cg.AutoAnnotator(root="../auto-annotationHs")
+			else:
+				raise ValueError("%s is not a valid autoannotate-species, try with Mm/Hs" % autoannotate().species)
 			aa.annotate(self.input().fn)
 			aa.save(out_file)
