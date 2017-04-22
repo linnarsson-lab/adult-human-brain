@@ -10,6 +10,10 @@ import luigi
 import loompy
 from palettable.tableau import Tableau_20
 from matplotlib.colors import LinearSegmentedColormap
+import numpy_groupies.aggregate_numpy as npg
+import scipy.cluster.hierarchy as hc
+import matplotlib.gridspec as gridspec
+import matplotlib.patheffects as path_effects
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -76,7 +80,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 		text = "#" + str(lbl)
 		if len(tags[lbl]) > 0:
 			text += "\n" + tags[lbl]
-		ax.text(x, y, text, fontsize=8, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
+		ax.text(x, y, text, fontsize=6, bbox=dict(facecolor='gray', alpha=0.3, ec='none'))
 	ax.axis('off')
 	plt.tight_layout()
 	fig.savefig(out_file, format="png", dpi=300)
@@ -240,4 +244,68 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 	plt.tight_layout()
 	fig.savefig(out_file, format="png", dpi=300)
+	plt.close()
+
+
+def plot_markerheatmap(ds: loompy.LoomConnection, out_file: str) -> None:
+	n_markers = 10
+	(markers, enrichment) = cg.MarkerSelection(n_markers=n_markers).fit(ds)
+
+	# Load data and aggregate by cluster ID
+	genes = markers
+	cells = ds.col_attrs["Clusters"] >= 0
+	data = np.log(ds[:, :][genes, :][:, cells] + 1)
+	agg = npg.aggregate(ds.col_attrs["Clusters"][cells], data, axis=1)
+
+	# Agglomerate cells
+	zx = hc.ward(agg.T)
+	xordering = hc.leaves_list(zx)
+
+	# Reorder the cells according to the cluster ordering
+	ordered = data[:, np.argsort(np.argsort(xordering)[ds.col_attrs["Clusters"][cells]])]
+	# Reorder the genes according to the cluster ordering
+	yordering = np.argsort(np.repeat(np.argsort(xordering), n_markers))
+	ordered = ordered[yordering, :]
+
+	classes = [x for x in ds.col_attrs.keys() if x.startswith("Class_")]
+	n_classes = len(classes)
+
+	topmarkers = ordered / np.max(ordered, axis=1)[None].T
+	n_topmarkers = topmarkers.shape[0]
+
+	fig = plt.figure(figsize=(30, 2.5 + n_classes / 5 + n_topmarkers / 10))
+	gs = gridspec.GridSpec(2 + n_classes + 1, 1, height_ratios=[50, 1] + [1] * n_classes + [0.5 * n_topmarkers])
+
+	ax = fig.add_subplot(gs[0])
+	_ = hc.dendrogram(zx, no_labels=True, ax=ax)
+	ax.set_frame_on(False)
+	ax.set_xticks([])
+	ax.set_yticks([])
+
+	ax = fig.add_subplot(gs[1])
+	ax.imshow(np.expand_dims(ds.col_attrs["_Total"], axis=0), aspect='auto', cmap="Reds")
+	plt.text(0.001, 0.9, "Number of molecules", horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=9, color="black")
+	ax.set_frame_on(False)
+	ax.set_xticks([])
+	ax.set_yticks([])
+
+	for ix, cls in enumerate(classes):
+		ax = fig.add_subplot(gs[2 + ix])
+		ax.imshow(np.expand_dims(ds.col_attrs[cls][xordering], axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
+		ax.set_frame_on(False)
+		ax.set_xticks([])
+		ax.set_yticks([])
+		text = plt.text(0.001, 0.9, cls[6:], horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=10, color="white", weight="bold")
+		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
+		
+	ax = fig.add_subplot(gs[2 + n_classes])
+	ax.imshow(topmarkers, aspect='auto', cmap="viridis", vmin=0, vmax=1)
+	for ix in range(n_topmarkers):
+		plt.text(0.001, 1 - (ix / n_topmarkers), ds.Gene[genes][yordering][ix], horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=6, color="white")
+	ax.set_frame_on(False)
+	ax.set_xticks([])
+	ax.set_yticks([])
+
+	plt.subplots_adjust(hspace=0)
+	plt.savefig(out_file, format="pdf", dpi=144)
 	plt.close()

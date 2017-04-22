@@ -27,7 +27,7 @@ class Normalizer:
 		if mu is None or sd is None:
 			(self.sd, self.mu) = ds.map([np.std, np.mean], axis=0)
 		if totals is None:
-			self.totals = ds.map(np.sum, chunksize=100, axis=1)
+			self.totals = ds.map([np.sum], chunksize=100, axis=1)[0]
 
 	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""
@@ -49,16 +49,17 @@ class Normalizer:
 		vals = vals - self.mu[:, None]
 		if self.standardize:
 			# Scale to unit standard deviation per gene
-			vals = self._div0(vals, self.sd[:, None])
+			vals = div0(vals, self.sd[:, None])
 		return vals
 
 	def fit_transform(self, ds: loompy.LoomConnection, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		self.fit(ds)
 		return self.transform(vals, cells)
 
-	def _div0(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
-		""" ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
-		with np.errstate(divide='ignore', invalid='ignore'):
-			c = np.true_divide(a, b)
-			c[~np.isfinite(c)] = 0  # -inf inf NaN
-		return c
+
+def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+	""" ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+	with np.errstate(divide='ignore', invalid='ignore'):
+		c = np.true_divide(a, b)
+		c[~np.isfinite(c)] = 0  # -inf inf NaN
+	return c

@@ -38,6 +38,7 @@ class SplitAndPool(luigi.Task):
 			dsout = None  # type: loompy.LoomConnection
 			for clustered in self.input():
 				ds = loompy.connect(clustered.fn)
+				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
 					if self.project == "Adolescent":

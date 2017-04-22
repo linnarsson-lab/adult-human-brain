@@ -46,3 +46,4 @@ class ClusterLayoutL1(luigi.Task):
 				copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			cg.cluster_layout(ds)
+			cg.cluster_layout(ds, use_markers=True, gtsne=True)

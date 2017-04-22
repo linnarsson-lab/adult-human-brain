@@ -55,5 +55,9 @@ class PoolLayoutL3(luigi.Task):
 						dsout = loompy.connect(self.output().fn)
 					else:
 						dsout.add_columns(vals, ca)
+			
+			
+			# BROKEN
+			
 			cg.cluster_layout(dsout, keep_existing_clusters=True)
 			dsout.close()

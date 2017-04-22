@@ -3,6 +3,7 @@ import logging
 import community
 import networkx as nx
 from scipy import sparse
+from typing import *
 
 
 class LouvainJaccard:
@@ -22,7 +23,8 @@ class LouvainJaccard:
 
 		Remarks:
 			After clustering, the Louvain-Jaccard weighted undirected graph is available as 
-			the property 'graph' of type nx.Graph
+			the property 'graph' of type nx.Graph, and also in the form of a sparse adjacency
+			matrix as the property 'lj_knn' of type scipy.sparse.coo_matrix
 		"""
 		edges = np.stack((knn.row, knn.col), axis=1)
 		# Calculate Jaccard similarities
@@ -36,6 +38,7 @@ class LouvainJaccard:
 			js.append(shared / total)
 		weights = np.array(js) + 0.00001  # OpenOrd doesn't like 0 weights
 
+		self.lj_knn = sparse.coo_matrix((weights, (knn.row, knn.col)))
 		self.graph = nx.Graph()
 		for i, edge in enumerate(edges):
 			self.graph.add_edge(edge[0], edge[1], {'weight': weights[i]})

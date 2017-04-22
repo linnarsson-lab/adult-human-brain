@@ -40,4 +40,4 @@ class ClusterLayoutL2(luigi.Task):
 			logging.info("Creating temporary copy of the input file")
 			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
-			cg.cluster_layout(ds)
+			cg.cluster_layout(ds, use_hdbscan=True, gtsne=True)

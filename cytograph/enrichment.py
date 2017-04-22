@@ -15,7 +15,7 @@ class MarkerEnrichment:
 		self.valid = None  # type: np.ndarray
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
-		cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+		cells = np.where(ds.col_attrs["Clusters"] >= 0)[0]
 		labels = ds.col_attrs["Clusters"][cells]
 		n_labels = np.max(labels) + 1
 		scores1 = np.empty((ds.shape[0], n_labels))

@@ -23,6 +23,7 @@ class Level2Analysis(luigi.WrapperTask):
 				yield cg.PlotGraphL2(project=self.project, tissue=tissue, major_class="Neurons")
 				yield cg.MarkerEnrichmentL2(project=self.project, tissue=tissue, major_class="Neurons")
 				yield cg.PlotClassesL2(project=self.project, tissue=tissue, major_class="Neurons")
+				yield cg.PlotMarkerheatmapL2(project=self.project, tissue=tissue, major_class="Neurons")
 
 			# for tissue in tissues:
 			# 	yield cg.PlotCVMeanL2(project=self.project, tissue=tissue, major_class="Excluded")
@@ -30,14 +31,17 @@ class Level2Analysis(luigi.WrapperTask):
 			# 	yield cg.MarkerEnrichmentL2(project=self.project, tissue=tissue, major_class="Excluded")
 			# 	yield cg.PlotClassesL2(project=self.project, tissue=tissue, major_class="Excluded")
 
-			classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune"] # , "Erythrocyte", "Excluded"]
+			classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Erythrocyte"]  # "Excluded"]
 			for cls in classes:
 				yield cg.PlotCVMeanL2(project=self.project, tissue="All", major_class=cls)
 				yield cg.PlotGraphL2(project=self.project, tissue="All", major_class=cls)
 				yield cg.MarkerEnrichmentL2(project=self.project, tissue="All", major_class=cls)
 				yield cg.PlotClassesL2(project=self.project, tissue="All", major_class=cls)
+				yield cg.PlotMarkerheatmapL2(project=self.project, tissue="All", major_class=cls)
 		else:
 			yield cg.PlotCVMeanL2(project=self.project, tissue="All", major_class="Development")
 			yield cg.PlotGraphL2(project=self.project, tissue="All", major_class="Development")
 			yield cg.MarkerEnrichmentL2(project=self.project, tissue="All", major_class="Development")
 			yield cg.PlotClassesL2(project=self.project, tissue="All", major_class="Development")
+			yield cg.PlotMarkerheatmapL2(project=self.project, tissue="All", major_class="Development")
+

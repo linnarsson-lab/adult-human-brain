@@ -4,10 +4,10 @@ import os
 from typing import *
 import numpy as np
 import loompy
-import numpy_groupies as npg
+import numpy_groupies.aggregate_numpy as npg
 
 
-def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str]) -> None:
+def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False) -> np.ndarray:
 	"""
 	Aggregate a Loom file by applying aggregation functions to the main matrix as well as to the column attributes
 
@@ -17,7 +17,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		select		Bool array giving the columns to include (or None, to include all)
 		group_by	The column attribute to group by
 		aggr_by 	The aggregation function for the main matrix
-		aggr_ca_by	The aggregation functions for the column attributes
+		aggr_ca_by	The aggregation functions for the column attributes (or None to skip)
 
 	Remarks:
 		aggr_by gives the aggregation function for the main matrix
@@ -34,29 +34,34 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		cols = np.where(select)[0]
 	else:
 		cols = np.fromiter(range(ds.shape[1]))
-	labels = ds.col_attrs[group_by][cols]
+	labels = (ds.col_attrs[group_by][cols]).astype('int')
 	n_groups = len(set(labels))
-	for key in ds.col_attrs.keys():
-		if key not in aggr_ca_by:
-			continue
-		func = aggr_ca_by[key]
-		if func == "tally":
-			for val in set(ds.col_attrs[key]):
-				ca[key + "_" + val] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
-		elif func == "geom":
-			ca[key] = np.exp(npg.aggregate_numba.aggregate(labels, np.log(ds.col_attrs[key][cols]), func="mean"))
-		else:
-			ca[key] = npg.aggregate_numba.aggregate(labels, ds.col_attrs[key][cols], func=func)
+	if aggr_ca_by is not None:
+		for key in ds.col_attrs.keys():
+			if key not in aggr_ca_by:
+				continue
+			func = aggr_ca_by[key]
+			if func == "tally":
+				for val in set(ds.col_attrs[key]):
+					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
+			elif func == "geom":
+				ca[key] = np.exp(npg.aggregate(labels, np.log(ds.col_attrs[key][cols] + 1), func="mean"))
+			else:
+				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
 	m = np.empty((ds.shape[0], n_groups))
 	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
 		if aggr_by == "geom":
-			vals_aggr = np.exp(npg.aggregate_numba.aggregate(labels, np.log(vals), func="mean", axis=1))
+			vals_aggr = np.exp(npg.aggregate(labels, np.log(vals + 1), func="mean", axis=1))
 		else:
-			vals_aggr = npg.aggregate_numba.aggregate(labels, vals, func=aggr_by, axis=1)
+			vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1)
 		m[selection, :] = vals_aggr
+
+	if return_matrix:
+		return m
+
 	if os.path.exists(out_file):
 		dsout = loompy.connect(out_file)
-		dsout.add_columns(m, ca)
+		dsout.add_columns(m, ca, fill_values="auto")
 		dsout.close()
 	else:
 		loompy.create(out_file, m, ds.row_attrs, ca)

@@ -8,3 +8,4 @@ from .plot_graph_L2 import PlotGraphL2
 from .split_and_pool import SplitAndPool
 from .trinarize_L2 import TrinarizeL2
 from .plot_classes_L2 import PlotClassesL2
+from .plot_markerheatmap_L2 import PlotMarkerheatmapL2

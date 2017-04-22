@@ -79,7 +79,7 @@ class TSNE:
 		self.n_dims = n_dims
 		self.max_iter = max_iter
 	
-	def layout(self, transformed: np.ndarray, initial_pos: np.ndarray = None) -> None:
+	def layout(self, transformed: np.ndarray, initial_pos: np.ndarray = None, knn: sparse.csr_matrix = None) -> None:
 		"""
 		Compute Barnes-Hut approximate t-SNE layout
 
@@ -87,26 +87,43 @@ class TSNE:
 			transformed:	The (typically) PCA-transformed input data, shape: (n_samples, n_components)
 			n_dims:			2 or 3
 			initial_pos:	Initial layout, or None to use the first components of 'transformed'
-		
+			knn: 			Precomputed knn graph is sparse matrix format, or None to use Gaussian perplexity
+
 		Remarks:
 			Requires 'bh_tsne' to be available on the $PATH
 		"""
 		n_cells = transformed.shape[0]
 		n_components = transformed.shape[1]
+		nnz = 0
 		if initial_pos is None:
 			initial_pos = transformed[:, :self.n_dims]
+		if knn is not None:
+			# knn = knn.tocsr().maximum(knn.transpose())
+			# knn = knn.multiply(1 / knn.sum(axis=1)).tocsr()
+			knn.sort_indices()
+			nnz = knn.nnz
 		with tempfile.TemporaryDirectory() as td:
+			logging.info(td)
 			with open(os.path.join(td, 'data.dat'), 'wb') as data_file:
 				# Write the bh_tsne header
-				data_file.write(pack('iiddii', n_cells, n_components, self.theta, self.perplexity, self.n_dims, self.max_iter))
+				data_file.write(pack('=iiiddii', n_cells, n_components, nnz, self.theta, self.perplexity, self.n_dims, self.max_iter))
 				# Write the initial positions
 				for ix in range(n_cells):
 					pos = initial_pos[ix, :]
-					data_file.write(pack('{}d'.format(pos.shape[0]), *pos))
+					data_file.write(pack('={}d'.format(pos.shape[0]), *pos))
+				if nnz != 0:
+					data_file.write(pack('={}i'.format(knn.indptr.shape[0]), *knn.indptr))
+					logging.info("indptr %d", knn.indptr.shape[0])
+					data_file.write(pack('={}i'.format(knn.indices.shape[0]), *knn.indices))
+					logging.info("indices %d", knn.indptr.shape[0])
+					data_file.write(pack('={}d'.format(knn.data.shape[0]), *knn.data))
+					logging.info("data %d", knn.indptr.shape[0])
 				# Then write the data
 				for ix in range(n_cells):
 					sample = transformed[ix, :]
-					data_file.write(pack('{}d'.format(sample.shape[0]), *sample))
+					data_file.write(pack('={}d'.format(sample.shape[0]), *sample))
+
+			shutil.copyfile(os.path.join(td, 'data.dat'), "/Users/sten/Code/cytograph/bhtsne/data.dat")
 
 			# Call bh_tsne and let it do its thing
 			with open(os.devnull, 'w') as dev_null:
