@@ -1,8 +1,10 @@
 
 # bhtsne
 
-Modified from https://github.com/lvdmaaten/bhtsne to allow specifying the initial layout.
+Modified from https://github.com/lvdmaaten/bhtsne as follows:
 
+* Allow specifying the initial layout.
+* Allow specifying an arbitrary (sparse) similarity matrix.
 
 ## Compiling
 
