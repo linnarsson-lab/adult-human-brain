@@ -19,12 +19,16 @@ class PlotClassesLineage(luigi.Task):
 	"""
 	lineage = luigi.Parameter(default="Ectodermal")  # Alternativelly Endomesodermal
 	target = luigi.Parameter(default="All")  # one between Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral,\ForebrainVentrothalamic, Midbrain, Hindbrain
+	time = luigi.Parameter(default="E7-E18") 
 
 	def requires(self) -> List[luigi.Task]:
-		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target)
+		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target, time=self.time)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".classes.png"))
+		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".classes.png"))
+		else:
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.classes.png" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		logging.info("Plotting classification of MKNN graph")
