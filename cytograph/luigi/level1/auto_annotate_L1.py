@@ -9,8 +9,10 @@ import numpy as np
 import cytograph as cg
 import luigi
 
+
 class autoannotate(luigi.Config):
 	species = luigi.Parameter(default="Mm")
+
 
 class AutoAnnotateL1(luigi.Task):
 	"""

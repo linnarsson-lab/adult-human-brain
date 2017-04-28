@@ -13,12 +13,16 @@ class MarkerEnrichmentLineage(luigi.Task):
 	"""
 	lineage = luigi.Parameter(default="Ectodermal")
 	target = luigi.Parameter(default="All")
+	time = luigi.Parameter(default="E7-E18")
 
 	def requires(self) -> luigi.Task:
-		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target)
+		return cg.ClusterLayoutDev(lineage=self.lineage, target=self.target, time=self.time)
 		
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".enrichment.tab"))
+		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".enrichment.tab"))
+		else:
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.enrichment.tab" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as f:
