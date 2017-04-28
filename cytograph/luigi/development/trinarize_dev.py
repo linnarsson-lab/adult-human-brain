@@ -26,9 +26,9 @@ class TrinarizeDev(luigi.Task):
 
 	def output(self) -> luigi.Target:
 		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
-			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".trinary.loom"))
+			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".trinary.tab"))
 		else:
-			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.trinary.loom" % (self.lineage, self.target, self.time)))
+			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.trinary.tab" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
