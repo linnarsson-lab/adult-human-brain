@@ -20,7 +20,11 @@ class PlotGraphL2(luigi.Task):
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> List[luigi.Task]:
-		return [cg.ClusterLayoutL2(tissue=self.tissue, major_class=self.major_class, project=self.project), cg.AutoAnnotateL2(tissue=self.tissue, major_class=self.major_class, project=self.project)]
+		return [
+			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class, project=self.project),
+			cg.AutoAnnotateL2(tissue=self.tissue, major_class=self.major_class, project=self.project),
+			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project),
+		]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".mknn.png"))
@@ -34,5 +38,5 @@ class PlotGraphL2(luigi.Task):
 			for line in content:
 				tags.append(line.split('\t')[1].replace(",", "\n")[:-1])
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input()[0].fn)
+			ds = loompy.connect(self.input()[2].fn)
 			cg.plot_graph(ds, out_file, tags)

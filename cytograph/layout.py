@@ -79,7 +79,7 @@ class TSNE:
 		self.n_dims = n_dims
 		self.max_iter = max_iter
 	
-	def layout(self, transformed: np.ndarray, initial_pos: np.ndarray = None, knn: sparse.csr_matrix = None) -> None:
+	def layout(self, transformed: np.ndarray, initial_pos: np.ndarray = None, knn: sparse.csr_matrix = None) -> np.ndarray:
 		"""
 		Compute Barnes-Hut approximate t-SNE layout
 
@@ -103,7 +103,6 @@ class TSNE:
 			knn.sort_indices()
 			nnz = knn.nnz
 		with tempfile.TemporaryDirectory() as td:
-			logging.info(td)
 			with open(os.path.join(td, 'data.dat'), 'wb') as data_file:
 				# Write the bh_tsne header
 				data_file.write(pack('=iiiddii', n_cells, n_components, nnz, self.theta, self.perplexity, self.n_dims, self.max_iter))
@@ -113,17 +112,12 @@ class TSNE:
 					data_file.write(pack('={}d'.format(pos.shape[0]), *pos))
 				if nnz != 0:
 					data_file.write(pack('={}i'.format(knn.indptr.shape[0]), *knn.indptr))
-					logging.info("indptr %d", knn.indptr.shape[0])
 					data_file.write(pack('={}i'.format(knn.indices.shape[0]), *knn.indices))
-					logging.info("indices %d", knn.indptr.shape[0])
 					data_file.write(pack('={}d'.format(knn.data.shape[0]), *knn.data))
-					logging.info("data %d", knn.indptr.shape[0])
 				# Then write the data
 				for ix in range(n_cells):
 					sample = transformed[ix, :]
 					data_file.write(pack('={}d'.format(sample.shape[0]), *sample))
-
-			shutil.copyfile(os.path.join(td, 'data.dat'), "/Users/sten/Code/cytograph/bhtsne/data.dat")
 
 			# Call bh_tsne and let it do its thing
 			with open(os.devnull, 'w') as dev_null:

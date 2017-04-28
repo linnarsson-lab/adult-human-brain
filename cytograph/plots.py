@@ -255,10 +255,10 @@ def plot_markerheatmap(ds: loompy.LoomConnection, out_file: str) -> None:
 	genes = markers
 	cells = ds.col_attrs["Clusters"] >= 0
 	data = np.log(ds[:, :][genes, :][:, cells] + 1)
-	agg = npg.aggregate(ds.col_attrs["Clusters"][cells], data, axis=1)
+	# agg = npg.aggregate(ds.col_attrs["Clusters"][cells], data, axis=1)
 
-	# Agglomerate cells
-	zx = hc.ward(agg.T)
+	# Agglomerate clusters
+	zx = hc.average(enrichment[genes, :].T)
 	xordering = hc.leaves_list(zx)
 
 	# Reorder the cells according to the cluster ordering

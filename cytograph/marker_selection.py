@@ -36,7 +36,7 @@ class MarkerSelection:
 
 		# Select best markers
 		included = []  # type: List[int]
-		excluded = set()  # type: Set[int]
+		excluded = set(np.where(ds.row_attrs["_Valid"] == 0)[0])  # type: Set[int]
 		for ix in range(max(labels) + 1):
 			enriched = np.argsort(enrichment[:, ix])[::-1]
 			n = 0

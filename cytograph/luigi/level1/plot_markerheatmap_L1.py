@@ -20,10 +20,7 @@ class PlotMarkerheatmapL2(luigi.Task):
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> List[luigi.Task]:
-		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project),
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
-		]
+		return cg.ClusterLayoutL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".heatmap.pdf"))
@@ -31,5 +28,5 @@ class PlotMarkerheatmapL2(luigi.Task):
 	def run(self) -> None:
 		logging.info("Plotting marker heatmap")
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input()[0].fn)
+			ds = loompy.connect(self.input().fn)
 			cg.plot_markerheatmap(ds, out_file)

@@ -22,14 +22,17 @@ class TrinarizeL2(luigi.Task):
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> luigi.Task:
-		return cg.ClusterLayoutL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
+		return [
+			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project),
+			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
+		]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".trinary.tab"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input().fn)
+			ds = loompy.connect(self.input()[0].fn)
 			tr = cg.Trinarizer(trinarization().f)
 			tr.fit(ds)
 			tr.save(out_file)
