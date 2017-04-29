@@ -13,12 +13,15 @@ from collections import defaultdict
 
 
 def parse_project_requirements(process_obj: Dict) -> Iterator[luigi.Task]:
-	parent_type = process_obj["type"]
-	parent_kwargs = process_obj["kwargs"]
+	parent_type = process_obj["parent_analysis"]["type"]
+	parent_kwargs = process_obj["parent_analysis"]["kwargs"]
 	if parent_type not in analysis_type_dict:
 		raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
 	Analysis = analysis_type_dict[parent_type]
-	return Analysis(**parent_kwargs).requires()
+	if parent_kwargs == {}:
+		return Analysis()
+	else:
+		return Analysis(**parent_kwargs).requires()
 
 
 class StudyProcessPool(luigi.Task):

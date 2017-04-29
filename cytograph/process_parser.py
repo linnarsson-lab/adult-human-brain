@@ -29,17 +29,17 @@ class ProcessesParser(object):
 								if type(vv) == dict:
 									for kkk, vvv in vv.items():
 										try:
-											model_copy[k][kk][kkk] = vvv
+											model_copy[k][kk][kkk] = temp_dict[k][kk][kkk]
 										except ValueError:
 											pass
 								else:
 									try:
-										model_copy[k][kk] = vv
+										model_copy[k][kk] = temp_dict[k][kk]
 									except ValueError:
 										pass
 						else:
 							try:
-								model_copy[k] = v
+								model_copy[k] = temp_dict[k]
 							except ValueError:
 								pass
 					self._processes_dict[name] = model_copy
