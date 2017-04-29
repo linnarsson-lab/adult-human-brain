@@ -8,37 +8,34 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi
-from luigi import targets_map, EP2int, time_check
+from luigi import targets_map, EP2int, time_check, analysis_type_dict
 from collections import defaultdict
 
 
-class SplitAndPoolAa(luigi.Task):
+def parse_project_requirements(process_obj: Dict) -> Iterator[luigi.Task]:
+	parent_type = process_obj["type"]
+	parent_kwargs = process_obj["kwargs"]
+	if parent_type not in analysis_type_dict:
+		raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
+	Analysis = analysis_type_dict[parent_type]
+	return Analysis(**parent_kwargs).requires()
+
+
+class StudyProcess(luigi.Task):
 	"""
-	Luigi Task to split the results of level 1 analysis by using both the region, the auto-annotion and the time, and pool each class separately
+	Luigi Task Wrapper to run a set of analysese on a particular slice of the data as specified by a description file
 
-	`lineage` cane be:
-	Ectodermal (default), Endomesodermal
-
-	`target` can be:
-	All (default), Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral, ForebrainVentrothalamic, Midbrain, Hindbrain
-
-	`time` can be:
-	EarlyTime-LaterTime, for example E9-E18, (EarlyTime allowed are E7, E9, E12, E16; LaterTime allowed are E8, E11, E15, E18, P7; with EarlyTime < LaterTime)
-	default: E7-E18
+	`processname` needs to match th name specified in the .yaml file in the folder ../dev-processes
 	"""
-	# project = luigi.Parameter(default="Development")  # For now this works only for development
-	lineage = luigi.Parameter(default="Ectodermal")  # One of the categories in the autoannotation files
-	target = luigi.Parameter(default="All")  # one between Cortex, AllForebrain, ForebrainDorsal, ForebrainVentrolateral, ForebrainVentrothalamic, Midbrain, Hindbrain
-	time = luigi.Parameter(default="E7-E18")  # later more specific autoannotation can be devised
+	
+	processname = luigi.Parameter()
 
-	def requires(self) -> luigi.Task:
-		return [[cg.ClusterLayoutL1(tissue=tissue), cg.AutoAnnotateL1(tissue=tissue)] for tissue in targets_map[self.target] if time_check(tissue, self.time)]
+	def requires(self) -> Iterator[luigi.Task]:
+		process_obj = cg.ProcessesParser()[self.processname]
+		return parse_project_requirements(process_obj)
 
 	def output(self) -> luigi.Target:
-		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
-			return luigi.LocalTarget(os.path.join("loom_builds", self.lineage + "_" + self.target + ".loom"))
-		else:
-			return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.loom" % (self.lineage, self.target, self.time)))
+		return luigi.LocalTarget(os.path.join("loom_builds", "%s_%s_%s.loom" % (self.lineage, self.target, self.time)))
 		
 	def run(self) -> None:
 		# The following code needs to be updated whenever autoannotation is updated

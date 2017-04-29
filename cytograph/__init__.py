@@ -7,6 +7,7 @@ from .louvain_jaccard import LouvainJaccard
 from .layout import OpenOrd, SFDP, TSNE
 from .normalizer import Normalizer, div0
 from .projection import PCAProjection
+from .process_parser import ProcessesParser
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
 from .metagraph import MetaGraph

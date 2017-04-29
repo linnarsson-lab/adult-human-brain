@@ -17,7 +17,8 @@ setup(
 		'tqdm',
 		'python-louvain',
 		'luigi',
-		'hdbscan'
+		'hdbscan',
+		'yaml'
 	],
 	dependency_links=['http://github.com/linnarsson-lab/numpy-groupies/tarball/master#egg=numpy_groupies'],
 
