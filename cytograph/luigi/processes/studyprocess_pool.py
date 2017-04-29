@@ -49,18 +49,25 @@ class StudyProcessPool(luigi.Task):
 				# Select the tags as specified in the process file
 				filter_bool = cg.FilterManager(process_obj, ds, autoannotated.fn).compute_filter()
 
-				for (ix, selection, vals) in ds.batch_scan(axis=1):
+				for (ix, selection, vals) in ds.batch_scan_layers(axis=1):
 					# Filter the cells that belong to the selected tags
 					subset = np.intersect1d(np.where(filter_bool)[0], selection)
 					if subset.shape[0] == 0:
 						continue
-					m = vals[:, subset - ix]
+					m = {}
+					for layer_name, chunk_of_matrix in vals.items():
+						m[layer_name] = vals[layer_name][:, subset - ix]
 					ca = {}
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][subset]
 					# Add data to the loom file
 					if dsout is None:
-						dsout = loompy.create(out_file, m, ds.row_attrs, ca)
-						# Add layer!
+						# create using main layer
+						dsout = loompy.create(out_file, m["@DEFAULT"], ds.row_attrs, ca)
+						# Add layers
+						for layer_name, chunk_of_matrix in m.items():
+							if layer_name == "@DEFAULT":
+								continue
+							dsout.set_layer(layer_name, chunk_of_matrix, dtype=chunk_of_matrix.dtype)
 					else:
 						dsout.add_columns(m, ca)
