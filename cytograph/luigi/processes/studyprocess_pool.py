@@ -39,35 +39,59 @@ def read_autoannotation(aa_file: str) -> List[List[str]]:
 	return tags
 
 
-def make_filter_aa(aa_file_name: str, process_obj: Dict[str, Any]) -> np.ndarray:
+class FilterManager(object):
+	def __init__(self, process_obj: Dict, ds: loompy.LoomConnection, aa_file_name: str=None) -> None:
+		self.process_obj = process_obj
+		self.ds = ds
+		self.aa_file_name = aa_file_name
+	
+	def make_filter_aa(self) -> np.ndarray:
+		# Read the autoannotation.aa.tab file and extract tags
+		tags_per_cluster = read_autoannotation(self.aa_file_name)
+		# Read the process dictionary
+		include_aa, exclude_aa = self.process_obj["include"]["aa"], self.process_obj["exclude"]["aa"]
+		# Add and then remove cluster on the basis of the autoannotation
+		selected_clusters = set()  # type: set
+		for cluster_ix, tags in enumerate(tags_per_cluster):
+			for include_entry in include_aa:
+				if type(include_entry) == list:
+					if np.alltrue(np.in1d(include_entry, tags)):
+						selected_clusters |= {cluster_ix}
+				elif type(include_entry) == str:
+					if include_entry in tags:
+						selected_clusters |= {cluster_ix}
+				else:
+					logging.warning("Processes: include aa are not correctly fomratted")
+			for exclude_entry in exclude_aa:
+				if type(exclude_entry) == list:
+					if np.alltrue(np.in1d(exclude_entry, tags)):
+						selected_clusters -= {cluster_ix}
+				elif type(exclude_entry) == str:
+					if include_entry in tags:
+						selected_clusters -= {cluster_ix}
+				else:
+					logging.warning("Processes: exclude aa are not correctly fomratted")
+		bool_autoannotation = np.in1d(np.arange(len(tags_per_cluster)), list(selected_clusters))
+		return bool_autoannotation
 
-	# Read the autoannotation.aa.tab file and extract tags
-	tags_per_cluster = read_autoannotation(aa_file_name)
-	# Read the process dictionary
-	include_aa, exclude_aa = process_obj["include"]["aa"], process_obj["exclude"]["aa"]
-	# Add and then remove cluster on the basis of the autoannotation
-	selected_clusters = set()  # type: set
-	for cluster_ix, tags in enumerate(tags_per_cluster):
-		for include_entry in include_aa:
-			if type(include_entry) == list:
-				if np.alltrue(np.in1d(include_entry, tags)):
-					selected_clusters |= {cluster_ix}
-			elif type(include_entry) == str:
-				if include_entry in tags:
-					selected_clusters |= {cluster_ix}
-			else:
-				logging.warning("Processes: include aa are not correctly fomratted")
-		for exclude_entry in exclude_aa:
-			if type(exclude_entry) == list:
-				if np.alltrue(np.in1d(exclude_entry, tags)):
-					selected_clusters -= {cluster_ix}
-			elif type(exclude_entry) == str:
-				if include_entry in tags:
-					selected_clusters -= {cluster_ix}
-			else:
-				logging.warning("Processes: exclude aa are not correctly fomratted")
-	bool_autoannotation = np.in1d(np.arange(len(tags_per_cluster)), list(selected_clusters))
-	return bool_autoannotation
+		def make_filter_category(self):
+			pass
+
+		def make_filter_cluster(self):
+			inclusion = np.in1d(ds.col_attrs["Clusters"], process_obj["include"]["clusters"])
+			exclusion = np.in1d(ds.col_attrs["Clusters"], process_obj["exclude"]["clusters"])
+			return inclusion & np.logical_not(exclusion)
+
+		def make_filter_classifier(self):
+			pass
+
+		def compute_filter(self) -> np.ndarray:
+			bool_autoannotation = self.make_filter_aa()
+			bool_category = make_filter_category()
+			bool_cluster = make_filter_cluster()
+			bool_classifier = make_filter_classifier()
+			filter_bool = bool_autoannotation & bool_category & bool_cluster & bool_classifier
+			return filter_bool
 
 
 class StudyProcessPool(luigi.Task):
@@ -106,15 +130,13 @@ class StudyProcessPool(luigi.Task):
 				labels = ds.col_attrs["Clusters"]
 				
 				# Select the tags as specified in the process file
-				bool_autoannotation = make_filter_aa(autoannotated.fn, process_obj)
-				bool_category = make_filter_category(ds, process_obj)
-				bool_cluster = make_filter_cluster(labels, process_obj)
-				bool_classifier = make_filter_classifier()
-				filter_bool = bool_autoannotation & bool_category & bool_cluster & bool_classifier
+
+
+				filter_bool = FilterManager().compute_filter()
 
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
 					# Filter the cells that belong to the selected tags
-					subset = np.intersect1d(np.where(np.in1d(labels, selected_tags))[0], selection)
+					subset = np.intersect1d(np.where(filter_bool)[0], selection)
 					if subset.shape[0] == 0:
 						continue
 					m = vals[:, subset - ix]
