@@ -3,6 +3,7 @@ from .bi_pca import broken_stick, biPCA, select_sig_pcs
 from .auto_annotator import AutoAnnotator, CellTag, read_autoannotation
 from .prommt import ProMMT
 from .facet_learning import Facet, FacetLearning
+from .filter_manager import FilterManager
 from .louvain_jaccard import LouvainJaccard
 from .layout import OpenOrd, SFDP, TSNE
 from .normalizer import Normalizer, div0
