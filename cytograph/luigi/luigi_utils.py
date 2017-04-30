@@ -4,9 +4,9 @@ import cytograph as cg
 
 def EP2int(timepoint: str) -> int:
     if "P" in timepoint:
-        return int(timepoint.lstrip("P")) + 19
+        return int(float(timepoint.lstrip("P"))) + 19
     else:
-        return int(timepoint.lstrip("E"))
+        return int(float(timepoint.lstrip("E")))
 
 
 def time_check(tissue_name: str, time_par: str) -> bool:

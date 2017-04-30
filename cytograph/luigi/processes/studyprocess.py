@@ -32,9 +32,8 @@ class StudyProcess(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		# TODO: Read the process object to know what to do instead of hard coding it
-		# using 
+		# using
 		# process_obj = cg.ProcessesParser()[self.processname]
 		yield cg.StudyProcessPool(processname=self.processname)
 		yield cg.ClusterLayoutProcess(processname=self.processname)
 		yield cg.PlotGraphProcess(processname=self.processname)
-
