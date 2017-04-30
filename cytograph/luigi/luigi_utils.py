@@ -36,5 +36,3 @@ targets_map = {
     "Midbrain": ["Cephalic_E7-8", 'Midbrain_E9-11', 'Midbrain_E12-15', 'Midbrain_E16-18'],
     "Hindbrain": ["Cephalic_E7-8", 'Hindbrain_E9-11', 'Hindbrain_E12-15', 'Hindbrain_E16-18'],
     "Cortex": ["Cephalic_E7-8", "Forebrain_E9-11", 'ForebrainDorsal_E12-15', 'ForebrainDorsal_E16-18', "Cortex_P7"]}
-
-analysis_type_dict = {"Level1": cg.Level1, }

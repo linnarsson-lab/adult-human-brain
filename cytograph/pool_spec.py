@@ -31,4 +31,3 @@ class PoolSpec:
 	
 	def tissues_for_project(self, project: str) -> List[str]:
 		return list(set([s.tissue for s in self.samples if s.project == project]))
-

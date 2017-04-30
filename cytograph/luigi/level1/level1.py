@@ -23,6 +23,4 @@ class Level1(luigi.WrapperTask):
 		tissues = targets_map[self.target]
 		for tissue in tissues:
 			if time_check(tissue, self.time):
-				yield cg.ClusterLayoutL1(tissue=tissue)
-				yield cg.AutoAnnotateL1(tissue=tissue)
-				yield cg.PlotGraphL1(tissue=tissue)
+				yield cg.ClusterLayoutL1(tissue=tissue), cg.AutoAnnotateL1(tissue=tissue), cg.PlotGraphL1(tissue=tissue)

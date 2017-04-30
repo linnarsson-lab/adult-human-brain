@@ -8,20 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi
-from luigi import targets_map, EP2int, time_check, analysis_type_dict
 from collections import defaultdict
-
-
-def parse_project_requirements(process_obj: Dict) -> Iterator[luigi.Task]:
-	parent_type = process_obj["parent_analysis"]["type"]
-	parent_kwargs = process_obj["parent_analysis"]["kwargs"]
-	if parent_type not in analysis_type_dict:
-		raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
-	Analysis = analysis_type_dict[parent_type]
-	if parent_kwargs == {}:
-		return Analysis()
-	else:
-		return Analysis(**parent_kwargs).requires()
 
 
 class StudyProcessPool(luigi.Task):
@@ -35,7 +22,7 @@ class StudyProcessPool(luigi.Task):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		process_obj = cg.ProcessesParser()[self.processname]
-		return parse_project_requirements(process_obj)
+		return cg.parse_project_requirements(process_obj)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", "%s.loom" % (self.processname,)))
@@ -45,6 +32,9 @@ class StudyProcessPool(luigi.Task):
 
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
+			# The following assumes assumes that for every process taskwrapper the
+			# first tow requirements yielded are the clustering and the autoannotation
+			# For more flexibility return a dictionary
 			for clustered, autoannotated, *others in self.input():
 				ds = loompy.connect(clustered.fn)
 				labels = ds.col_attrs["Clusters"]
