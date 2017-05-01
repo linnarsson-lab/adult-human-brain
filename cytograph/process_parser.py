@@ -5,7 +5,7 @@ import luigi
 import cytograph as cg
 
 
-analysis_type_dict = {"Level1": cg.Level1, "SudyProcess": cg.StudyProcess,}
+analysis_type_dict = {"Level1": luigi.Level1, "SudyProcess": luigi.StudyProcess}
 
 
 class ProcessesParser(object):
