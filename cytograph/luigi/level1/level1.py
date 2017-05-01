@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi
-from luigi import EP2int, time_check, targets_map
+from .. import time_check, targets_map
 
 
 class Level1(luigi.WrapperTask):
