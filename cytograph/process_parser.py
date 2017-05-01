@@ -5,6 +5,7 @@ import luigi
 import cytograph as cg
 from .luigi import Level1, StudyProcess
 import logging
+from collections import defaultdict
 
 analysis_type_dict = {"Level1": Level1, "SudyProcess": StudyProcess}
 
@@ -21,7 +22,7 @@ class ProcessesParser(object):
         self.model = yaml.load(open(os.path.join(self.root, "Model.yaml")))
 
     def _load_defs(self) -> None:
-        debug_msgs = dict()  # type: dict
+        debug_msgs = defaultdict(list)  # type: dict
         for cur, dirs, files in os.walk(self.root):
             for file in files:
                 if ".yaml" in file or ".yml" in file:
@@ -38,17 +39,17 @@ class ProcessesParser(object):
                                         try:
                                             model_copy[k][kk][kkk] = temp_dict[k][kk][kkk]
                                         except KeyError:
-                                            debug_msgs[file] = "Process %s `%s:%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, kkk, model_copy[k][kk][kkk])
+                                            debug_msgs[name].append("Process %s `%s:%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, kkk, model_copy[k][kk][kkk]))
                                 else:
                                     try:
                                         model_copy[k][kk] = temp_dict[k][kk]
                                     except KeyError:
-                                        debug_msgs[file] = "Process %s `%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, model_copy[k][kk])
+                                        debug_msgs[name].append("Process %s `%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, model_copy[k][kk]))
                         else:
                             try:
                                 model_copy[k] = temp_dict[k]
                             except KeyError:
-                                debug_msgs[file] = "Process %s `%s` was not found. The Default `%s` will be used" % (name, k, model_copy[k])
+                                debug_msgs[name].append("Process %s `%s` was not found. The Default `%s` will be used" % (name, k, model_copy[k]))
                     self._processes_dict[name] = model_copy
                     self.debug_msgs = debug_msgs
 
@@ -61,7 +62,8 @@ class ProcessesParser(object):
         return dict(self._processes_dict)
 
     def __getitem__(self, key: Any) -> Dict:
-        logging.debug(self.debug_msgs[key])
+        for i in self.debug_msgs[key]:
+            logging.debug(i)
         return self._processes_dict[key]
 
 

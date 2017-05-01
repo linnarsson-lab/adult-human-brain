@@ -29,13 +29,14 @@ class StudyProcessPool(luigi.Task):
 		
 	def run(self) -> None:
 		process_obj = cg.ProcessesParser()[self.processname]
-
+		logging.debug("Generating the pooled file %s.loom" % self.processname)
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
 			# The following assumes assumes that for every process taskwrapper the
 			# first tow requirements yielded are the clustering and the autoannotation
 			# For more flexibility return a dictionary
 			for clustered, autoannotated, *others in self.input():
+				logging.debug("Adding cells from the source file %s" % clustered.fn)
 				ds = loompy.connect(clustered.fn)
 				labels = ds.col_attrs["Clusters"]
 				
