@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi
-from luigi import targets_map, EP2int, time_check
 from collections import defaultdict
 
 
@@ -32,7 +31,7 @@ class SplitAndPoolAa(luigi.Task):
 	time = luigi.Parameter(default="E7-E18")  # later more specific autoannotation can be devised
 
 	def requires(self) -> luigi.Task:
-		return [[cg.ClusterLayoutL1(tissue=tissue), cg.AutoAnnotateL1(tissue=tissue)] for tissue in targets_map[self.target] if time_check(tissue, self.time)]
+		return [[cg.ClusterLayoutL1(tissue=tissue), cg.AutoAnnotateL1(tissue=tissue)] for tissue in cg.targets_map[self.target] if cg.time_check(tissue, self.time)]
 
 	def output(self) -> luigi.Target:
 		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
