@@ -20,9 +20,9 @@ class StudyProcess(luigi.WrapperTask):
 	
 	processname = luigi.Parameter()
 
-	def requires(self) -> Iterator[luigi.Task]:
+	def requires(self) -> List[List[luigi.Task]]:
 		process_obj = cg.ProcessesParser()[self.processname]
 		other_tasks = []
 		for task in cg.parse_project_todo(process_obj):
 			other_tasks.append(task(processname=self.processname))
-		yield cg.ClusterLayoutProcess(processname=self.processname), cg.AutoAnnotateProcess(processname=self.processname), *other_tasks
+		return [[cg.ClusterLayoutProcess(processname=self.processname), cg.AutoAnnotateProcess(processname=self.processname), *other_tasks]]

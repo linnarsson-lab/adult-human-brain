@@ -5,7 +5,7 @@ import luigi
 import cytograph as cg
 
 
-analysis_type_dict = {"Level1": cg.Level1, }
+analysis_type_dict = {"Level1": cg.Level1, "SudyProcess": cg.StudyProcess,}
 
 
 class ProcessesParser(object):
@@ -61,23 +61,26 @@ class ProcessesParser(object):
 		return self._processes_dict[key]
 
 
-def parse_project_requirements(process_obj: Dict) -> Iterator[luigi.Task]:
+def parse_project_requirements(process_obj: Dict) -> List[Tuple[luigi.Task]]:
 	"""
 	This assume the requirements be always a TaskWrapper
 	"""
-	parent_type = process_obj["parent_analysis"]["type"]
-	parent_kwargs = process_obj["parent_analysis"]["kwargs"]
-	if parent_type not in analysis_type_dict:
-		raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
-	Analysis = analysis_type_dict[parent_type]
-	if parent_kwargs == {}:
-		return Analysis()
-	else:
-		return Analysis(**parent_kwargs).requires()
+	requirements = []  # type: List[luigi.WrapperTask]
+	for i in range(len(process_obj["parent_analyses"])):
+		parent_type = process_obj["parent_analyses"][i]["type"]
+		parent_kwargs = process_obj["parent_analyses"][i]["kwargs"]
+		if parent_type not in analysis_type_dict:
+			raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
+		Analysis = analysis_type_dict[parent_type]
+		if parent_kwargs == {}:
+			requirements += list(Analysis().requires())
+		else:
+			requirements += list(Analysis(**parent_kwargs).requires())
+	return requirements
 
 
 def parse_project_todo(process_obj: Dict) -> Iterator[luigi.Task]:
-	for analysis_entry in process_obj["parent_analysis"]:
+	for analysis_entry in process_obj["todo_analyses"]:
 		analysis_type, analysis_kwargs = analysis_entry["type"], analysis_entry["kwargs"]
 		if analysis_type not in analysis_type_dict:
 			raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % analysis_type)
