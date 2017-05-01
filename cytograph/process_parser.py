@@ -3,9 +3,9 @@ import yaml
 import os
 import luigi
 import cytograph as cg
+from .luigi import Level1, StudyProcess
 
-
-analysis_type_dict = {"Level1": luigi.Level1, "SudyProcess": luigi.StudyProcess}
+analysis_type_dict = {"Level1": Level1, "SudyProcess": StudyProcess}
 
 
 class ProcessesParser(object):
