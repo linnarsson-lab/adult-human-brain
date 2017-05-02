@@ -37,7 +37,10 @@ class LouvainJaccard:
 				c = knncsr.getrow(j)
 				shared = r.minimum(c).nnz
 				total = r.maximum(c).nnz
-				js.append(shared / total)
+				if total > 0:
+					js.append(shared / total)
+				else:
+					js.append(0)
 			weights = np.array(js) + 0.00001  # OpenOrd doesn't like 0 weights
 
 			self.lj_knn = sparse.coo_matrix((weights, (knn.row, knn.col)))

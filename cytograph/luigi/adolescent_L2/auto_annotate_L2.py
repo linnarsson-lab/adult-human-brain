@@ -14,12 +14,11 @@ class AutoAnnotateL2(luigi.Task):
 	"""
 	Luigi Task to auto-annotate clusters, level 2
 	"""
-	project = luigi.Parameter(default="Adolescent")
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> luigi.Task:
-		return cg.TrinarizeL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
+		return cg.TrinarizeL2(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".aa.tab"))

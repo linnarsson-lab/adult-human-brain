@@ -20,23 +20,23 @@ from sklearn.svm import SVR
 from scipy.stats import ks_2samp
 import networkx as nx
 import hdbscan
+from sklearn.cluster import DBSCAN
 
 
 class ClusterL2(luigi.Task):
 	"""
 	Level 2 clustering of the adolescent dataset
 	"""
-	project = luigi.Parameter(default="Adolescent")
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 	n_genes = luigi.IntParameter(default=1000)
 	gtsne = luigi.BoolParameter(default=True)
-	method = luigi.Parameter(default='louvain')  # or 'hdbscan'
+	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
 
 	def requires(self) -> luigi.Task:
 		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project), 
-			cg.ManifoldL2(tissue=self.tissue, major_class=self.major_class, project="Adolescent")
+			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
+			cg.ManifoldL2(tissue=self.tissue, major_class=self.major_class)
 		]
 
 	def output(self) -> luigi.Target:
@@ -56,6 +56,21 @@ class ClusterL2(luigi.Task):
 				logging.info("HDBSCAN clustering in t-SNE space")
 				tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 				clusterer = hdbscan.HDBSCAN(min_cluster_size=10)
+				labels = clusterer.fit_predict(tsne_pos)
+				labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+				labels_all[cells] = labels
+				ds.set_attr("Clusters", labels_all, axis=1)
+			elif self.method == "dbscan":
+				logging.info("DBSCAN clustering in t-SNE space")
+				min_pts = 50
+				eps_pct = 65
+				tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
+				nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
+				nn.fit(tsne_pos)
+				knn = nn.kneighbors_graph(mode='distance')
+				k_radius = knn.max(axis=1).toarray()
+				epsilon = np.percentile(k_radius, eps_pct)
+				clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
 				labels = clusterer.fit_predict(tsne_pos)
 				labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 				labels_all[cells] = labels

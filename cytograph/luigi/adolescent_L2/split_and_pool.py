@@ -16,22 +16,18 @@ class SplitAndPool(luigi.Task):
 
 	If tissue is "All", all tissues will be pooled.
 	"""
-	project = luigi.Parameter(default="Adolescent")
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> luigi.Task:
-		tissues = cg.PoolSpec().tissues_for_project(self.project)
+		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		if self.tissue == "All":
 			return [cg.PrepareTissuePool(tissue=tissue) for tissue in tissues]
 		else:
 			return [cg.PrepareTissuePool(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
-		if self.project == "Development":
-			return luigi.LocalTarget(os.path.join("loom_builds", "Development_All.loom"))
-		else:
-			return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".loom"))
 		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
@@ -41,14 +37,10 @@ class SplitAndPool(luigi.Task):
 				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
 				for (ix, selection, vals) in ds.batch_scan(axis=1):
-					if self.project == "Adolescent":
-						subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
-						if subset.shape[0] == 0:
-							continue
-						m = vals[:, subset - ix]
-					else:
-						subset = selection
-						m = vals
+					subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
+					if subset.shape[0] == 0:
+						continue
+					m = vals[:, subset - ix]
 					ca = {}
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][subset]

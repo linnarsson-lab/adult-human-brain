@@ -10,3 +10,4 @@ from .split_and_pool import SplitAndPool
 from .trinarize_L2 import TrinarizeL2
 from .plot_classes_L2 import PlotClassesL2
 from .plot_markerheatmap_L2 import PlotMarkerheatmapL2
+from .aggregate_L2 import AggregateL2

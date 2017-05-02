@@ -26,15 +26,13 @@ class ManifoldL2(luigi.Task):
 	"""
 	Luigi Task to learn the high-dimensional manifold and embed it as a multiscale KNN graph, as well as t-SNE projection
 	"""
-	project = luigi.Parameter(default="Adolescent")
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 	n_genes = luigi.IntParameter(default=1000)
 	gtsne = luigi.BoolParameter(default=True)
-	use_hdbscan = luigi.BoolParameter(default=True)
 
 	def requires(self) -> luigi.Task:
-		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project)
+		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".manifold.txt"))
@@ -71,7 +69,7 @@ class ManifoldL2(luigi.Task):
 			k = 10
 			nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
 			nn.fit(transformed)
-			knn = nn.kneighbors_graph(mode='distance')
+			knn = nn.kneighbors_graph(mode='connectivity')
 			knn = knn.tocoo()
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 			mknn = knn.minimum(knn.transpose()).tocoo()
@@ -97,6 +95,7 @@ class ManifoldL2(luigi.Task):
 
 			logging.info("Generating multiscale KNN graph")
 			knn = None
+			knn10 = None  # type: sparse.coo_matrix
 			for k in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
 				logging.info("k = " + str(k))
 				nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
@@ -104,12 +103,15 @@ class ManifoldL2(luigi.Task):
 				knn_tmp = nn.kneighbors_graph(mode='connectivity')
 				if knn is None:
 					knn = knn_tmp * (100 / k)
+					knn10 = knn_tmp * (100 / k)
 				else:
-					knn = knn + knn_tmp * (100 / k)
-			knn = knn.tocoo()
+					knn = knn.maximum(knn_tmp * (100 / k))
+			knn = knn.power(2).tocoo()
+			knn10 = knn10.power(2).tocoo()
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 			mknn = knn.minimum(knn.transpose()).tocoo()
 			ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
+			ds.set_edges("KNN10", cells[knn10.row], cells[knn10.col], knn10.data, axis=1)
 
 			if self.gtsne:
 				logging.info("gt-SNE layout")

@@ -27,7 +27,6 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 
 		In addition, you can specify:
 			"tally" to count the number of occurences of each value of a categorical attribute
-			"geom" to calculate the geometric mean
 	"""
 	ca = {}  # type: Dict[str, np.ndarray]
 	if select is not None:
@@ -44,16 +43,11 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
 					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
-			elif func == "geom":
-				ca[key] = np.exp(npg.aggregate(labels, np.log(ds.col_attrs[key][cols] + 1), func="mean"))
 			else:
 				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
 	m = np.empty((ds.shape[0], n_groups))
 	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
-		if aggr_by == "geom":
-			vals_aggr = np.exp(npg.aggregate(labels, np.log(vals + 1), func="mean", axis=1))
-		else:
-			vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1)
+		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1)
 		m[selection, :] = vals_aggr
 
 	if return_matrix:

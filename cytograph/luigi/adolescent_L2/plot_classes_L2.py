@@ -15,14 +15,13 @@ class PlotClassesL2(luigi.Task):
 	"""
 	Luigi Task to plot the MKNN graph
 	"""
-	project = luigi.Parameter(default="Adolescent")
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> List[luigi.Task]:
 		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class, project=self.project),
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
+			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
+			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class)
 		]
 
 	def output(self) -> luigi.Target:
