@@ -106,29 +106,35 @@ class FilterManager(object):
         include_cat = self.process_obj["include"]["categories"]
         exclude_cat = self.process_obj["exclude"]["categories"]
 
-        include_aa = []  # type: list
-        for cat in include_cat:
-            if type(cat) == str:
-                include_aa += categories_dict[cat]
-            elif type(cat) == list:
-                intersection = set(categories_dict[cat[0]])
-                for c in cat[1:]:
-                    intersection &= set(categories_dict[c])
-                include_aa += list(intersection)
-            else:
-                logging.warning("Processes: exclude categories are not correctly formatted")
+        if include_cat == "all":
+            include_aa = "all"  # type: Any
+        else:
+            include_aa = []
+            for cat in include_cat:
+                if type(cat) == str:
+                    include_aa += categories_dict[cat]
+                elif type(cat) == list:
+                    intersection = set(categories_dict[cat[0]])
+                    for c in cat[1:]:
+                        intersection &= set(categories_dict[c])
+                    include_aa += list(intersection)
+                else:
+                    logging.warning("Processes: exclude categories are not correctly formatted")
         
-        exclude_aa = []  # type: list
-        for cat in exclude_cat:
-            if type(cat) == str:
-                exclude_aa += categories_dict[cat]
-            elif type(cat) == list:
-                intersection = set(categories_dict[cat[0]])
-                for c in cat[1:]:
-                    intersection &= set(categories_dict[c])
-                exclude_aa += list(intersection)
-            else:
-                logging.warning("Processes: exclude categories are not correctly formatted")
+        if exclude_cat == "none":
+            exclude_aa = "none"  # type: Any
+        else:
+            exclude_aa = []
+            for cat in exclude_cat:
+                if type(cat) == str:
+                    exclude_aa += categories_dict[cat]
+                elif type(cat) == list:
+                    intersection = set(categories_dict[cat[0]])
+                    for c in cat[1:]:
+                        intersection &= set(categories_dict[c])
+                    exclude_aa += list(intersection)
+                else:
+                    logging.warning("Processes: exclude categories are not correctly formatted")
         return self._make_filter_aa(include_aa, exclude_aa)
 
     def make_filter_time(self) -> np.ndarray:
@@ -145,6 +151,6 @@ class FilterManager(object):
         in_clu, ex_clu = self.make_filter_cluster()
         in_cla, ex_cla = self.make_filter_classifier()
         in_time = self.make_filter_time()
-        filter_include = (in_aa | in_cat | in_clu | in_cla) & in_time
+        filter_include = in_aa & in_cat & in_clu & in_cla & in_time
         filter_exclude = (ex_aa | ex_cat | ex_clu | ex_cla)
         return filter_include & np.logical_not(filter_exclude)

@@ -38,7 +38,6 @@ class StudyProcessPool(luigi.Task):
 			for clustered, autoannotated, *others in self.input():
 				logging.debug("Adding cells from the source file %s" % clustered.fn)
 				ds = loompy.connect(clustered.fn)
-				labels = ds.col_attrs["Clusters"]
 				
 				# Select the tags as specified in the process file
 				filter_bool = cg.FilterManager(process_obj, ds, autoannotated.fn).compute_filter()

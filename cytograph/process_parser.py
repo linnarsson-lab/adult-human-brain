@@ -6,6 +6,7 @@ import cytograph as cg
 from .luigi import Level1, StudyProcess
 import logging
 from collections import defaultdict
+import copy
 
 analysis_type_dict = {"Level1": Level1, "SudyProcess": StudyProcess}
 
@@ -25,10 +26,10 @@ class ProcessesParser(object):
         debug_msgs = defaultdict(list)  # type: dict
         for cur, dirs, files in os.walk(self.root):
             for file in files:
-                if ".yaml" in file or ".yml" in file:
+                if ((".yaml" in file) or (".yml" in file)) and ("Model.yaml" not in file):
                     temp_dict = yaml.load(open(os.path.join(self.root, file)))
                     name = temp_dict["abbreviation"]
-                    model_copy = dict(self.model)
+                    model_copy = copy.deepcopy(self.model)
 
                     # Do an update of the model dictionary, so to keep the defaults
                     for k, v in self.model.items():
@@ -50,7 +51,7 @@ class ProcessesParser(object):
                                 model_copy[k] = temp_dict[k]
                             except KeyError:
                                 debug_msgs[name].append("Process %s `%s` was not found. The Default `%s` will be used" % (name, k, model_copy[k]))
-                    self._processes_dict[name] = model_copy
+                    self._processes_dict[name] = copy.deepcopy(model_copy)
                     self.debug_msgs = debug_msgs
 
     @property
