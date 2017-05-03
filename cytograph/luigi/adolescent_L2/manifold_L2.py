@@ -111,7 +111,8 @@ class ManifoldL2(luigi.Task):
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 			mknn = knn.minimum(knn.transpose()).tocoo()
 			ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
-			ds.set_edges("KNN10", cells[knn10.row], cells[knn10.col], knn10.data, axis=1)
+			knn10 = knn10.minimum(knn10.transpose()).tocoo()
+			ds.set_edges("MKNN10", cells[knn10.row], cells[knn10.col], knn10.data, axis=1)
 
 			if self.gtsne:
 				logging.info("gt-SNE layout")

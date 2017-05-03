@@ -60,7 +60,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
-	(a, b, w) = ds.get_edges("KNN10", axis=1)
+	(a, b, w) = ds.get_edges("MKNN10", axis=1)
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 	labels = ds.col_attrs["Clusters"][cells]
 
@@ -72,7 +72,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	nn.fit(pos)
 	knn = nn.kneighbors_graph(mode='distance')
 	k_radius = knn.max(axis=1).toarray()
-	epsilon = 36 * np.percentile(k_radius, eps_pct)
+	epsilon = 24 * np.percentile(k_radius, eps_pct)
 
 	fig = plt.figure(figsize=(10, 10))
 	ax = fig.add_subplot(111)
@@ -89,7 +89,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	names = []
 	for i in range(max(labels) + 1):
 		cluster = cells[labels == i]
-		plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon))
+		plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon, alpha=0.75))
 		names.append(str(i) + " " + tags[i].replace("\n", " "))
 	plots.append(plt.scatter(x=pos[cells[labels == -1], 0], y=pos[cells[labels == -1], 1], c='grey', marker='.', edgecolors='r', alpha=0.5, s=epsilon))
 	names.append("(outliers)")

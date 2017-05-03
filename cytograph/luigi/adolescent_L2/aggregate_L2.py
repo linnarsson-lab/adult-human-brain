@@ -67,9 +67,6 @@ class AggregateL2(luigi.Task):
 			logging.info("Computing cluster gene enrichment scores")
 			(markers, enrichment) = cg.MarkerSelection(self.n_markers).fit(ds)
 			dsout.set_layer("enrichment", enrichment)
-			## TODO: make sure all marker genes are in this set
-			## TODO: plot gene names for last cluster right-justified
-			## TODO: redraw t-SNE using cluster ordering as initial layout (in circle)
 			top_genes = np.argsort(np.max(enrichment, axis=1))[:1000]
 
 			dsout.set_attr("NCells", np.bincount(labels, minlength=n_labels), axis=1)

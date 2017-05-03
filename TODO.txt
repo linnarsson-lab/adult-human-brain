@@ -1,0 +1,5 @@
+Plot gene names for last cluster right-justified
+Redraw t-SNE using cluster ordering as initial layout (in circle)
+Export CSV for Patrik
+Organize the level 2 analysis to avoid redundant computations
+

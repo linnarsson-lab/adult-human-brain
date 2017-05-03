@@ -30,7 +30,7 @@ class PlotGraphL2(luigi.Task):
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".mknn.png"))
 
 	def run(self) -> None:
-		logging.info("Plotting KNN-10 graph")
+		logging.info("Plotting MKNN graph")
 		# Parse the auto-annotation tags
 		tags = []
 		with open(self.input()[1].fn, "r") as f:
