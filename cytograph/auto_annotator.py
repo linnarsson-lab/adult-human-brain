@@ -119,3 +119,20 @@ class AutoAnnotator(object):
 				f.write(",".join(tags))
 				f.write("\n")
 
+
+def read_autoannotation(aa_file: str) -> List[List[str]]:
+	"""Extract autoannotations from file
+
+	Arguments
+
+	Returns
+	-------
+	tags : List[List[str]]
+		where tags[i] contains all the aa tags attributed to cluster i
+	"""
+	tags = []  # type: list
+	with open(aa_file, "r") as f:
+		content = f.readlines()[1:]
+		for line in content:
+			tags.append(line.rstrip("\n").split('\t')[1].split(","))
+	return tags
