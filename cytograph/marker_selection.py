@@ -25,14 +25,26 @@ class MarkerSelection:
 		cells = labels >= 0
 		labels = labels[cells]
 		n_labels = max(labels) + 1
+		n_cells = cells.sum()
 
+		# Number of cells per cluster
 		sizes = np.bincount(labels, minlength=n_labels)
+		# Number of nonzero values per cluster
 		nnz = cg.aggregate_loom(ds, None, cells, "Clusters", np.count_nonzero, None, return_matrix=True)
+		# Mean value per cluster
 		means = cg.aggregate_loom(ds, None, cells, "Clusters", "mean", None, return_matrix=True)
+		# Non-zeros and means over all cells
 		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0, selection=cells)
+		# Scale by number of cells
 		f_nnz = nnz / sizes
 		f_nnz_overall = nnz_overall / len(cells)
-		enrichment = (f_nnz + 0.1) / (f_nnz_overall[None].T + 0.1) * (means + 0.01) / (means_overall[None].T + 0.01)
+
+		# Means and fraction non-zero values in other clusters (per cluster)
+		means_other = ((means_overall * n_cells) - (means * sizes)) / (n_cells - sizes)
+		f_nnz_other = ((f_nnz_overall * n_cells) - (f_nnz * sizes)) / (n_cells - sizes)
+
+		# enrichment = (f_nnz + 0.1) / (f_nnz_overall[None].T + 0.1) * (means + 0.01) / (means_overall[None].T + 0.01)
+		enrichment = (f_nnz + 0.1) / (f_nnz_other[None].T + 0.1) * (means + 0.01) / (means_other[None].T + 0.01)
 
 		# Select best markers
 		included = []  # type: List[int]

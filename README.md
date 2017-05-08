@@ -46,5 +46,3 @@ To split by tissue, replace `All` with the tissue name (e.g. `Hippocampus`)
 * Redo auto-annotation
 
 Delete the {major-class}.aa.tab and {major-class}.mknn.png files, then rerun the command above.
-
-

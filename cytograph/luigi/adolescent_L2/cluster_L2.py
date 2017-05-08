@@ -62,7 +62,7 @@ class ClusterL2(luigi.Task):
 				ds.set_attr("Clusters", labels_all, axis=1)
 			elif self.method == "dbscan":
 				logging.info("DBSCAN clustering in t-SNE space")
-				min_pts = 50
+				min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
 				eps_pct = 65
 				tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 				nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)

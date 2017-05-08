@@ -313,7 +313,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
-		text = plt.text(0.001, 0.9, t, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=10, color="white", weight="bold")
+		text = plt.text(0.001, 0.9, t, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
 		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
 
 	for ix, cls in enumerate(classes):
@@ -322,7 +322,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
-		text = plt.text(0.001, 0.9, cls[6:], horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=10, color="white", weight="bold")
+		text = plt.text(0.001, 0.9, cls[6:], horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
 		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
 
 	ax = fig.add_subplot(gs[2 + n_tissues + n_classes])

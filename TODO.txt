@@ -3,3 +3,39 @@ Redraw t-SNE using cluster ordering as initial layout (in circle)
 Export CSV for Patrik
 Organize the level 2 analysis to avoid redundant computations
 
+Use max 10-20% of all cells for enrichment score
+Do this also for gene selection in preliminary clustering
+
+Merge clusters based on shared markers with other clusters
+    1. identify ghost clusters
+    2. find closely related cluster, or trash
+    3. renumber and recalculate
+
+* min-pts 10 if <3000 cells, 20 if <20000, else 100
+* epsilon_pct 65
+
+dendrogram based on all clusters
+    - using trinarization score distance locally?
+    - using enriched genes on enrichment score
+
+export trinarization table for all clusters
+
+resample to compute cluster stability
+
+make sure layers are always merged
+
+
+# projects Gioele
+
+## Transcriptional velocity
+
+-> get all the data reanalyzed and represented as 4-layer Loom files, float16:
+    1. Sum of all (default layer)
+    2. Unspliced ("unspliced")
+    3. Spliced ("spliced")
+    4. Ambiguous ("ambiguous")
+
+## development
+
+-> back-port multiscale KNN to level 1
+-> 

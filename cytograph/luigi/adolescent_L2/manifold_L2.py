@@ -22,6 +22,21 @@ import networkx as nx
 import hdbscan
 
 
+def cap_select(labels: np.ndarray, items: np.ndarray, max_n: int) -> np.ndarray:
+	"""
+	Return a list of items but with no more than max_n entries
+	having each unique label
+	"""
+	n_labels = np.max(labels) + 1
+	sizes = np.bincount(labels, minlength=n_labels)
+	result = []  # type: List[int]
+	for lbl in range(n_labels):
+		n = min(max_n, sizes[lbl])
+		selected = np.where(labels == lbl)[0]
+		result = result + list(np.random.choice(selected, n, False))
+	return items[np.array(result)]
+
+
 class ManifoldL2(luigi.Task):
 	"""
 	Luigi Task to learn the high-dimensional manifold and embed it as a multiscale KNN graph, as well as t-SNE projection
@@ -90,7 +105,11 @@ class ManifoldL2(luigi.Task):
 
 			logging.info("PCA projection")
 			pca = cg.PCAProjection(genes, max_n_components=50)
-			pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
+			# Select cells across clusters more uniformly, preventing a single cluster from dominating the PCA
+			cells_adjusted = cap_select(labels, cells, n_valid * 0.2)
+			pca.fit(ds, normalizer, cells=cells_adjusted)
+			# Note that here we're transforming all cells; we just did the fit on the selection
+			pca_transformed = self.transform(ds, normalizer, cells=cells)
 			transformed = pca_transformed
 
 			logging.info("Generating multiscale KNN graph")
