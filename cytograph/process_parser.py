@@ -8,7 +8,7 @@ import logging
 from collections import defaultdict
 import copy
 
-analysis_type_dict = {"Level1": Level1, "SudyProcess": StudyProcess}
+analysis_type_dict = {"Level1": Level1, "StudyProcess": StudyProcess}
 
 
 class ProcessesParser(object):
