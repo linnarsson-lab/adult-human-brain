@@ -27,7 +27,7 @@ targets_map = {
         'ForebrainVentral_E12-15', 'ForebrainVentrolateral_E16-18', 'ForebrainVentrothalamic_E16-18',
         'Midbrain_E9-11', 'Midbrain_E12-15', 'Midbrain_E16-18', 'Hindbrain_E9-11', 'Hindbrain_E12-15',
         'Hindbrain_E16-18'],
-    "ForebrainAll": [
+    "Forebrain": [
         "Cephalic_E7-8", "Forebrain_E9-11", 'ForebrainDorsal_E12-15', 'ForebrainDorsal_E16-18',
         'ForebrainVentral_E12-15', 'ForebrainVentrolateral_E16-18', 'ForebrainVentrothalamic_E16-18'],
     "ForebrainDorsal": ["Cephalic_E7-8", "Forebrain_E9-11", 'ForebrainDorsal_E12-15', 'ForebrainDorsal_E16-18'],

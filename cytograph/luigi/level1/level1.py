@@ -12,6 +12,10 @@ import luigi
 class Level1(luigi.WrapperTask):
 	"""
 	Luigi Task to run a subset of level 1 Analysis
+
+	NOTE !!!!!
+	Level1, for now, is Development only! Not the same as Level1Analysis!
+
 	"""
 
 	project = luigi.Parameter(default="Development")
