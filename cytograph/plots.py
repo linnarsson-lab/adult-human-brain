@@ -60,7 +60,12 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
-	(a, b, w) = ds.get_edges("MKNN10", axis=1)
+	# TODO resolve the conflict below
+	try:
+		(a, b, w) = ds.get_edges("MKNN10", axis=1)
+	except KeyError:
+		logging.error("MKNN10 is not found searching for it in plot graph has broken previous pipelines. Reverting to MKNN")
+		(a, b, w) = ds.get_edges("MKNN", axis=1)
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 	labels = ds.col_attrs["Clusters"][cells]
 
