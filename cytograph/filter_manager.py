@@ -145,12 +145,24 @@ class FilterManager(object):
             in_time = np.in1d([EP2int(i) for i in self.ds.col_attrs["Age"]], time_selected_int)
             return in_time
 
+    def make_filter_tissue(self) -> Tuple[np.ndarray, np.ndarray]:
+        if self.process_obj["include"]["tissues"] == "all":
+            in_tis = np.ones(self.ds.shape[1], dtype=bool)
+        else:
+            in_tis = np.in1d(self.ds.col_attrs["Tissue"], self.process_obj["include"]["tissues"])
+        if self.process_obj["exclude"]["tissues"] == "none":
+            ex_tis = np.zeros(self.ds.shape[1], dtype=bool)
+        else:
+            ex_tis = np.in1d(self.ds.col_attrs["Tissue"], self.process_obj["exclude"]["tissues"])
+        return in_tis, ex_tis
+
     def compute_filter(self) -> np.ndarray:
         in_aa, ex_aa = self.make_filter_aa()
         in_cat, ex_cat = self.make_filter_category()
         in_clu, ex_clu = self.make_filter_cluster()
         in_cla, ex_cla = self.make_filter_classifier()
+        in_tis, ex_tis = self.make_filter_tissue()
         in_time = self.make_filter_time()
-        filter_include = in_aa & in_cat & in_clu & in_cla & in_time
-        filter_exclude = (ex_aa | ex_cat | ex_clu | ex_cla)
+        filter_include = in_aa & in_cat & in_clu & in_cla & in_tis & in_time
+        filter_exclude = (ex_aa | ex_cat | ex_clu | ex_cla | ex_tis)
         return filter_include & np.logical_not(filter_exclude)
