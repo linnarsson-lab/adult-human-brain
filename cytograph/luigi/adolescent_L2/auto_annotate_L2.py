@@ -25,6 +25,8 @@ class AutoAnnotateL2(luigi.Task):
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
+			ds = loompy.connect(self.input().fn)
 			aa = cg.AutoAnnotator()
-			aa.annotate_loom(self.input().fn)
+			aa.annotate_loom(ds)
 			aa.save(out_file)
+			ds.close()

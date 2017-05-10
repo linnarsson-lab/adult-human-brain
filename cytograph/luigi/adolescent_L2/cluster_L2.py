@@ -79,7 +79,7 @@ class ClusterL2(luigi.Task):
 				logging.info("Louvain clustering on the multiscale KNN graph")
 				(a, b, w) = ds.get_edges("KNN", axis=1)
 				knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
-				lj = cg.LouvainJaccard(resolution=10, jaccard=False)
+				lj = cg.LouvainJaccard(resolution=100, jaccard=False)
 				labels = lj.fit_predict(knn.tocoo())
 				# Make labels for excluded cells == -1
 				labels_all = np.zeros(ds.shape[1], dtype='int') + -1

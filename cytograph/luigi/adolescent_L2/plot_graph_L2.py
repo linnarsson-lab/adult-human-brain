@@ -20,10 +20,8 @@ class PlotGraphL2(luigi.Task):
 
 	def requires(self) -> List[luigi.Task]:
 		return [
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class),
 			cg.AutoAnnotateL2(tissue=self.tissue, major_class=self.major_class),
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
-			cg.AggregateL2(tissue=self.tissue, major_class=self.major_class),
+			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
 		]
 
 	def output(self) -> luigi.Target:
@@ -33,10 +31,10 @@ class PlotGraphL2(luigi.Task):
 		logging.info("Plotting MKNN graph")
 		# Parse the auto-annotation tags
 		tags = []
-		with open(self.input()[1].fn, "r") as f:
+		with open(self.input()[0].fn, "r") as f:
 			content = f.readlines()[1:]
 			for line in content:
 				tags.append(line.split('\t')[1].replace(",", "\n")[:-1])
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input()[2].fn)
+			ds = loompy.connect(self.input()[1].fn)
 			cg.plot_graph(ds, out_file, tags)

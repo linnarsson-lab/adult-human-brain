@@ -79,7 +79,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 
 	# Draw edges
 	logging.info("Drawing edges")
-	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.02, zorder=0, color='black', alpha=0.2)
+	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.5, zorder=0, color='black', alpha=0.25)
 	ax.add_collection(lc)
 
 	# Draw nodes

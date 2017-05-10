@@ -123,7 +123,8 @@ class ManifoldL2(luigi.Task):
 			w = np.repeat(100 / np.arange(1, k + 1), n_cells)
 			knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
-			mknn = knn.minimum(knn.transpose()).tocoo()
+			mknn = sparse.coo_matrix((w[w > 8], (a[w > 8], b[w > 8])), shape=(n_cells, n_cells))
+			mknn = mknn.minimum(mknn.transpose()).tocoo()
 			ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 
 			if self.gtsne:
@@ -136,7 +137,6 @@ class ManifoldL2(luigi.Task):
 			tsne_all[cells] = tsne_pos
 			ds.set_attr("_X", tsne_all[:, 0], axis=1)
 			ds.set_attr("_Y", tsne_all[:, 1], axis=1)
-			cg.plot_graph(ds, "loom_builds/graph.png")
 			with open(out_file, "w") as f:
 				f.write(str(n_labels) + " LJ clusters\n")
 			ds.close()
