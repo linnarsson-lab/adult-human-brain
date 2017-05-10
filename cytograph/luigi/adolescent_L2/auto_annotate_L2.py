@@ -18,7 +18,7 @@ class AutoAnnotateL2(luigi.Task):
 	tissue = luigi.Parameter(default="All")
 
 	def requires(self) -> luigi.Task:
-		return cg.TrinarizeL2(tissue=self.tissue, major_class=self.major_class)
+		return cg.AggregateL2(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".aa.tab"))
@@ -26,5 +26,5 @@ class AutoAnnotateL2(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			aa = cg.AutoAnnotator()
-			aa.annotate(self.input().fn)
+			aa.annotate_loom(self.input().fn)
 			aa.save(out_file)

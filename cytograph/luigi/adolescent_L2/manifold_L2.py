@@ -106,32 +106,25 @@ class ManifoldL2(luigi.Task):
 			logging.info("PCA projection")
 			pca = cg.PCAProjection(genes, max_n_components=50)
 			# Select cells across clusters more uniformly, preventing a single cluster from dominating the PCA
-			cells_adjusted = cap_select(labels, cells, n_valid * 0.2)
+			cells_adjusted = cap_select(labels, cells, int(n_valid * 0.2))
 			pca.fit(ds, normalizer, cells=cells_adjusted)
 			# Note that here we're transforming all cells; we just did the fit on the selection
-			pca_transformed = self.transform(ds, normalizer, cells=cells)
+			pca_transformed = pca.transform(ds, normalizer, cells=cells)
 			transformed = pca_transformed
 
 			logging.info("Generating multiscale KNN graph")
-			knn = None
-			knn10 = None  # type: sparse.coo_matrix
-			for k in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
-				logging.info("k = " + str(k))
-				nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
-				nn.fit(transformed)
-				knn_tmp = nn.kneighbors_graph(mode='connectivity')
-				if knn is None:
-					knn = knn_tmp * (100 / k)
-					knn10 = knn_tmp * (100 / k)
-				else:
-					knn = knn.maximum(knn_tmp * (100 / k))
-			knn = knn.power(2).tocoo()
-			knn10 = knn10.power(2).tocoo()
+			k = 100
+			nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
+			nn.fit(transformed)
+			knn = nn.kneighbors(return_distance=False)  # shape: (n_cells, k)
+			n_cells = knn.shape[0]
+			a = np.tile(np.arange(n_cells), k)
+			b = np.reshape(knn.T, (n_cells * k,))
+			w = np.repeat(100 / np.arange(1, k + 1), n_cells)
+			knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
 			mknn = knn.minimum(knn.transpose()).tocoo()
 			ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
-			knn10 = knn10.minimum(knn10.transpose()).tocoo()
-			ds.set_edges("MKNN10", cells[knn10.row], cells[knn10.col], knn10.data, axis=1)
 
 			if self.gtsne:
 				logging.info("gt-SNE layout")
@@ -143,7 +136,7 @@ class ManifoldL2(luigi.Task):
 			tsne_all[cells] = tsne_pos
 			ds.set_attr("_X", tsne_all[:, 0], axis=1)
 			ds.set_attr("_Y", tsne_all[:, 1], axis=1)
-
+			cg.plot_graph(ds, "loom_builds/graph.png")
 			with open(out_file, "w") as f:
 				f.write(str(n_labels) + " LJ clusters\n")
 			ds.close()

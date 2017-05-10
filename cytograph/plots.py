@@ -56,11 +56,11 @@ def plot_knn(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> None:
 	plt.close()
 
 
-def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> None:
+def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None) -> None:
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
-	(a, b, w) = ds.get_edges("MKNN10", axis=1)
+	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 	labels = ds.col_attrs["Clusters"][cells]
 
@@ -79,7 +79,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 
 	# Draw edges
 	logging.info("Drawing edges")
-	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.01, zorder=0, color='black', alpha=0.1)
+	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.02, zorder=0, color='black', alpha=0.2)
 	ax.add_collection(lc)
 
 	# Draw nodes
@@ -90,7 +90,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> Non
 	for i in range(max(labels) + 1):
 		cluster = cells[labels == i]
 		plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon, alpha=0.75))
-		names.append(str(i) + " " + tags[i].replace("\n", " "))
+		if tags is not None:
+			names.append(str(i) + " " + tags[i].replace("\n", " "))
+		else:
+			names.append(str(i))
 	plots.append(plt.scatter(x=pos[cells[labels == -1], 0], y=pos[cells[labels == -1], 1], c='grey', marker='.', edgecolors='r', alpha=0.5, s=epsilon))
 	names.append("(outliers)")
 	logging.info("Drawing legend")

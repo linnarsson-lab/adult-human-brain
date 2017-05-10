@@ -40,11 +40,11 @@ class MarkerSelection:
 		f_nnz_overall = nnz_overall / len(cells)
 
 		# Means and fraction non-zero values in other clusters (per cluster)
-		means_other = ((means_overall * n_cells) - (means * sizes)) / (n_cells - sizes)
-		f_nnz_other = ((f_nnz_overall * n_cells) - (f_nnz * sizes)) / (n_cells - sizes)
+		means_other = ((means_overall * n_cells)[None].T - (means * sizes)) / (n_cells - sizes)
+		f_nnz_other = ((f_nnz_overall * n_cells)[None].T - (f_nnz * sizes)) / (n_cells - sizes)
 
 		# enrichment = (f_nnz + 0.1) / (f_nnz_overall[None].T + 0.1) * (means + 0.01) / (means_overall[None].T + 0.01)
-		enrichment = (f_nnz + 0.1) / (f_nnz_other[None].T + 0.1) * (means + 0.01) / (means_other[None].T + 0.01)
+		enrichment = (f_nnz + 0.1) / (f_nnz_other + 0.1) * (means + 0.01) / (means_other + 0.01)
 
 		# Select best markers
 		included = []  # type: List[int]
