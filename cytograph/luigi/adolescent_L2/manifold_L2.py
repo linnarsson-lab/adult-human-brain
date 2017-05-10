@@ -120,10 +120,11 @@ class ManifoldL2(luigi.Task):
 			n_cells = knn.shape[0]
 			a = np.tile(np.arange(n_cells), k)
 			b = np.reshape(knn.T, (n_cells * k,))
-			w = np.repeat(100 / np.arange(1, k + 1), n_cells)
+			w = np.repeat(1 / np.arange(1, k + 1), n_cells)
 			knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 			ds.set_edges("KNN", cells[knn.row], cells[knn.col], knn.data, axis=1)
-			mknn = sparse.coo_matrix((w[w > 8], (a[w > 8], b[w > 8])), shape=(n_cells, n_cells))
+			threshold = w > 0.05
+			mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
 			mknn = mknn.minimum(mknn.transpose()).tocoo()
 			ds.set_edges("MKNN", cells[mknn.row], cells[mknn.col], mknn.data, axis=1)
 
