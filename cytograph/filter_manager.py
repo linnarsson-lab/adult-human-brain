@@ -97,8 +97,7 @@ class FilterManager(object):
         return in_clu, ex_clu
 
     def make_filter_category(self) -> Tuple[np.ndarray, np.ndarray]:
-        aa = cg.AutoAnnotator()
-        aa._load_defs()
+        aa = cg.AutoAnnotator.load_direct()
         categories_dict = defaultdict(list)  # type: DefaultDict
         for t in aa.tags:
             for c in t.categories:

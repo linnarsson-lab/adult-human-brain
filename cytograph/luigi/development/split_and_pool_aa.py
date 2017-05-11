@@ -41,8 +41,7 @@ class SplitAndPoolAa(luigi.Task):
 		
 	def run(self) -> None:
 		# The following code needs to be updated whenever autoannotation is updated
-		aa = cg.AutoAnnotator()
-		aa.load_defs()
+		aa = cg.AutoAnnotator.load_direct()
 		categories_dict = defaultdict(list)  # type: DefaultDict
 		for t in aa.tags:
 			for c in t.categories:
