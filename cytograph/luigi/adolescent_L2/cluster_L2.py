@@ -54,8 +54,9 @@ class ClusterL2(luigi.Task):
 
 			if self.method == "hdbscan":
 				logging.info("HDBSCAN clustering in t-SNE space")
+				min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
 				tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
-				clusterer = hdbscan.HDBSCAN(min_cluster_size=10)
+				clusterer = hdbscan.HDBSCAN(min_cluster_size=min_pts)
 				labels = clusterer.fit_predict(tsne_pos)
 				labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 				labels_all[cells] = labels
