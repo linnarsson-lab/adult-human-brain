@@ -74,7 +74,7 @@ class AutoAnnotator(object):
 			raise ValueError("Error loading cell tag definitions")
 	
 	@classmethod
-	def load_direct(cls, root: str = "../auto-annotation") -> AutoAnnotator:
+	def load_direct(cls, root: str = "../auto-annotation") -> Any:
 		"""
 		Class method that loads the autoannotator from a folder without checking for genes
 		In this way it can be used without the need of specifing a .loom file
