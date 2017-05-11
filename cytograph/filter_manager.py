@@ -60,7 +60,9 @@ class FilterManager(object):
         # Read the process dictionary
         include_aa = self.process_obj["include"]["auto-annotations"]
         exclude_aa = self.process_obj["exclude"]["auto-annotations"]
-        return self._make_filter_aa(include_aa, exclude_aa)
+        in_aa, ex_aa = self._make_filter_aa(include_aa, exclude_aa)
+        logging.debug("Filter Manager - autoannotation, include: %d  exclude:  %d" % (np.sum(in_aa), np.sum(ex_aa)))
+        return in_aa, ex_aa
         
     def make_filter_classifier(self) -> Tuple[np.ndarray, np.ndarray]:
         include_class = self.process_obj["include"]["classes"]
@@ -79,6 +81,7 @@ class FilterManager(object):
         else:
             for cl in exclude_class:
                 ex_cla |= self.ds.col_attrs["Class_%s" % cl.title()] > 0.5
+        logging.debug("Filter Manager - classifier, include: %d  exclude:  %d" % (np.sum(in_cla), np.sum(ex_cla)))
         return in_cla, ex_cla
 
     def make_filter_cluster(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -94,6 +97,7 @@ class FilterManager(object):
             ex_clu = np.zeros(self.ds.shape[1], dtype=bool)
         else:
             ex_clu = np.in1d(self.ds.col_attrs["Clusters"], exclude_clust)
+        logging.debug("Filter Manager - cluster, include: %d  exclude:  %d" % (np.sum(in_clu), np.sum(ex_clu)))
         return in_clu, ex_clu
 
     def make_filter_category(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -134,7 +138,9 @@ class FilterManager(object):
                     exclude_aa += list(intersection)
                 else:
                     logging.warning("Processes: exclude categories are not correctly formatted")
-        return self._make_filter_aa(include_aa, exclude_aa)
+        in_cat, ex_cat = self._make_filter_aa(include_aa, exclude_aa)
+        logging.debug("Filter Manager - categories, include: %d  exclude:  %d" % (np.sum(in_cat), np.sum(ex_cat)))
+        return in_cat, ex_cat
 
     def make_filter_time(self) -> np.ndarray:
         if self.process_obj["timepoints"] == "all":
@@ -142,6 +148,7 @@ class FilterManager(object):
         else:
             time_selected_int = [EP2int(i) for i in self.process_obj["timepoints"]]
             in_time = np.in1d([EP2int(i) for i in self.ds.col_attrs["Age"]], time_selected_int)
+            logging.debug("Filter Manager - time, include: %d " % (np.sum(in_time),))
             return in_time
 
     def make_filter_tissue(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -153,6 +160,7 @@ class FilterManager(object):
             ex_tis = np.zeros(self.ds.shape[1], dtype=bool)
         else:
             ex_tis = np.in1d(self.ds.col_attrs["Tissue"], self.process_obj["exclude"]["tissues"])
+        logging.debug("Filter Manager - tissue, include: %d  exclude:  %d" % (np.sum(in_tis), np.sum(ex_tis)))
         return in_tis, ex_tis
 
     def compute_filter(self) -> np.ndarray:
