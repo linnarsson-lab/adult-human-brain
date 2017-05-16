@@ -13,24 +13,24 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 
 
-class AggregateL2(luigi.Task):
+class AggregateL1(luigi.Task):
 	"""
 	Aggregate all clusters in a new Loom file
 	"""
-	major_class = luigi.Parameter()
-	tissue = luigi.Parameter(default="All")
+	tissue = luigi.Parameter()
 	n_markers = luigi.IntParameter(default=10)
 
 	def requires(self) -> List[luigi.Task]:
 		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class)
+			cg.PrepareTissuePool(tissue=self.tissue),
+			cg.ClusterL1(tissue=self.tissue)
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".agg.L2.loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".L1.agg.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input()[0].fn)
 			cg.Aggregator(self.n_markers).aggregate(ds, out_file)
+

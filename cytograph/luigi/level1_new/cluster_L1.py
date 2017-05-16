@@ -23,22 +23,21 @@ import hdbscan
 from sklearn.cluster import DBSCAN
 
 
-class ClusterL2(luigi.Task):
+class ClusterL1(luigi.Task):
 	"""
-	Level 2 clustering of the adolescent dataset
+	Level 1 clustering
 	"""
-	major_class = luigi.Parameter()
-	tissue = luigi.Parameter(default="All")
-	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
+	tissue = luigi.Parameter()
+	method = luigi.Parameter(default='dbscan')  # 'dbscan', hdbscan', 'lj'
 
 	def requires(self) -> luigi.Task:
 		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
-			cg.ManifoldL2(tissue=self.tissue, major_class=self.major_class)
+			cg.PrepareTissuePool(tissue=self.tissue),
+			cg.ManifoldL1(tissue=self.tissue)
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".clusters.txt"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".L1.clusters.txt"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

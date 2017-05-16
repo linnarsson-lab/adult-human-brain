@@ -61,7 +61,12 @@ class PrepareTissuePool(luigi.Task):
 			nnz = ds.map([np.count_nonzero], axis=0)[0]
 			valid_genes = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
 			ds.set_attr("_Valid", valid_genes, axis=0)
+
+			logging.info("Marking invalid cells")
 			ds.set_attr("_Valid", np.concatenate(valid_cells), axis=1)
+			n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
+			n_total = ds.shape[1]
+			logging.info("%d of %d cells were valid", n_valid, n_total)
 
 			# TODO : change the luigi pipeline so that is more general and the exception below is not needed
 			if "Yiwen" in self.tissue:

@@ -22,20 +22,19 @@ import networkx as nx
 import hdbscan
 
 
-class ManifoldL2(luigi.Task):
+class ManifoldL1(luigi.Task):
 	"""
 	Luigi Task to learn the high-dimensional manifold and embed it as a multiscale KNN graph, as well as t-SNE projection
 	"""
-	major_class = luigi.Parameter()
-	tissue = luigi.Parameter(default="All")
+	tissue = luigi.Parameter()
 	n_genes = luigi.IntParameter(default=1000)
 	gtsne = luigi.BoolParameter(default=True)
 
 	def requires(self) -> luigi.Task:
-		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
+		return cg.PrepareTissuePool(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".manifold.txt"))
+		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".L1.manifold.txt"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

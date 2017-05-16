@@ -195,7 +195,7 @@ ZF02	ZF_skin	OK	Zebrafish
 10X56_3	Amygdala	OK	Adolescent
 10X56_4	Hypothalamus	FAILED	Adolescent
 10X56_6	Hypothalamus	OK	Adolescent
-10X56_8	Enteric	OK	Adolescent
+10X56_8	Enteric	FAILED	Adolescent
 10X57_1	Hypothalamus	OK	Adolescent
 10X57_2	MidbrainDorsal	OK	Adolescent
 10X57_3	MidbrainDorsal	OK	Adolescent
@@ -239,3 +239,6 @@ ZF02	ZF_skin	OK	Zebrafish
 10X_100k	CortexHippocampus	OK	10XGenomics
 Yiwen_dataset	Yiwen_All	OK	Yiwen
 C1_all	C1_All	OK	C1_all
+10X81_1	Enteric	OK	Adolescent
+10X81_2	Enteric	OK	Adolescent
+10X82_2	Enteric	OK	Adolescent

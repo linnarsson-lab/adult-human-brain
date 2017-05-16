@@ -22,3 +22,6 @@ from .magic import magic_imputation
 from .averager import Averager, aggregate_loom
 from .marker_selection import MarkerSelection
 from .TFs import TFs
+from .utils import cap_select
+from .manifold_learning import ManifoldLearning
+from .aggregator import Aggregator
