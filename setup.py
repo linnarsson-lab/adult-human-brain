@@ -13,7 +13,6 @@ setup(
 		'scikit-learn',
 		'scipy',
 		'networkx',
-		'tqdm',
 		'python-louvain',
 		'luigi',
 		'hdbscan',

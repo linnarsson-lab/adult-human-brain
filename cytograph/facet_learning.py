@@ -4,7 +4,6 @@ from copy import copy
 import logging
 from typing import *
 from numpy_groupies import aggregate_numba as agg
-from tqdm import trange, tqdm
 
 # TODO: Bregman divergence
 
