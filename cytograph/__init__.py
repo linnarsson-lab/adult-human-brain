@@ -19,9 +19,10 @@ from .cluster_layout import cluster_layout
 from .plots import plot_cv_mean, plot_graph, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap
 from .luigi import *
 from .magic import magic_imputation
-from .averager import Averager, aggregate_loom
+from .averager import Averager
 from .marker_selection import MarkerSelection
 from .TFs import TFs
 from .utils import cap_select
 from .manifold_learning import ManifoldLearning
-from .aggregator import Aggregator
+from .aggregator import Aggregator, aggregate_loom
+from .clustering import Clustering

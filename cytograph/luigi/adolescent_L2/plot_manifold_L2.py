@@ -11,9 +11,9 @@ import luigi
 from palettable.tableau import Tableau_20
 
 
-class PlotGraphL2(luigi.Task):
+class PlotManifoldL2(luigi.Task):
 	"""
-	Luigi Task to plot the MKNN graph, level 2
+	Luigi Task to plot the multiscale KNN graph, level 2
 	"""
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
@@ -25,7 +25,7 @@ class PlotGraphL2(luigi.Task):
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".mknn.png"))
+		return luigi.LocalTarget(os.path.join("loom_builds", "L2_" + self.major_class + "_" + self.tissue + ".manifold.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph")

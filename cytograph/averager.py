@@ -7,60 +7,6 @@ import loompy
 import numpy_groupies.aggregate_numpy as npg
 
 
-def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False) -> np.ndarray:
-	"""
-	Aggregate a Loom file by applying aggregation functions to the main matrix as well as to the column attributes
-
-	Args:
-		ds			The Loom file
-		out_file	The name of the output Loom file (will be appended to if it exists)
-		select		Bool array giving the columns to include (or None, to include all)
-		group_by	The column attribute to group by
-		aggr_by 	The aggregation function for the main matrix
-		aggr_ca_by	The aggregation functions for the column attributes (or None to skip)
-
-	Remarks:
-		aggr_by gives the aggregation function for the main matrix
-		aggr_ca_by is a dictionary with column attributes as keys and aggregation functionas as values
-		
-		Aggregation functions can be any valid aggregation function from here: https://github.com/ml31415/numpy-groupies
-
-		In addition, you can specify:
-			"tally" to count the number of occurences of each value of a categorical attribute
-	"""
-	ca = {}  # type: Dict[str, np.ndarray]
-	if select is not None:
-		cols = np.where(select)[0]
-	else:
-		cols = np.fromiter(range(ds.shape[1]))
-	labels = (ds.col_attrs[group_by][cols]).astype('int')
-	n_groups = len(set(labels))
-	if aggr_ca_by is not None:
-		for key in ds.col_attrs.keys():
-			if key not in aggr_ca_by:
-				continue
-			func = aggr_ca_by[key]
-			if func == "tally":
-				for val in set(ds.col_attrs[key]):
-					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
-			else:
-				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
-	m = np.empty((ds.shape[0], n_groups))
-	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
-		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1)
-		m[selection, :] = vals_aggr
-
-	if return_matrix:
-		return m
-
-	if os.path.exists(out_file):
-		dsout = loompy.connect(out_file)
-		dsout.add_columns(m, ca, fill_values="auto")
-		dsout.close()
-	else:
-		loompy.create(out_file, m, ds.row_attrs, ca)
-
-
 class Averager:
 	def __init__(self, func: str = "mean") -> None:
 		self.func = func

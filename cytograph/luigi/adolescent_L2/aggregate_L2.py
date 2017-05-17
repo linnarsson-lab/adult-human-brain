@@ -28,7 +28,7 @@ class AggregateL2(luigi.Task):
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".agg.L2.loom"))
+		return luigi.LocalTarget(os.path.join("loom_builds", "L2_" + self.major_class + "_" + self.tissue + ".agg.L2.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

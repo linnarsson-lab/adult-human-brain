@@ -6,20 +6,6 @@ import logging
 import luigi
 import cytograph as cg
 import loompy
-import logging
-from scipy import sparse
-from scipy.special import polygamma
-from sklearn.cluster import AgglomerativeClustering, KMeans, Birch
-from sklearn.decomposition import PCA, IncrementalPCA, FastICA
-from sklearn.manifold import TSNE
-from sklearn.metrics import pairwise_distances
-from sklearn.metrics.pairwise import pairwise_distances
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-from sklearn.preprocessing import scale
-from sklearn.svm import SVR
-from scipy.stats import ks_2samp
-import networkx as nx
-import hdbscan
 
 
 class ManifoldL1(luigi.Task):
@@ -34,7 +20,7 @@ class ManifoldL1(luigi.Task):
 		return cg.PrepareTissuePool(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.tissue + ".L1.manifold.txt"))
+		return luigi.LocalTarget(os.path.join("loom_builds", "L1_" + self.tissue + ".manifold.txt"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

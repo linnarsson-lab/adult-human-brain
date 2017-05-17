@@ -27,7 +27,7 @@ class PlotMarkerheatmapL2(luigi.Task):
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.major_class + "_" + self.tissue + ".heatmap.pdf"))
+		return luigi.LocalTarget(os.path.join("loom_builds", "L2_" + self.major_class + "_" + self.tissue + ".heatmap.pdf"))
 
 	def run(self) -> None:
 		logging.info("Plotting marker heatmap")
