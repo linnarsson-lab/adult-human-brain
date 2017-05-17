@@ -8,7 +8,6 @@ import numpy as np
 import networkx as nx
 import cytograph as cg
 import luigi
-from palettable.tableau import Tableau_20
 
 
 class PlotMarkerheatmapL1(luigi.Task):

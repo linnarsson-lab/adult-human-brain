@@ -8,7 +8,6 @@ import networkx as nx
 import cytograph as cg
 import luigi
 import loompy
-from palettable.tableau import Tableau_20
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc

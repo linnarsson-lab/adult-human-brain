@@ -13,12 +13,12 @@ setup(
 		'scikit-learn',
 		'scipy',
 		'networkx',
-		'palettable',
 		'tqdm',
 		'python-louvain',
 		'luigi',
 		'hdbscan',
-		'pyyaml'
+		'pyyaml',
+		'polo'
 	],
 	dependency_links=['http://github.com/linnarsson-lab/numpy-groupies/tarball/master#egg=numpy_groupies'],
 
