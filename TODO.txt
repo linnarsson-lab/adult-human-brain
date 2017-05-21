@@ -1,12 +1,18 @@
 Plot gene names for last cluster right-justified
 Redraw t-SNE using cluster ordering as initial layout (in circle)
 Merge clusters based on edge distribution
-dendrogram based on all clusters
-    - using trinarization score distance locally?
-    - using enriched genes on enrichment score
-export trinarization table for all clusters
+level 3 analysis
+    merge all data
+    aggregate all data
+    dendrogram based on all clusters
+        - using trinarization score distance locally?
+        - using enriched genes on enrichment score
+    export trinarization table for all clusters
 resample to compute cluster stability
 make sure layers are always merged
+
+order the rows of the matrix by maximum enrichment (below marker table)
+make Loom heatmap same color as PDF
 
 x Export CSV for Patrik
 x Organize the level 2 analysis to avoid redundant computations

@@ -60,9 +60,9 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
-	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
-	labels = ds.col_attrs["Clusters"][cells]
-	outliers = ds.col_attrs["Outliers"][cells]
+	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
+	labels = ds.col_attrs["Clusters"]
+	outliers = ds.col_attrs["Outliers"]
 
 	# Compute a good size for the markers, based on local density
 	logging.info("Computing node size")
@@ -88,9 +88,9 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	plots = []
 	names = []
 	for i in range(max(labels) + 1):
-		cluster = cells[labels == i]
+		cluster = labels == i
 		if np.all(outliers[labels == i] == 1):
-			plots.append(plt.scatter(x=pos[cells[outliers == 1], 0], y=pos[cells[outliers == 1], 1], c='grey', marker='.', edgecolors='r', alpha=0.5, s=epsilon))
+			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors='r', alpha=0.5, s=epsilon))
 			names.append(str(i) + " (outliers)")
 		else:
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon, alpha=0.75))

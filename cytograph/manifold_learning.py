@@ -84,9 +84,6 @@ class ManifoldLearning:
 		threshold = w > 0.05
 		mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
 		mknn = mknn.minimum(mknn.transpose()).tocoo()
-		# Transform back to the full set of cells
-		knn = sparse.coo_matrix((knn.data, (cells[knn.row], cells[knn.col])), shape=(n_cells, n_cells))
-		mknn = sparse.coo_matrix((mknn.data, (cells[mknn.row], cells[mknn.col])), shape=(n_cells, n_cells))
 
 		if self.gtsne:
 			logging.info("gt-SNE layout")
@@ -96,5 +93,9 @@ class ManifoldLearning:
 			tsne_pos = cg.TSNE(perplexity=k).layout(transformed)
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		tsne_all[cells] = tsne_pos
+
+		# Transform back to the full set of cells
+		knn = sparse.coo_matrix((knn.data, (cells[knn.row], cells[knn.col])), shape=(n_total, n_total))
+		mknn = sparse.coo_matrix((mknn.data, (cells[mknn.row], cells[mknn.col])), shape=(n_total, n_total))
 
 		return (knn, mknn, tsne_all)
