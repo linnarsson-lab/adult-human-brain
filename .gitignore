@@ -6,6 +6,7 @@ bhtsne/bh_tsne
 # Mac
 *.DS_Store/
 test/
+bhtsne/bh_tsne
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

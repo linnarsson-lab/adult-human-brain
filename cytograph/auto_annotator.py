@@ -72,6 +72,46 @@ class AutoAnnotator(object):
 						errors = True
 		if errors:
 			raise ValueError("Error loading cell tag definitions")
+	
+	@classmethod
+	def load_direct(cls, root: str = "../auto-annotation") -> Any:
+		"""
+		Class method that loads the autoannotator from a folder without checking for genes
+		In this way it can be used without the need of specifing a .loom file
+		(e.g. self.genes can stay None and does not need to be filled in as is instead required by _load_defs)
+
+		Args
+		----
+		root: str
+			The directory containing the autoannotation files
+
+		Returns
+		-------
+		aa: AutoAnnotator
+			The autoannotator is loaded without checking for the existence of the genes.
+			so self.genes = None
+
+		Note
+		----
+		Usage is:
+		aa = AutoAnnotator.load_direct()  # called on the class not an instance of the class
+		"""
+		errors = False
+		aa = cls(root)
+		root_len = len(aa.root)
+		for cur, dirs, files in os.walk(aa.root):
+			for file in files:
+				if file[-3:] == ".md" and file[-9:] != "README.md":
+					try:
+						tag = CellTag(cur[root_len:], os.path.join(cur, file))
+						aa.tags.append(tag)
+					except ValueError as e:
+						logging.error(file + ": " + str(e))
+						errors = True
+		if errors:
+			raise ValueError("Error loading cell tag definitions")
+		else:
+			return aa
 
 	def annotate_loom(self, ds: loompy.LoomConnection) -> np.ndarray:
 		"""
