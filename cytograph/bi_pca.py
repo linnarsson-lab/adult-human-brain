@@ -9,7 +9,7 @@ from scipy.stats import mannwhitneyu
 from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats import pearsonr, ks_2samp, binom
 from scipy.spatial.distance import cdist
-from pylab import *  # SPEED-UP
+# from pylab import *  # SPEED-UP
 from typing import *
 import numpy as np
 from numba import jit

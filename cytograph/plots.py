@@ -118,6 +118,8 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 
 def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> None:
 	def parse_age(age: str) -> float:
+		if age == "":
+			return 0
 		unit, amount = age[0], float(age[1:])
 		if unit == "P":
 			amount += 19.
