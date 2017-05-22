@@ -1,5 +1,4 @@
 import argparse
-import matplotlib.pyplot as plt
 import cytograph.utils
 
 if __name__ == '__main__':
