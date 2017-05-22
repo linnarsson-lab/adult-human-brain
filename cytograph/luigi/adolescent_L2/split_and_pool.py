@@ -4,7 +4,6 @@ import csv
 import logging
 import pickle
 import loompy
-import matplotlib.pyplot as plt
 import numpy as np
 import cytograph as cg
 import luigi

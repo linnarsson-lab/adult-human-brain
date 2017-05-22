@@ -2,7 +2,6 @@ from typing import *
 import os
 import logging
 import loompy
-import matplotlib.pyplot as plt
 from scipy import sparse
 import numpy as np
 import networkx as nx
