@@ -15,7 +15,6 @@ class PrepareTissuePool(luigi.Task):
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
 	"""
 	tissue = luigi.Parameter()
-	asclassified = luigi.BoolParameter(default=False)
 
 	def requires(self) -> List[luigi.Task]:
 		samples = cg.PoolSpec().samples_for_tissue(self.tissue)
@@ -105,12 +104,6 @@ class PrepareTissuePool(luigi.Task):
 			classes_pooled[ds.col_attrs["_Valid"] == 0] = "Excluded"
 			ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
 			ds.set_attr("Class0", classes.astype('str'), axis=1)
-
-			if self.asclassified:
-				# make excluded cells invalid
-				temp = ds.col_attrs["_Valid"]
-				temp[ds.col_attrs["Class"] == "Excluded"] = 0
-				ds.set_attr("_Valid", temp, axis=1)
 
 			for ix, label in enumerate(labels):
 				ds.set_attr("Class_" + label, probs[:, ix], axis=1)

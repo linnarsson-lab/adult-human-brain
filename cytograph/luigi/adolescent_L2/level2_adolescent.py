@@ -15,17 +15,13 @@ class Level2Adolescent(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		for tissue in tissues:
-			yield cg.PlotManifoldL2(tissue=tissue, major_class="Neurons")
-			yield cg.PlotMarkerheatmapL2(tissue=tissue, major_class="Neurons")
-
-		# for tissue in tissues:
-		# 	yield cg.PlotCVMeanL2(tissue=tissue, major_class="Excluded")
-		# 	yield cg.PlotGraphL2(tissue=tissue, major_class="Excluded")
-		# 	yield cg.MarkerEnrichmentL2(tissue=tissue, major_class="Excluded")
-		# 	yield cg.PlotClassesL2(tissue=tissue, major_class="Excluded")
-
 		classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Erythrocyte"]  # "Excluded"]
-		for cls in classes:
-			yield cg.PlotManifoldL2(tissue="All", major_class=cls)
-			yield cg.PlotMarkerheatmapL2(tissue="All", major_class=cls)
+		for tissue in tissues:
+			for cls in classes:
+				yield cg.PlotManifoldL2(tissue=tissue, major_class=cls)
+				yield cg.PlotMarkerheatmapL2(tissue=tissue, major_class=cls)
+
+		# classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Erythrocyte"]  # "Excluded"]
+		# for cls in classes:
+		# 	yield cg.PlotManifoldL2(tissue="All", major_class=cls)
+		# 	yield cg.PlotMarkerheatmapL2(tissue="All", major_class=cls)
