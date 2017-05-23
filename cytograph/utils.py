@@ -6,8 +6,6 @@ import numpy_groupies as npg
 import pandas as pd
 from scipy.spatial.distance import squareform, pdist
 from scipy.cluster.hierarchy import linkage, leaves_list
-import matplotlib
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors
 import matplotlib.ticker as ticker
