@@ -17,7 +17,7 @@ from polo import optimal_leaf_ordering
 class Aggregator:
 	def __init__(self, n_markers: int = 10) -> None:
 		self.n_markers = n_markers
-	
+
 	def aggregate(self, ds: loompy.LoomConnection, out_file: str) -> None:
 		ca_aggr = {
 			"Age": "tally",
@@ -36,7 +36,8 @@ class Aggregator:
 			"Sex": "tally",
 			"Tissue": "tally",
 			"SampleID": "tally",
-			"TissuePool": "first"
+			"TissuePool": "first",
+			"Outliers": "mean"
 		}
 		cells = ds.col_attrs["Clusters"] >= 0
 		labels = ds.col_attrs["Clusters"][cells]

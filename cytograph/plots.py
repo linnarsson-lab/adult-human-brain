@@ -62,8 +62,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
 	labels = ds.col_attrs["Clusters"]
-	outliers = ds.col_attrs["Outliers"]
-
+	if "Outliers" in ds.col_attrs:
+		outliers = ds.col_attrs["Outliers"]
+	else:
+		outliers = np.zeros(ds.shape[1])
 	# Compute a good size for the markers, based on local density
 	logging.info("Computing node size")
 	min_pts = 50
@@ -305,7 +307,8 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	gs = gridspec.GridSpec(3 + n_tissues + n_classes + n_genes + 1, 1, height_ratios=[1, 1, 1] + [1] * n_tissues + [1] * n_classes + [1] * n_genes + [0.5 * n_topmarkers])
 
 	ax = fig.add_subplot(gs[1])
-	ax.imshow(np.expand_dims(ds.col_attrs["Outliers"][cells], axis=0), aspect='auto', cmap="Reds")
+	if "Outliers" in ds.col_attrs:
+		ax.imshow(np.expand_dims(ds.col_attrs["Outliers"][cells], axis=0), aspect='auto', cmap="Reds")
 	plt.text(0.001, 0.9, "Outliers", horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=9, color="black")
 	ax.set_frame_on(False)
 	ax.set_xticks([])
