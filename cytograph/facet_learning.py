@@ -5,17 +5,6 @@ import logging
 from typing import *
 from numpy_groupies import aggregate_numba as agg
 
-# TODO: Bregman divergence
-
-# px = x./(x + r); % negbin parameter for x
-# py = y./(y + r); % negbin parameter for y
-
-# bxy = x.*(log(px)-log(py)) + r*(log(1-px)-log(1-py));
-
-# Note this is undefined if x or y=0, so you really need to compute image011.png, where image012.png is a
-# regularization factor (0.1 seems to work well). The parameter r measures the amount of variability,
-# 2 seems to work well for your data.
-
 
 class Facet:
 	def __init__(self, name: str, k: int=2, max_k: int=5, n_genes: int=100, genes: List[int]=[], adaptive: bool=False) -> None:

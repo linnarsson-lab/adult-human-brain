@@ -1,6 +1,5 @@
 Plot gene names for last cluster right-justified
 Redraw t-SNE using cluster ordering as initial layout (in circle)
-Merge clusters based on edge distribution
 level 3 analysis
     merge all data
     aggregate all data
@@ -13,6 +12,11 @@ make sure layers are always merged
 
 order the rows of the matrix by maximum enrichment (below marker table)
 make Loom heatmap same color as PDF
+
+limit the size of clusters to 10% of all cells in second round of clustering
+merge by sweeping left to right
+Merge clusters based on edge distribution
+try less steep scales for k (1/k^p) with p = 2, 3, 4, ...
 
 x Export CSV for Patrik
 x Organize the level 2 analysis to avoid redundant computations
