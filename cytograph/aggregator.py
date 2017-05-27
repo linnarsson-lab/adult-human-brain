@@ -15,8 +15,9 @@ from polo import optimal_leaf_ordering
 
 
 class Aggregator:
-	def __init__(self, n_markers: int = 10) -> None:
+	def __init__(self, n_markers: int = 10, min_distance: float = 5.0) -> None:
 		self.n_markers = n_markers
+		self.min_distance = min_distance
 
 	def aggregate(self, ds: loompy.LoomConnection, out_file: str) -> None:
 		ca_aggr = {
@@ -43,10 +44,31 @@ class Aggregator:
 		labels = ds.col_attrs["Clusters"][cells]
 		n_labels = len(set(labels))
 
-		logging.info("Aggregating clusters by mean")
+		logging.info("Aggregating clusters prir to merging")
 		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr)
 		dsout = loompy.connect(out_file)
 
+		logging.info("Merging clusters by Ward's linkage similarity")
+		data = np.log(dsout[:, :] + 1)[ds.row_attrs["_Selected"] == 1, :].T
+		D = pdist(data, 'euclidean')
+		Z = hc.linkage(D, 'ward')
+		merged = hc.fcluster(Z, 5, criterion='distance') - 1
+		# Keep the outliers separate
+		outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
+		if (merged == outliers).sum() > 1:
+			merged[dsout.col_attrs["Outliers"] == 1] = -1
+			merged += 1
+		new_clusters = renumber(ds.col_attrs["Clusters"], np.arange(n_labels), merged)
+		ds.set_attr("Clusters", new_clusters, axis=1)
+		dsout.close()
+		labels = ds.col_attrs["Clusters"][cells]
+		logging.info("Merged %d -> %d clusters", n_labels, len(set(labels)))
+		n_labels = len(set(labels))
+		os.remove(out_file)
+
+		logging.info("Aggregating clusters by mean")
+		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr)
+		dsout = loompy.connect(out_file)
 		logging.info("Trinarizing")
 		trinaries = cg.Trinarizer().fit(ds)
 		dsout.set_layer("trinaries", trinaries)
@@ -65,9 +87,14 @@ class Aggregator:
 		Z = hc.linkage(D, 'ward')
 		optimal_Z = optimal_leaf_ordering(Z, D)
 		ordering = hc.leaves_list(optimal_Z)
+
+		# TODO: here somewhere
+		merged = hc.fcluster(optimal_Z, 5, criterion='distance') - 1
+
 		# Permute the aggregated file, and renumber
 		dsout.permute(ordering, axis=1)
-		dsout.set_attr("Clusters", np.arange(n_labels), axis=1)
+		dsout.set_attr("Clusters", merged, axis=1)
+
 		# Renumber the original file, and permute
 		new_clusters = renumber(ds.col_attrs["Clusters"], ordering, np.arange(n_labels))
 		ds.set_attr("Clusters", new_clusters, axis=1)
