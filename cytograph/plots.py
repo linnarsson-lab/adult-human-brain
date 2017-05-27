@@ -279,6 +279,7 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 
 def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
+	logging.info(ds.shape)
 	n_clusters = np.max(dsagg.col_attrs["Clusters"] + 1)
 	n_markers = n_markers_per_cluster * n_clusters
 	enrichment = dsagg.layer["enrichment"][:n_markers, :]
