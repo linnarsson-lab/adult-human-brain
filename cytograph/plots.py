@@ -14,6 +14,7 @@ import scipy.cluster.hierarchy as hc
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as path_effects
 import matplotlib.colors as mcolors
+from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 
@@ -81,7 +82,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 
 	# Draw edges
 	logging.info("Drawing edges")
-	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.5, zorder=0, color='black', alpha=0.25)
+	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='grey', alpha=0.1)
 	ax.add_collection(lc)
 
 	# Draw nodes
@@ -92,7 +93,8 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	for i in range(max(labels) + 1):
 		cluster = labels == i
 		if np.all(outliers[labels == i] == 1):
-			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors='r', alpha=0.5, s=epsilon))
+			edgecolor = colorConverter.to_rgba('red', alpha=.1)
+			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors=edgecolor, alpha=0.1, s=epsilon))
 			names.append(str(i) + " (outliers)")
 		else:
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon, alpha=0.75))

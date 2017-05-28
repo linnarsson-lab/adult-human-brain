@@ -28,7 +28,7 @@ class PoolLayoutL3(luigi.Task):
 			yield cg.ClusterLayoutL2(project=self.project, tissue="All", major_class="Development")
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", self.project + ".L3.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build, self.project + ".L3.loom"))
 		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

@@ -19,7 +19,7 @@ class ExpressionAverageProcess(luigi.Task):
 		return cg.ClusterLayoutProcess(processname=self.processname)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", "%s.clusteravg.loom" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths.build, "%s.clusteravg.loom" % self.processname))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

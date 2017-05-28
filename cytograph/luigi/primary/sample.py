@@ -16,4 +16,4 @@ class Sample(luigi.ExternalTask):
     sample = luigi.Parameter()
 
     def output(self) -> luigi.LocalTarget:
-        return luigi.LocalTarget(os.path.join("loom_samples", self.sample + ".loom"))
+        return luigi.LocalTarget(os.path.join(cg.paths.samples(), self.sample + ".loom"))

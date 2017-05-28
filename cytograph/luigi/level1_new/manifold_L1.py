@@ -20,7 +20,7 @@ class ManifoldL1(luigi.Task):
 		return cg.PrepareTissuePool(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", "L1_" + self.tissue + ".manifold.txt"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build, "L1_" + self.tissue + ".manifold.txt"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

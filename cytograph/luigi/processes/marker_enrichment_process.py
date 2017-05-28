@@ -16,7 +16,7 @@ class MarkerEnrichmentProcess(luigi.Task):
 		return cg.ClusterLayoutProcess(processname=self.processname)
 		
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", "%s.enrichment.tab" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths.build, "%s.enrichment.tab" % self.processname))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as f:

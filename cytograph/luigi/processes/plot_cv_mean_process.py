@@ -16,7 +16,7 @@ class PlotCVMeanProcess(luigi.Task):
 		return cg.ClusterLayoutProcess(processname=self.processname)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join("loom_builds", "%s.CV_mean.png" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths.build, "%s.CV_mean.png" % self.processname))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
