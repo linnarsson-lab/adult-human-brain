@@ -81,7 +81,7 @@ class TestParallelTask(ParallelTask):
 		return []
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "parallel_test.txt"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "parallel_test.txt"))
 	
 	def work(self) -> None:
 		logging.info("Running task on " + socket.gethostname().split('.')[0])

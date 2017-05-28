@@ -31,7 +31,7 @@ class ClusterLayoutProcess(luigi.Task):
 		return cg.StudyProcessPool(processname=self.processname)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "%s.LJ.loom" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.LJ.loom" % self.processname))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

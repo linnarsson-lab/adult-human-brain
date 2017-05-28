@@ -35,7 +35,7 @@ class ManifoldL2(luigi.Task):
 		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "L2_" + self.major_class + "_" + self.tissue + ".manifold.txt"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".manifold.txt"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

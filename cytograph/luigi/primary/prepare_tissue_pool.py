@@ -21,7 +21,7 @@ class PrepareTissuePool(luigi.Task):
 		return [cg.TrainClassifier()] + [cg.Sample(sample=s) for s in samples]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "L0_" + self.tissue + ".loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L0_" + self.tissue + ".loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

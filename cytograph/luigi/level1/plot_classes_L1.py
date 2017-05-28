@@ -19,7 +19,7 @@ class PlotClassesL1(luigi.Task):
 		return cg.ClusterLayoutL1(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), self.tissue + ".classes.png"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, self.tissue + ".classes.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting classification of MKNN graph")

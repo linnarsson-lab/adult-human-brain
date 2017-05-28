@@ -23,7 +23,7 @@ class TrinarizeProcess(luigi.Task):
 		return cg.ClusterLayoutProcess(processname=self.processname)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "%s.trinary.tab" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.trinary.tab" % self.processname))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

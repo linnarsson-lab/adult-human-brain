@@ -34,9 +34,9 @@ class ClusterLayoutDev(luigi.Task):
 
 	def output(self) -> luigi.Target:
 		if self.time == "E7-E18":  # This is for backwards comaptibility we might remove this condition later
-			return luigi.LocalTarget(os.path.join(cg.paths.build(), self.lineage + "_" + self.target + ".LJ.loom"))
+			return luigi.LocalTarget(os.path.join(cg.paths().build, self.lineage + "_" + self.target + ".LJ.loom"))
 		else:
-			return luigi.LocalTarget(os.path.join(cg.paths.build(), "%s_%s_%s.LJ.loom" % (self.lineage, self.target, self.time)))
+			return luigi.LocalTarget(os.path.join(cg.paths().build, "%s_%s_%s.LJ.loom" % (self.lineage, self.target, self.time)))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

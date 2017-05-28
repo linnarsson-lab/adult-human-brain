@@ -4,5 +4,5 @@ import luigi
 
 class paths(luigi.Config):
     samples = luigi.Parameter(default="/data/proj/chromium/loom")
-    build = luigi.Parameter()
+    build = luigi.Parameter(default="loom_builds")
 

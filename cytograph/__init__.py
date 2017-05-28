@@ -1,7 +1,6 @@
 from ._version import __version__
 from .bi_pca import broken_stick, biPCA, select_sig_pcs
 from .auto_annotator import AutoAnnotator, CellTag, read_autoannotation
-from .prommt import ProMMT
 from .facet_learning import Facet, FacetLearning
 from .filter_manager import FilterManager
 from .louvain_jaccard import LouvainJaccard

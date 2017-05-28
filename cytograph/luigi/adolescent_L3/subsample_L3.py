@@ -20,7 +20,7 @@ class SubsampleL3(luigi.Task):
 		return cg.PoolAllL3()
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), "Adolescent.L3.subsample.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "Adolescent.L3.subsample.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

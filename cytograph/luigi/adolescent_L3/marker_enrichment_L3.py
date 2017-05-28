@@ -18,7 +18,7 @@ class MarkerEnrichmentL3(luigi.Task):
 		return cg.ClusterLayoutL2(tissue=self.tissue, major_class=self.major_class, project=self.project)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build(), self.major_class + "_" + self.tissue + ".enrichment.tab"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, self.major_class + "_" + self.tissue + ".enrichment.tab"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as f:
