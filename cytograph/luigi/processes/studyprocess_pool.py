@@ -24,7 +24,7 @@ class StudyProcessPool(luigi.Task):
 		return cg.parse_project_requirements(process_obj)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, "%s.loom" % (self.processname,)))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), "%s.loom" % (self.processname,)))
 		
 	def run(self) -> None:
 		process_obj = cg.ProcessesParser()[self.processname]

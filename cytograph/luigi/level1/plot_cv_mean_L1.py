@@ -16,7 +16,7 @@ class PlotCVMeanL1(luigi.Task):
 		return cg.ClusterLayoutL1(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, self.tissue + ".LJ.CV_mean.png"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), self.tissue + ".LJ.CV_mean.png"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

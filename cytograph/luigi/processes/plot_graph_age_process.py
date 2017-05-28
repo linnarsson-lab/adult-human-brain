@@ -19,7 +19,7 @@ class PlotGraphAgeProcess(luigi.Task):
 		return [cg.ClusterLayoutProcess(processname=self.processname), cg.AutoAnnotateProcess(processname=self.processname)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, "%s.mknnage.png" % self.processname))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), "%s.mknnage.png" % self.processname))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph age")

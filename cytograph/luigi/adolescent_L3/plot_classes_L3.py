@@ -19,7 +19,7 @@ class PlotClassesL3(luigi.Task):
 		return cg.PoolLayoutL3(project=self.project)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, self.project + ".classes.png"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), self.project + ".classes.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting classification of MKNN graph")

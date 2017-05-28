@@ -22,7 +22,7 @@ class PlotManifoldL1(luigi.Task):
 		]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, "L1_" + self.tissue + ".manifold.png"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), "L1_" + self.tissue + ".manifold.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph")

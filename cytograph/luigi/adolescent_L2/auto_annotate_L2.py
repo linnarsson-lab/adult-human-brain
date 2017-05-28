@@ -21,7 +21,7 @@ class AutoAnnotateL2(luigi.Task):
 		return cg.AggregateL2(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths.build, "L2_" + self.major_class + "_" + self.tissue + ".aa.tab"))
+		return luigi.LocalTarget(os.path.join(cg.paths.build(), "L2_" + self.major_class + "_" + self.tissue + ".aa.tab"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
