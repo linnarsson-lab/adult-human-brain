@@ -8,9 +8,10 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 0.5) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
+		self.alpha = alpha
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
@@ -79,7 +80,7 @@ class ManifoldLearning:
 		n_cells = knn.shape[0]
 		a = np.tile(np.arange(n_cells), k)
 		b = np.reshape(knn.T, (n_cells * k,))
-		w = np.repeat(1 / np.arange(1, k + 1), n_cells)
+		w = np.repeat(1 / np.pow(np.arange(1, k + 1), self.alpha), n_cells)
 		knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 		threshold = w > 0.05
 		mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))

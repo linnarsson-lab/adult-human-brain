@@ -15,6 +15,7 @@ class ManifoldL1(luigi.Task):
 	tissue = luigi.Parameter()
 	n_genes = luigi.IntParameter(default=1000)
 	gtsne = luigi.BoolParameter(default=True)
+	alpha = luigi.FloatParameter(default=1)
 
 	def requires(self) -> luigi.Task:
 		return cg.PrepareTissuePool(tissue=self.tissue)
@@ -26,7 +27,7 @@ class ManifoldL1(luigi.Task):
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input().fn)
 
-			ml = cg.ManifoldLearning(self.n_genes, self.gtsne)
+			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
 
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
