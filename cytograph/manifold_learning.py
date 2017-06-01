@@ -80,7 +80,7 @@ class ManifoldLearning:
 		n_cells = knn.shape[0]
 		a = np.tile(np.arange(n_cells), k)
 		b = np.reshape(knn.T, (n_cells * k,))
-		w = np.repeat(1 / np.pow(np.arange(1, k + 1), self.alpha), n_cells)
+		w = np.repeat(1 / np.power(np.arange(1, k + 1), self.alpha), n_cells)
 		knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 		threshold = w > 0.05
 		mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
