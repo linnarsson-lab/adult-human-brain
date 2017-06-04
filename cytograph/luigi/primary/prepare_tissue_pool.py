@@ -103,6 +103,6 @@ class PrepareTissuePool(luigi.Task):
 					ds.set_attr("Class_" + label, probs[:, ix], axis=1)
 			else:
 				logging.info("No classifier found in this build directory - skipping.")
-				ds.set_attr("Class", ["Excluded"] * ds.shape[1], axis=1)
-				ds.set_attr("Class0", ["Unknown"] * ds.shape[1], axis=1)
+				ds.set_attr("Class", np.array(["Excluded"] * ds.shape[1]), axis=1)
+				ds.set_attr("Class0", np.array(["Unknown"] * ds.shape[1]), axis=1)
 			ds.close()
