@@ -68,43 +68,41 @@ class PrepareTissuePool(luigi.Task):
 			logging.info("%d of %d cells were valid", n_valid, n_total)
 
 			# TODO : change the luigi pipeline so that is more general and the exception below is not needed
-			if "Yiwen" in self.tissue:
-				logging.info("Classification cannot be performed on Human data. Ending Pooling. @Yiwen")
-				ds.close()
-				return
+			if os.path.exists(os.path.join(cg.paths().build, "classifier.pickle")):
+				logging.info("Classifying cells by major class")
+				with open(self.input()[0].fn, "rb") as f:
+					clf = pickle.load(f)  # type: cg.Classifier
+				(probs, labels, classes) = clf.predict_proba(ds)
+				mapping = {
+					"Astrocyte": "Astrocyte",
+					"Ependymal": "Astrocyte",
+					"Neurons": "Neurons",
+					"Oligos": "Oligos",
+					"Cycling": "Cycling",
+					"Immune": "Immune",
+					"Vascular": "Vascular",
+					"OEC": "Astrocyte",
+					"Schwann": "Oligos",
+					"Excluded": "Excluded",
+					"Unknown": "Excluded"
+				}
+				classes = np.array(classes, dtype=np.object_)
+				classes_pooled = np.array([mapping[c] for c in classes], dtype=np.object_)
 
-			logging.info("Classifying cells by major class")
-			with open(self.input()[0].fn, "rb") as f:
-				clf = pickle.load(f)  # type: cg.Classifier
-			(probs, labels, classes) = clf.predict_proba(ds)
-			mapping = {
-				"Astrocyte": "Astrocyte",
-				"Ependymal": "Astrocyte",
-				"Neurons": "Neurons",
-				"Oligos": "Oligos",
-				"Cycling": "Cycling",
-				"Immune": "Immune",
-				"Vascular": "Vascular",
-				"OEC": "Astrocyte",
-				"Schwann": "Oligos",
-				"Excluded": "Excluded",
-				"Unknown": "Excluded"
-			}
-			classes = np.array(classes, dtype=np.object_)
-			classes_pooled = np.array([mapping[c] for c in classes], dtype=np.object_)
-
-			# add erythrocytes
-			hbb = np.where(ds.Gene == "Hbb-bs")[0][0]
-			ery = np.where(ds[hbb, :] > 2)[0]
-			classes[ery] = "Erythrocyte"
-			classes_pooled[ery] = "Erythrocyte"
-
-			# mask invalid cells
-			classes[ds.col_attrs["_Valid"] == 0] = "Excluded"
-			classes_pooled[ds.col_attrs["_Valid"] == 0] = "Excluded"
-			ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
-			ds.set_attr("Class0", classes.astype('str'), axis=1)
-
-			for ix, label in enumerate(labels):
-				ds.set_attr("Class_" + label, probs[:, ix], axis=1)
+				# add erythrocytes
+				hbb = np.where(ds.Gene == "Hbb-bs")[0][0]
+				ery = np.where(ds[hbb, :] > 2)[0]
+				classes[ery] = "Erythrocyte"
+				classes_pooled[ery] = "Erythrocyte"
+				# mask invalid cells
+				classes[ds.col_attrs["_Valid"] == 0] = "Excluded"
+				classes_pooled[ds.col_attrs["_Valid"] == 0] = "Excluded"
+				ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
+				ds.set_attr("Class0", classes.astype('str'), axis=1)
+				for ix, label in enumerate(labels):
+					ds.set_attr("Class_" + label, probs[:, ix], axis=1)
+			else:
+				logging.info("Classification cannot be performed on this dataset (no classifier found)")
+				ds.set_attr("Class", ["Excluded"] * ds.shape[1], axis=1)
+				ds.set_attr("Class0", ["Unknown"] * ds.shape[1], axis=1)
 			ds.close()
