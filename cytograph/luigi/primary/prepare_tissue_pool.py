@@ -15,10 +15,10 @@ class PrepareTissuePool(luigi.Task):
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
 	"""
 	tissue = luigi.Parameter()
-
+	
 	def requires(self) -> List[luigi.Task]:
 		samples = cg.PoolSpec().samples_for_tissue(self.tissue)
-		return [cg.TrainClassifier()] + [cg.Sample(sample=s) for s in samples]
+		return [cg.Sample(sample=s) for s in samples]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L0_" + self.tissue + ".loom"))
@@ -27,7 +27,7 @@ class PrepareTissuePool(luigi.Task):
 		with self.output().temporary_path() as out_file:
 			attrs = {"title": self.tissue}
 			valid_cells = []
-			sample_files = [s.fn for s in self.input()[1:]]
+			sample_files = [s.fn for s in self.input()]
 			for sample in sample_files:
 				# Connect and perform file-specific cell validation
 				logging.info("Marking invalid cells")
@@ -102,7 +102,7 @@ class PrepareTissuePool(luigi.Task):
 				for ix, label in enumerate(labels):
 					ds.set_attr("Class_" + label, probs[:, ix], axis=1)
 			else:
-				logging.info("Classification cannot be performed on this dataset (no classifier found)")
+				logging.info("No classifier found in this build directory - skipping.")
 				ds.set_attr("Class", ["Excluded"] * ds.shape[1], axis=1)
 				ds.set_attr("Class0", ["Unknown"] * ds.shape[1], axis=1)
 			ds.close()
