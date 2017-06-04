@@ -1,3 +1,5 @@
+Compute P value for enrichment score
+
 Plot gene names for last cluster right-justified
 Redraw t-SNE using cluster ordering as initial layout (in circle)
 level 3 analysis

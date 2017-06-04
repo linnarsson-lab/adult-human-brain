@@ -2,6 +2,7 @@ import logging
 import numpy as np
 from typing import *
 from sklearn.svm import SVR
+from statsmodels.sandbox.stats.multicomp import multipletests
 import loompy
 import cytograph as cg
 
@@ -10,8 +11,9 @@ class MarkerSelection:
 	def __init__(self, n_markers: int, labels_attr: str = "Clusters") -> None:
 		self.n_markers = n_markers
 		self.labels_attr = labels_attr
+		self.alpha = 0.1
 
-	def fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
+	def fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 		"""
 		Finds n_markers genes per cluster using enrichment score
 
@@ -20,6 +22,43 @@ class MarkerSelection:
 
 		Returns:
 			ndarray of selected genes (list of ints)
+			ndarray of enrichment scores
+			ndarray of FDR-corrected P values (i.e. q values)
+		"""
+		# First compute the null distribution using permutation test
+		logging.info("Computing enrichment null distribution")
+		labels = ds.col_attrs[self.labels_attr]
+		ds.set_attr(self.labels_attr, np.random.permutation(labels), axis=1)
+		(_, null_enrichment) = self._fit(ds)
+		ds.set_attr(self.labels_attr, labels, axis=1)
+
+		# Get the observed enrichment statistics
+		logging.info("Computing enrichment statistic")
+		(selected, enrichment) = self._fit(ds)
+
+		# Calculate FDR-corrected P values
+		logging.info("Computing enrichment FDR-corrected P values")
+		qvals = np.zeros_like(enrichment)
+		for ix in range(enrichment.shape[1]):
+			null_values = null_enrichment[:, ix]
+			null_values.sort()
+			values = enrichment[:, ix]
+			pvals = 1 - np.searchsorted(null_values, values) / values.shape[0]
+			(_, q, _, _) = multipletests(pvals, self.alpha, method="fdr_bh")
+			qvals[:, ix] = q
+
+		return (selected, enrichment, qvals)
+
+	def _fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
+		"""
+		Finds n_markers genes per cluster using enrichment score
+
+		Args:
+			ds (LoomConnection):	Dataset
+
+		Returns:
+			ndarray of selected genes (list of ints)
+			ndarray of enrichment scores
 		"""
 		labels = ds.col_attrs[self.labels_attr]
 		cells = labels >= 0
@@ -30,9 +69,9 @@ class MarkerSelection:
 		# Number of cells per cluster
 		sizes = np.bincount(labels, minlength=n_labels)
 		# Number of nonzero values per cluster
-		nnz = cg.aggregate_loom(ds, None, cells, "Clusters", np.count_nonzero, None, return_matrix=True)
+		nnz = cg.aggregate_loom(ds, None, cells, self.labels_attr, np.count_nonzero, None, return_matrix=True)
 		# Mean value per cluster
-		means = cg.aggregate_loom(ds, None, cells, "Clusters", "mean", None, return_matrix=True)
+		means = cg.aggregate_loom(ds, None, cells, self.labels_attr, "mean", None, return_matrix=True)
 		# Non-zeros and means over all cells
 		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0, selection=cells)
 		# Scale by number of cells

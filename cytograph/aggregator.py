@@ -74,8 +74,9 @@ class Aggregator:
 		dsout.set_layer("trinaries", trinaries)
 
 		logging.info("Computing cluster gene enrichment scores")
-		(markers, enrichment) = cg.MarkerSelection(self.n_markers).fit(ds)
+		(markers, enrichment, qvals) = cg.MarkerSelection(self.n_markers).fit(ds)
 		dsout.set_layer("enrichment", enrichment)
+		dsout.set_layer("enrichment_q", qvals)
 		top_genes = np.argsort(np.max(enrichment, axis=1))[:1000]
 
 		dsout.set_attr("NCells", np.bincount(labels, minlength=n_labels), axis=1)
@@ -88,7 +89,6 @@ class Aggregator:
 		optimal_Z = optimal_leaf_ordering(Z, D)
 		ordering = hc.leaves_list(optimal_Z)
 
-		# TODO: here somewhere
 		merged = hc.fcluster(optimal_Z, 5, criterion='distance') - 1
 
 		# Permute the aggregated file, and renumber

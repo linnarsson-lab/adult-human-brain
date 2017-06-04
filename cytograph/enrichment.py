@@ -7,6 +7,12 @@ import luigi
 
 
 class MarkerEnrichment:
+	"""
+	DEPRECATED
+
+	Use the MarkerSelection class instead for a more powerful enrichment calculation, which avoids
+	division by zero and properly accounts for low counts and averages.
+	"""
 	def __init__(self, power: float) -> None:
 		self.enrichment = None  # type: np.ndarray
 		self.power = power
