@@ -318,7 +318,8 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	ax.set_yticks([])
 
 	ax = fig.add_subplot(gs[2])
-	ax.imshow(np.expand_dims(ds.col_attrs["_Total"][cells], axis=0), aspect='auto', cmap="Reds")
+	if "_Total" in ds.col_attrs:
+		ax.imshow(np.expand_dims(ds.col_attrs["_Total"][cells], axis=0), aspect='auto', cmap="Reds")
 	plt.text(0.001, 0.9, "Number of molecules", horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=9, color="black")
 	ax.set_frame_on(False)
 	ax.set_xticks([])

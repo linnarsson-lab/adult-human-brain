@@ -36,27 +36,30 @@ class PoolAllL3(luigi.Task):
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Erythrocyte"]
 		for tissue in tissues:
-			yield cg.ClusterLayoutL2(project="Adolescent", tissue=tissue, major_class="Neurons")
+			yield cg.SplitAndPoolL2(project="Adolescent", tissue=tissue, major_class="Neurons")
+			yield cg.ClusterL2(project="Adolescent", tissue=tissue, major_class="Neurons")
 		for cls in classes:
-			yield cg.ClusterLayoutL2(project="Adolescent", tissue="All", major_class=cls)
+			yield cg.SplitAndPoolL2(project="Adolescent", tissue="All", major_class=cls)
+			yield cg.ClusterL2(project="Adolescent", tissue="All", major_class=cls)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "Adolescent.L3.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_Adolescent.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
 			index = 0
-			for cl in self.input():
-				logging.info("Appending: " + cl.fn)
-				ds = loompy.connect(cl.fn)
-				tissue = cl.fn.split("/")[1].split(".")[0]
+			for ix in range(0, len(self.input()), 2):
+				cl = self.input()[ix].fn
+				logging.info("Appending: " + cl)
+				ds = loompy.connect(cl)
+				tissue = os.path.basename(cl).split(".")[0]
 				ds.set_attr("TissuePool", np.array([tissue] * ds.shape[1]), axis=1)
 				if dsout is None:
-					copyfile(cl.fn, out_file)
+					copyfile(cl, out_file)
 					dsout = loompy.connect(out_file)
 				else:
-					dsout.add_loom(cl.fn)
+					dsout.add_loom(cl)
 			
 			dsout.set_attr("Clusters", _renumber_clusters(dsout), axis=1)
 			dsout.close()

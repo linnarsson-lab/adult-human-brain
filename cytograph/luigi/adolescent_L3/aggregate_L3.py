@@ -16,12 +16,13 @@ class AggregateL3(luigi.Task):
 	"""
 	Aggregate all clusters in a new Loom file
 	"""
+	n_markers = luigi.IntParameter(default=10)
 
 	def requires(self) -> List[luigi.Task]:
-		return cg.AggregateL2(tissue=self.tissue, major_class=self.major_class)
+		return cg.PoolAllL3(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_All.agg.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_Adolescent.agg.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
