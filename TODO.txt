@@ -1,3 +1,11 @@
+Make tables with auto-auto-annotation; also make files in separate category
+Generate L3 aggregation
+Add auto-annotation to Loom
+Put auto-auto-annotation in plots
+Merging non-neurons
+
+Gene-side clustering
+
 Plot gene names for last cluster right-justified
 Redraw t-SNE using cluster ordering as initial layout (in circle)
 level 3 analysis
