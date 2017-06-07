@@ -34,7 +34,9 @@ class PrepareTissuePool(luigi.Task):
 				ds = loompy.connect(sample)
 				(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 				valid_cells.append(np.logical_and(mols >= 600, (mols / genes) >= 1.2).astype('int'))
-
+				ds.set_attr("_Total", mols, axis=1)
+				ds.set_attr("_NGenes", genes, axis=1)
+				
 				logging.info("Computing mito/ribo ratio")
 				try:
 					mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
