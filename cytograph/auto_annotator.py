@@ -158,6 +158,17 @@ class AutoAnnotator(object):
 				f.write(",".join(tags))
 				f.write("\n")
 
+	def save_in_loom(self, ds: loompy.LoomConnection) -> None:
+		attr = []
+		for ix in range(self.annotations.shape[1]):
+			tags = []  # type: List[str]
+			for j in range(self.annotations.shape[0]):
+				if self.annotations[j, ix] > 0.5:
+					tags.append(self.tags[j].abbreviation)
+			tags.sort()
+			attr.append(",".join(tags))
+		ds.set_attr("AutoAnnotation", np.array(attr), axis=1)
+
 
 def read_autoannotation(aa_file: str) -> List[List[str]]:
 	"""Extract autoannotations from file

@@ -29,4 +29,5 @@ class AutoAnnotateL2(luigi.Task):
 			aa = cg.AutoAnnotator()
 			aa.annotate_loom(ds)
 			aa.save(out_file)
+			aa.save_in_loom(ds)
 			ds.close()

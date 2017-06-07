@@ -62,7 +62,7 @@ class ManifoldLearning:
 		logging.info("Found " + str(n_labels) + " LJ clusters")
 
 		logging.info("Marker selection")
-		(genes, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
+		(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
 
 		logging.info("PCA projection")
 		pca = cg.PCAProjection(genes, max_n_components=50)
