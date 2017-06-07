@@ -8,7 +8,7 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 0.5) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
