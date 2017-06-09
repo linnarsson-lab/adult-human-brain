@@ -300,6 +300,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	n_classes = len(classes)
 
 	genes = ["Cdk1", "Top2a", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Foxj1", "Aqp4", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	genes = [g for g in genes if g in ds.Gene]
 	n_genes = len(genes)
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1

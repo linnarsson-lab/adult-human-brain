@@ -34,13 +34,11 @@ class PoolAllL3(luigi.Task):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "Astrocyte", "Cycling", "Vascular", "Immune", "Erythrocyte"]
+		classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune"]
 		for tissue in tissues:
-			yield cg.SplitAndPoolL2(project="Adolescent", tissue=tissue, major_class="Neurons")
-			yield cg.ClusterL2(project="Adolescent", tissue=tissue, major_class="Neurons")
-		for cls in classes:
-			yield cg.SplitAndPoolL2(project="Adolescent", tissue="All", major_class=cls)
-			yield cg.ClusterL2(project="Adolescent", tissue="All", major_class=cls)
+			for cls in classes:
+				yield cg.SplitAndPool(tissue=tissue, major_class=cls)
+				yield cg.ClusterL2(tissue=tissue, major_class=cls)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_Adolescent.loom"))

@@ -35,15 +35,19 @@ class SplitAndPool(luigi.Task):
 				ds = loompy.connect(clustered.fn)
 				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
-				for (ix, selection, vals) in ds.batch_scan(axis=1):
-					subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
-					if subset.shape[0] == 0:
-						continue
-					m = vals[:, subset - ix]
-					ca = {}
-					for key in ds.col_attrs:
-						ca[key] = ds.col_attrs[key][subset]
-					if dsout is None:
-						dsout = loompy.create(out_file, m, ds.row_attrs, ca)
-					else:
-						dsout.add_columns(m, ca)
+				if self.major_class not in labels:
+					with open(out_file, "w") as f:
+						f.write("Empty")
+				else:
+					for (ix, selection, vals) in ds.batch_scan(axis=1):
+						subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
+						if subset.shape[0] == 0:
+							continue
+						m = vals[:, subset - ix]
+						ca = {}
+						for key in ds.col_attrs:
+							ca[key] = ds.col_attrs[key][subset]
+						if dsout is None:
+							dsout = loompy.create(out_file, m, ds.row_attrs, ca)
+						else:
+							dsout.add_columns(m, ca)

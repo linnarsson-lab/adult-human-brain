@@ -19,7 +19,7 @@ class AggregateL3(luigi.Task):
 	n_markers = luigi.IntParameter(default=10)
 
 	def requires(self) -> List[luigi.Task]:
-		return cg.PoolAllL3(tissue=self.tissue, major_class=self.major_class)
+		return cg.PoolAllL3()
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_Adolescent.agg.loom"))

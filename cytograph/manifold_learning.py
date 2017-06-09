@@ -32,19 +32,21 @@ class ManifoldLearning:
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 
-		logging.info("Selecting %d genes", self.n_genes)
+		logging.info("Selecting up to %d genes", self.n_genes)
 		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		temp = np.zeros(ds.shape[0])
 		temp[genes] = 1
 		ds.set_attr("_Selected", temp, axis=0)
+		logging.info("%d genes selected", temp.sum())
 
-		logging.info("PCA projection")
-		pca = cg.PCAProjection(genes, max_n_components=50)
+		n_components = min(50, n_valid)
+		logging.info("PCA projection to %d components", n_components)
+		pca = cg.PCAProjection(genes, max_n_components=n_components)
 		pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
 		transformed = pca_transformed
 
 		logging.info("Generating KNN graph")
-		k = 10
+		k = min(10, n_valid - 1)
 		nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
 		nn.fit(transformed)
 		knn = nn.kneighbors_graph(mode='connectivity')
@@ -64,16 +66,17 @@ class ManifoldLearning:
 		logging.info("Marker selection")
 		(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
 
-		logging.info("PCA projection")
-		pca = cg.PCAProjection(genes, max_n_components=50)
 		# Select cells across clusters more uniformly, preventing a single cluster from dominating the PCA
 		cells_adjusted = cg.cap_select(labels, cells, int(n_valid * 0.2))
+		n_components = min(50, cells_adjusted.shape[0])
+		logging.info("PCA projection to %d components", n_components)
+		pca = cg.PCAProjection(genes, max_n_components=n_components)
 		pca.fit(ds, normalizer, cells=cells_adjusted)
 		# Note that here we're transforming all cells; we just did the fit on the selection
 		transformed = pca.transform(ds, normalizer, cells=cells)
 
-		logging.info("Generating multiscale KNN graph")
-		k = 100
+		k = min(100, n_valid - 1)
+		logging.info("Generating multiscale KNN graph (k = %d)", k)
 		nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
 		nn.fit(transformed)
 		knn = nn.kneighbors(return_distance=False)  # shape: (n_cells, k)
@@ -86,12 +89,13 @@ class ManifoldLearning:
 		mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
 		mknn = mknn.minimum(mknn.transpose()).tocoo()
 
+		perplexity = min(k, (n_valid - 1) / 3 - 1)
 		if self.gtsne:
 			logging.info("gt-SNE layout")
-			tsne_pos = cg.TSNE().layout(transformed, knn=knn.tocsr())
+			tsne_pos = cg.TSNE(perplexity=perplexity).layout(transformed, knn=knn.tocsr())
 		else:
 			logging.info("t-SNE layout")
-			tsne_pos = cg.TSNE(perplexity=k).layout(transformed)
+			tsne_pos = cg.TSNE(perplexity=perplexity).layout(transformed)
 		tsne_all = np.zeros((ds.shape[1], 2), dtype='int') + np.min(tsne_pos, axis=0)
 		tsne_all[cells] = tsne_pos
 

@@ -8,6 +8,9 @@ import loompy
 
 
 class AutoAutoAnnotator:
+	"""
+	Automatically discover suitable auto-annotation marker combinations
+	"""
 	def __init__(self, pep: float = 0.05) -> None:
 		self.pep = pep
 	
