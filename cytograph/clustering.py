@@ -40,6 +40,21 @@ class Clustering:
 			tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 			clusterer = hdbscan.HDBSCAN(min_cluster_size=min_pts)
 			labels = clusterer.fit_predict(tsne_pos)
+		elif self.method == "dbscan3d":
+			logging.info("DBSCAN clustering in t-SNE space")
+			min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
+			eps_pct = 65
+			tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"], ds.col_attrs["_Z"])).transpose()[cells, :]
+
+			# Determine a good epsilon
+			nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
+			nn.fit(tsne_pos)
+			knn = nn.kneighbors_graph(mode='distance')
+			k_radius = knn.max(axis=1).toarray()
+			epsilon = np.percentile(k_radius, eps_pct)
+
+			clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
+			labels = clusterer.fit_predict(tsne_pos)
 		elif self.method == "dbscan":
 			logging.info("DBSCAN clustering in t-SNE space")
 			min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)

@@ -35,8 +35,24 @@ class PoolAllL3(luigi.Task):
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		classes = ["Neurons", "Oligos", "Astrocyte", "Cycling", "Vascular", "Immune"]
+		skip = [
+			["Cycling", "Cortex1"],
+			["Astrocyte", "Sympathetic"],
+			["Cycling", "Sympathetic"],
+			["Immune", "Sympathetic"],
+			["Oligos", "Enteric"],
+			["Astrocyte", "Enteric"],
+			["Cycling", "Enteric"],
+			["Astrocyte", "DRG"],
+			["Cycling", "DRG"],
+			["Immune", "DRG"],
+			["Immune", "Enteric"],
+			["Cycling", "Cortex2"]
+		]
 		for tissue in tissues:
 			for cls in classes:
+				if [cls, tissue] in skip:
+					continue
 				yield cg.SplitAndPool(tissue=tissue, major_class=cls)
 				yield cg.ClusterL2(tissue=tissue, major_class=cls)
 
@@ -57,7 +73,7 @@ class PoolAllL3(luigi.Task):
 					copyfile(cl, out_file)
 					dsout = loompy.connect(out_file)
 				else:
-					dsout.add_loom(cl)
+					dsout.add_loom(cl, key="Accession")
 			
 			dsout.set_attr("Clusters", _renumber_clusters(dsout), axis=1)
 			dsout.close()

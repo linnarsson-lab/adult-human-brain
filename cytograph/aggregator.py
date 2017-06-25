@@ -44,7 +44,7 @@ class Aggregator:
 		labels = ds.col_attrs["Clusters"][cells]
 		n_labels = len(set(labels))
 
-		logging.info("Aggregating clusters prir to merging")
+		logging.info("Aggregating clusters prior to merging")
 		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr)
 		dsout = loompy.connect(out_file)
 
@@ -53,11 +53,6 @@ class Aggregator:
 		D = pdist(data, 'euclidean')
 		Z = hc.linkage(D, 'ward')
 		merged = hc.fcluster(Z, 5, criterion='distance') - 1
-		# Keep the outliers separate
-		outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
-		if (merged == outliers).sum() > 1:
-			merged[dsout.col_attrs["Outliers"] == 1] = -1
-			merged += 1
 		new_clusters = renumber(ds.col_attrs["Clusters"], np.arange(n_labels), merged)
 		ds.set_attr("Clusters", new_clusters, axis=1)
 		dsout.close()
@@ -156,12 +151,14 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			func = aggr_ca_by[key]
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
-					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum")
-			else:
+					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum", fill_value=0)
+			elif func == "mean":
+				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=0)
+			elif func == "first":
 				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
 	m = np.empty((ds.shape[0], n_groups))
 	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
-		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1)
+		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1, fill_value=0)
 		m[selection, :] = vals_aggr
 
 	if return_matrix:

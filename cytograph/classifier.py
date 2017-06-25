@@ -20,10 +20,9 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, class_annotations: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
+	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, use_ica: bool = False) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
-		self.class_annotations = class_annotations
 		self.n_genes = n_genes
 		self.n_components = n_components
 		self.labels = {}  # type: Dict[str, np.ndarray]
@@ -36,50 +35,34 @@ class Classifier:
 
 	def generate(self) -> None:
 		"""
-		Scan the build folder and generate training datasets
+		Scan the build folder and generate training dataset
 		"""
-		for f in os.listdir(self.build_dir):
-			if f.endswith(self.class_annotations + ".txt"):
-				tissue = f.split("_")[0]
-				# Load the class definitions
-				logging.info("Loading class definitions from " + f)
-				class_defs = {}
-				with open(os.path.join(self.build_dir, f), mode='r') as infile:
-					reader = csv.reader(infile, delimiter="\t")
-					for row in reader:
-						if len(row) == 2 and row[0][0] != '#':
-							class_defs[int(row[0])] = row[1]
-				# logging.info(", ".join(class_defs.values()))
-				self._generate_samples_for_file(tissue, class_defs)
+		foutname = os.path.join(self.build_dir, "classified.loom")
+		if os.path.exists(foutname):
+			logging.info("Training dataset already exists; reusing it.")
+			return
+		for fname in os.listdir(self.build_dir):
+			if fname.startswith("L0_"):
+				ds = loompy.connect(os.path.join(self.build_dir, fname))
+				ds_training = None  # type: loompy.LoomConnection
+				if os.path.exists(foutname):
+					ds_training = loompy.connect(foutname)
 
-	def _generate_samples_for_file(self, tissue: str, class_defs: Dict[int, str]) -> None:
-		"""
-		Add to a classification dataset (training, test, validation) from one particular tissue
-		"""
-		ds = loompy.connect(os.path.join(self.build_dir, tissue + ".loom"))
-		fname = os.path.join(self.build_dir, self.class_annotations + ".loom")
-		ds_training = None  # type: loompy.LoomConnection
-		if os.path.exists(fname):
-			ds_training = loompy.connect(fname)
-
-		# select cells
-		labels = ds.col_attrs["Clusters"]
-		temp = []  # type: List[int]
-		for i in range(max(labels) + 1):
-			temp += list(np.random.choice(np.where(labels == i)[0], size=self.n_per_cluster))
-		cells = np.array(temp)
-		logging.info("Sampling %d cells from %s", cells.shape[0], tissue)
-		# put the cells in the training and validation datasets
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
-			class_labels = np.array(["Unknown"] * selection.shape[0], dtype='object')
-			for key in class_defs:
-				class_labels[labels[selection] == key] = class_defs[key]
-			class_labels = class_labels.astype(str)
-			if ds_training is None:
-				loompy.create(fname, vals, row_attrs=ds.row_attrs, col_attrs={"Class": class_labels})
-				ds_training = loompy.connect(fname)
-			else:
-				ds_training.add_columns(vals, {"Class": class_labels})
+				# select cells
+				labels = ds.col_attrs["Clusters"]
+				temp = []  # type: List[int]
+				for i in range(max(labels) + 1):
+					temp += list(np.random.choice(np.where(labels == i)[0], size=self.n_per_cluster))
+				cells = np.array(temp)
+				logging.info("Sampling %d cells from %s", cells.shape[0], fname)
+				# put the cells in the training dataset
+				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
+					class_labels = ds.col_attrs["SubclassAssigned"][selection]
+					if ds_training is None:
+						loompy.create(foutname, vals, row_attrs=ds.row_attrs, col_attrs={"SubclassAssigned": class_labels})
+						ds_training = loompy.connect(foutname)
+					else:
+						ds_training.add_columns(vals, {"SubclassAssigned": class_labels})
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		"""
@@ -98,23 +81,19 @@ class Classifier:
 		self.pca = cg.PCAProjection(genes, max_n_components=50)
 		transformed = self.pca.fit_transform(ds, normalizer)
 
-		if self.use_ica:
-			logging.info("FastICA projection")
-			self.ica = FastICA()
-			transformed = self.ica.fit_transform(transformed)
-
-		self.classes = list(set(ds.col_attrs["Class"]))
+		self.classes = list(set(ds.col_attrs["SubclassAssigned"]))
 		for cls in self.classes:
-			self.labels[cls] = (ds.col_attrs["Class"] == cls).astype('int')
+			self.labels[cls] = (ds.col_attrs["SubclassAssigned"] == cls).astype('int')
 
 			logging.info("Fitting classifier")
 			# optimize the classsifier on the training set, then score on the test set
 			train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels[cls], test_size=0.5, random_state=0)
 			self.clfs[cls] = LogisticRegressionCV(Cs=10, solver='sag')
 			self.clfs[cls].fit(train_X, train_Y)
-			logging.info("Performance:\n" + classification_report(test_Y, self.clfs[cls].predict(test_X), target_names=["Not " + cls, cls]))
+			with open(os.path.join(self.build_dir, cls + "_performance.txt"), "w") as f:
+				f.write(classification_report(test_Y, self.clfs[cls].predict(test_X), target_names=["Not " + cls, cls]))
 
-	def predict_proba(self, ds: loompy.LoomConnection) -> np.ndarray:
+	def predict_proba(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
@@ -123,53 +102,32 @@ class Classifier:
 		logging.info("PCA projection")
 		transformed = self.pca.transform(ds, normalizer)
 
-		if self.use_ica:
-			logging.info("FastICA projection")
-			transformed = self.ica.transform(transformed)
-
 		logging.info("Class prediction")
 		temp = []
 		for cls in self.classes:
 			temp.append(self.clfs[cls].predict_proba(transformed)[:, 1])
 		probs = np.vstack(temp).transpose()
+		return (probs, self.classes)
 
-		cyc = np.where(np.array(self.classes) == "Cycling")[0][0]
-
-		# Now, we want to keep only cells that have P > 0.5 for one class and P < 0.2 for all others (except Cycling)
-		single_positives = np.sum(probs > 0.5, axis=1) == 1
-		other_negatives = (np.sum(probs > 0.2, axis=1) - probs[:, cyc] > 0.2) <= 1
-		selected = np.logical_or(np.logical_and(single_positives, other_negatives), probs[:, cyc] > 0.5)
-		selected_labels = []  # type: List[str]
-		for ix in range(ds.shape[1]):
-			if selected[ix]:
-				cls = self.classes[np.argmax(probs[ix, :])]
-				if cls.startswith("Exclude"):
-					selected_labels.append("Excluded")
-				else:
-					selected_labels.append(cls)
-			else:
-				selected_labels.append("Excluded")
-		return (probs, self.classes, selected_labels)
-
-	def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]=None) -> Dict[str, loompy.LoomConnection]:
-		if dsout is None:
-			dsout = {}
-		for (ix, selection, vals) in ds.batch_scan(axis=1):
-			for lbl in range(np.max(labels) + 1):
-				subset = np.intersect1d(np.where(labels == lbl)[0], selection)
-				if subset.shape[0] == 0:
-					continue
-				m = vals[:, subset - ix]
-				ca = {}
-				for key in ds.col_attrs:
-					ca[key] = ds.col_attrs[key][subset]
-				name = names[lbl]
-				if name == "Neurons":
-					name = name + "_" + tissue
-				if name.startswith("Exclude"):
-					pass
-				if name not in dsout:
-					dsout[name] = loompy.create(os.path.join(self.build_dir, "Class_" + name + ".loom"), m, ds.row_attrs, ca)
-				else:
-					dsout[name].add_columns(m, ca)
-		return dsout
+	# def split(self, ds: loompy.LoomConnection, tissue: str, labels: np.ndarray, names: List[str], dsout: Dict[str, loompy.LoomConnection]=None) -> Dict[str, loompy.LoomConnection]:
+	# 	if dsout is None:
+	# 		dsout = {}
+	# 	for (ix, selection, vals) in ds.batch_scan(axis=1):
+	# 		for lbl in range(np.max(labels) + 1):
+	# 			subset = np.intersect1d(np.where(labels == lbl)[0], selection)
+	# 			if subset.shape[0] == 0:
+	# 				continue
+	# 			m = vals[:, subset - ix]
+	# 			ca = {}
+	# 			for key in ds.col_attrs:
+	# 				ca[key] = ds.col_attrs[key][subset]
+	# 			name = names[lbl]
+	# 			if name == "Neurons":
+	# 				name = name + "_" + tissue
+	# 			if name.startswith("Exclude"):
+	# 				pass
+	# 			if name not in dsout:
+	# 				dsout[name] = loompy.create(os.path.join(self.build_dir, "Class_" + name + ".loom"), m, ds.row_attrs, ca)
+	# 			else:
+	# 				dsout[name].add_columns(m, ca)
+	# 	return dsout

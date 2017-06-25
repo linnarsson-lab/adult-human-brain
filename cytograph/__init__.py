@@ -23,5 +23,7 @@ from .marker_selection import MarkerSelection
 from .TFs import TFs
 from .utils import cap_select
 from .manifold_learning import ManifoldLearning
+from .manifold_learning_2 import ManifoldLearning2
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
+from .elastic_graph import ElasticGraph

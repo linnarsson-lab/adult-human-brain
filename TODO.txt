@@ -3,8 +3,8 @@ Generate L3 aggregation
 Add auto-annotation to Loom
 Put auto-auto-annotation in plots
 Merging non-neurons
-
-Gene-side clustering
+Redo clsssification
+Gene-side clustering or NMF
 
 Plot gene names for last cluster right-justified
 Redraw t-SNE using cluster ordering as initial layout (in circle)
