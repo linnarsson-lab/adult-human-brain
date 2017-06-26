@@ -10,6 +10,10 @@ import cytograph as cg
 import luigi
 
 
+class autoannotate(luigi.Config):
+	species = luigi.Parameter(default="Mm")
+
+
 class AutoAnnotateL1(luigi.Task):
 	"""
 	Luigi Task to auto-annotate clusters, level 2
@@ -24,8 +28,13 @@ class AutoAnnotateL1(luigi.Task):
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
+			if autoannotate().species == "Mm":
+				aa = cg.AutoAnnotator()
+			elif autoannotate().species == "Hs":
+				aa = cg.AutoAnnotator(root="../auto-annotationHs")
+			else:
+				raise ValueError("%s is not a valid autoannotate-species, try with Mm/Hs" % autoannotate().species)
 			ds = loompy.connect(self.input().fn)
-			aa = cg.AutoAnnotator()
 			aa.annotate_loom(ds)
 			aa.save(out_file)
 			aa.save_in_loom(ds)
