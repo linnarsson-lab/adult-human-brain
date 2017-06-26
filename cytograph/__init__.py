@@ -26,4 +26,4 @@ from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
-from .elastic_graph import ElasticGraph
+# from .elastic_graph import ElasticGraph  # was removed?
