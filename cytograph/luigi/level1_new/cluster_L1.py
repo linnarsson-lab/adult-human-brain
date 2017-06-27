@@ -28,7 +28,6 @@ class ClusterL1(luigi.Task):
 	Level 1 clustering
 	"""
 	tissue = luigi.Parameter()
-	method = luigi.Parameter(default='dbscan')  # 'dbscan', hdbscan', 'lj'
 
 	def requires(self) -> luigi.Task:
 		return [
@@ -40,6 +39,7 @@ class ClusterL1(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".clusters.txt"))
 
 	def run(self) -> None:
+		self.method = cg.clustering().method
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input()[0].fn)
 			cls = cg.Clustering(method=self.method)
