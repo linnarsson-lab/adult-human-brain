@@ -26,3 +26,7 @@ class TrainClassifier(luigi.Task):
 			clf.fit(ds_training)
 			with open(fname, "wb") as f:
 				pickle.dump(clf, f)
+
+			# Verify that it works (to catch some obscure intermittent UnicodeDecodeError)
+			with open(fname, "rb") as f:
+				clf = pickle.load(f)

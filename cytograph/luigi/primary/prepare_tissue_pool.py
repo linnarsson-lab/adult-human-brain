@@ -38,19 +38,14 @@ class PrepareTissuePool(luigi.Task):
 				ds.set_attr("_NGenes", genes, axis=1)
 				
 				logging.info("Computing mito/ribo ratio")
-				try:
-					mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
-					ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
-					ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
-					if (len(ribo) == 0) or (len(mito) == 0):
-						# I raise this kind of error becouse is the same it would be raised if this happen
-						raise UnboundLocalError
+				mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
+				ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
+				ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
+				if len(ribo) > 0 and len(mito) > 0:
 					mitox = ds[mito, :]
 					ribox = ds[ribo, :]
 					ratio = (mitox.sum(axis=0) + 1) / (ribox.sum(axis=0) + 1)
 					ds.set_attr("MitoRiboRatio", ratio, axis=1)
-				except UnboundLocalError:
-					pass
 				ds.close()
 
 			logging.info("Creating combined loom file")
@@ -69,22 +64,14 @@ class PrepareTissuePool(luigi.Task):
 			n_total = ds.shape[1]
 			logging.info("%d of %d cells were valid", n_valid, n_total)
 			
-			classifier_loaded = False
 			classifier_path = os.path.join(cg.paths().build, "classifier.pickle")
 			if os.path.exists(classifier_path):
-				try:
-					with open(classifier_path, "rb") as f:
-						clf = pickle.load(f)  # type: cg.Classifier
-					classes = clf.predict(ds)
-					classifier_loaded = True
-				except (pickle.UnpicklingError, UnicodeDecodeError) as e:
-					logging.error("Error during Clasifier Loading! Continuing without.")
-				except ValueError as e:
-					logging.error("Error during Clasifier classification! Message:%s" % e)
-
-			if classifier_loaded:
 				logging.info("Classifying cells by major class")
-				
+				with open(classifier_path, "rb") as f:
+					clf = pickle.load(f)  # type: cg.Classifier
+				classes = clf.predict(ds)
+				classifier_loaded = True
+
 				mapping = {
 					"Astrocyte": "AstroEpendymal",
 					"Astrocyte,Cycling": "AstroEpendymal",
