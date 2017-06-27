@@ -76,12 +76,15 @@ class PrepareTissuePool(luigi.Task):
 					with open(classifier_path, "rb") as f:
 						clf = pickle.load(f)  # type: cg.Classifier
 					classifier_loaded = True
+					classes = clf.predict(ds)
 				except (pickle.UnpicklingError, UnicodeDecodeError) as e:
 					logging.error("Error during Clasifier Loading! Continuing without.")
+				except ValueError as e:
+					logging.error("Error during Clasifier classification! Message:%s" % e)
 
 			if classifier_loaded:
 				logging.info("Classifying cells by major class")
-				classes = clf.predict(ds)
+				
 				mapping = {
 					"Astrocyte": "AstroEpendymal",
 					"Astrocyte,Cycling": "AstroEpendymal",
