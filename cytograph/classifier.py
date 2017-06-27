@@ -21,11 +21,12 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50) -> None:
+	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, batch_size: int = 1000) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
 		self.n_genes = n_genes
 		self.n_components = n_components
+		self.batch_size = batch_size
 		self.classes = None  # type: List[str]
 		self.labels = None  # type: np.ndarray
 		self.pca = None  # type: cg.PCAProjection
@@ -62,7 +63,7 @@ class Classifier:
 				cells = np.array(temp)
 				logging.info("Sampling %d cells from %s", cells.shape[0], fname)
 				# put the cells in the training dataset
-				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
+				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=self.batch_size):
 					class_labels = ds.col_attrs["SubclassAssigned"][selection]
 					if ds_training is None:
 						loompy.create(foutname, vals, row_attrs=ds.row_attrs, col_attrs={"SubclassAssigned": class_labels})
@@ -84,7 +85,7 @@ class Classifier:
 		genes = cg.FeatureSelection(2000).fit(ds)
 
 		logging.info("PCA projection")
-		self.pca = cg.PCAProjection(genes, max_n_components=50)
+		self.pca = cg.PCAProjection(genes, max_n_components=50, batch_size=self.batch_size)
 		transformed = self.pca.fit_transform(ds, normalizer)
 
 		self.classes = ds.col_attrs["SubclassAssigned"]

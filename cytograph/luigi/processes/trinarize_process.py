@@ -28,6 +28,6 @@ class TrinarizeProcess(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input().fn)
-			tr = cg.Trinarizer(trinarization().f)
+			tr = cg.Trinarizer(trinarization().f, batch_size=cg.memory().axis0)
 			tr.fit(ds)
 			tr.save(out_file)

@@ -16,10 +16,11 @@ def load_trinaries(in_file: str) -> Tuple[np.ndarray, np.ndarray]:
 
 	
 class Trinarizer:
-	def __init__(self, f: float = 0.2) -> None:
+	def __init__(self, f: float = 0.2, batch_size: int=1000) -> None:
 		self.f = f
 		self.trinary_prob = None  # type: np.ndarray
 		self.genes = None  # type: np.ndarray
+		self.batch_size = batch_size
 
 	def fit(self, ds: loompy.LoomConnection) -> np.ndarray:
 		cells = np.where(ds.col_attrs["Clusters"] >= 0)[0]
@@ -30,7 +31,7 @@ class Trinarizer:
 		self.genes = ds.Gene
 
 		j = 0
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=self.batch_size):
 			for j, row in enumerate(selection):
 				data = np.round(vals[j, :])
 				self.trinary_prob[row, :] = self._betabinomial_trinarize_array(data, labels, self.f, n_labels)

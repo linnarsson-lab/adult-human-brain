@@ -39,7 +39,7 @@ class SplitAndPool(luigi.Task):
 					with open(out_file, "w") as f:
 						f.write("Empty")
 				else:
-					for (ix, selection, vals) in ds.batch_scan(axis=1):
+					for (ix, selection, vals) in ds.batch_scan(axis=1, batch_size=cg.memory().axis1):
 						subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
 						if subset.shape[0] == 0:
 							continue

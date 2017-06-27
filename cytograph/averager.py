@@ -11,7 +11,7 @@ class Averager:
 	def __init__(self, func: str = "mean") -> None:
 		self.func = func
 
-	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, aggregator_class: str = "Clusters", category_summary: Tuple = ("Age", "SampleID")) -> None:
+	def calculate_and_save(self, ds: loompy.LoomConnection, output_file: str, aggregator_class: str = "Clusters", category_summary: Tuple = ("Age", "SampleID"), batch_size: int = 1000) -> None:
 		"""Calculate the average table ad save it as a .loom file
 
 		Args
@@ -42,7 +42,7 @@ class Averager:
 			for unique_element in set(ds.col_attrs[category_class]):
 				ca["%s_%s" % (category_class, unique_element)] = npg.aggregate_numba.aggregate(categories_ix, ds.col_attrs[category_class][cells] == unique_element, func="sum")
 		m = np.empty((ds.shape[0], Ncat))
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=batch_size):
 			vals_avg = npg.aggregate_numba.aggregate(categories_ix, vals, func=self.func, axis=1)
 			m[selection, :] = vals_avg
 		dsout = loompy.create(output_file, m, ra, ca)

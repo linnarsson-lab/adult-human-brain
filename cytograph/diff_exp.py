@@ -8,7 +8,7 @@ import loompy
 import numpy_groupies as npg
 
 
-def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: float, f: float, cells: np.ndarray = None, batch_size: int = 1000) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 	"""
 	Derive enrichment and trinary scores for all genes
 
@@ -45,7 +45,7 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 	trinary_prob = np.empty((ds.shape[0], n_labels))
 
 	j = 0
-	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=batch_size):
 		# vals = normalizer.normalize(vals, selection)
 		for j, row in enumerate(selection):
 			data = vals[j, :]
@@ -145,7 +145,7 @@ def betabinomial_trinarize_array(array: np.ndarray, labels: np.ndarray, pep: flo
 	return (ps, expr_by_label)
 
 
-def save_cluster_avg(input_file: str, output_file: str) -> None:
+def save_cluster_avg(input_file: str, output_file: str, batch_size: int=1000) -> None:
 	ds = loompy.connect(input_file)
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 	labels = ds.col_attrs["Clusters"][cells]
@@ -153,7 +153,7 @@ def save_cluster_avg(input_file: str, output_file: str) -> None:
 	ca = {"Cluster": np.arange(Nclust), "OriginalFile": np.array([input_file] * Nclust)}
 	ra = {"Accession": ds.row_attrs["Accession"], "Gene": ds.row_attrs["Gene"]}
 	m = np.empty((ds.shape[0], Nclust))
-	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=batch_size):
 		vals_avg = npg.aggregate_numba.aggregate(labels, vals, func="mean", axis=1)
 		m[selection, :] = vals_avg
 	dsout = loompy.create(output_file, m, ra, ca)
