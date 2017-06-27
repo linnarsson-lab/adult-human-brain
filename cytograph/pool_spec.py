@@ -3,8 +3,9 @@ import csv
 
 
 class Sample:
-	def __init__(self, sample: str, tissue: str, project: str) -> None:
+	def __init__(self, sample: str, tissue: str, project: str, timepool: str="none") -> None:
 		self.sample = sample
+		self.timepool = timepool
 		self.tissue = tissue
 		self.project = project
 
@@ -15,8 +16,8 @@ class PoolSpec:
 	
 		with open(fname, 'r') as f:
 			for row in csv.reader(f, delimiter="\t"):
-				if row[2] != "FAILED":
-					self.samples.append(Sample(row[0], row[1], row[3]))
+				if row[3] != "FAILED":
+					self.samples.append(Sample(row[0], row[1], row[4], row[2]))
 	
 	@property
 	def tissues(self) -> List[str]:
