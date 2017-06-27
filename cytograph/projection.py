@@ -21,12 +21,12 @@ class PCAProjection:
 			max_n_components: 	Tha maximum number of projected components
 
 		"""
+		self.batch_size = batch_size
 		self.n_components = max_n_components
 		self.cells = None  # type: np.ndarray
 		self.genes = genes  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
-		self.batch_size = batch_size
 
 	def fit(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
