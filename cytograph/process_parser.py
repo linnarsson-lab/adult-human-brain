@@ -87,6 +87,8 @@ def parse_project_requirements(process_obj: Dict) -> List[Tuple[luigi.Task]]:
 
 
 def parse_project_todo(process_obj: Dict) -> Iterator[luigi.Task]:
+    """Yields luigi.Tasks after parsing out a dictionary describing the kind of tasks and their arguments
+    """
     # the following safenames is implemented to make the eval statement secure
     safenames = set()  # type: set
     for k, v in cg.__dict__.items():

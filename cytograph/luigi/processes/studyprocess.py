@@ -12,7 +12,7 @@ from collections import defaultdict
 
 class StudyProcess(luigi.WrapperTask):
 	"""
-	Luigi Task Wrapper to run a set of analysese on a particular slice of the data as specified by a description file
+	Luigi Task Wrapper to run a set of analyses on a particular slice of the data as specified by a description file
 
 	`processname` needs to match th name specified in the .yaml file in the folder ../dev-processes
 	"""
