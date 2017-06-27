@@ -7,4 +7,4 @@ from .development import *
 from .luigi_utils import *
 from .level1_new import *
 from .path_config import paths
-from .cluster_config import clustering
+from .cluster_config import cluster
