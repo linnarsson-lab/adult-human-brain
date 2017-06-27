@@ -75,8 +75,8 @@ class PrepareTissuePool(luigi.Task):
 				try:
 					with open(classifier_path, "rb") as f:
 						clf = pickle.load(f)  # type: cg.Classifier
-					classifier_loaded = True
 					classes = clf.predict(ds)
+					classifier_loaded = True
 				except (pickle.UnpicklingError, UnicodeDecodeError) as e:
 					logging.error("Error during Clasifier Loading! Continuing without.")
 				except ValueError as e:
