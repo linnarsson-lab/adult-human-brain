@@ -70,11 +70,19 @@ class PrepareTissuePool(luigi.Task):
 			n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 			n_total = ds.shape[1]
 			logging.info("%d of %d cells were valid", n_valid, n_total)
+			
+			classifier_loaded = False
+			classifier_path = os.path.join(cg.paths().build, "classifier.pickle")
+			if os.path.exists(classifier_path):
+				try:
+					with open(classifier_path) as f:
+						clf = pickle.load(f)  # type: cg.Classifier
+					classifier_loaded = True
+				except pickle.UnpicklingError:
+					logging.error("Error during Clasifier Loading! Continuing without.")
 
-			if os.path.exists(os.path.join(cg.paths().build, "classifier.pickle")):
+			if classifier_loaded:
 				logging.info("Classifying cells by major class")
-				with open(self.input()[0].fn, "rb") as f:
-					clf = pickle.load(f)  # type: cg.Classifier
 				(probs, labels) = clf.predict_proba(ds)  # probs shape is (n_cells, n_labels)
 				mapping = {
 					"Astrocyte": "AstroEpendymal",
