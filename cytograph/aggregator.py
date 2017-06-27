@@ -19,7 +19,7 @@ class Aggregator:
 		self.n_markers = n_markers
 		self.min_distance = min_distance
 
-	def aggregate(self, ds: loompy.LoomConnection, out_file: str) -> None:
+	def aggregate(self, ds: loompy.LoomConnection, out_file: str, batch_size: int = 1000) -> None:
 		ca_aggr = {
 			"Age": "tally",
 			"Clusters": "first",
@@ -45,7 +45,7 @@ class Aggregator:
 		n_labels = len(set(labels))
 
 		logging.info("Aggregating clusters prior to merging")
-		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr)
+		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr, batch_size=batch_size)
 		dsout = loompy.connect(out_file)
 
 		logging.info("Merging clusters by Ward's linkage similarity")
@@ -62,7 +62,7 @@ class Aggregator:
 		os.remove(out_file)
 
 		logging.info("Aggregating clusters by mean")
-		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr)
+		cg.aggregate_loom(ds, out_file, cells, "Clusters", "mean", ca_aggr, batch_size=batch_size)
 		dsout = loompy.connect(out_file)
 		logging.info("Trinarizing")
 		trinaries = cg.Trinarizer().fit(ds)
@@ -116,7 +116,7 @@ def renumber(a: np.ndarray, keys: np.ndarray, values: np.ndarray) -> np.ndarray:
 	return(values[index].reshape(a.shape))
 
 
-def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False) -> np.ndarray:
+def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False, batch_size: int = 1000) -> np.ndarray:
 	"""
 	Aggregate a Loom file by applying aggregation functions to the main matrix as well as to the column attributes
 
@@ -157,7 +157,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			elif func == "first":
 				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
 	m = np.empty((ds.shape[0], n_groups))
-	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
+	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0, batch_size=batch_size):
 		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1, fill_value=0)
 		m[selection, :] = vals_aggr
 

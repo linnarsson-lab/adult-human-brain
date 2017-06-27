@@ -10,7 +10,7 @@ import loompy
 import numpy.core.defchararray as npstr
 
 
-class PrepareTissuePool(luigi.Task):
+class PrepareTimepointPool(luigi.Task):
 	"""
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
 	"""

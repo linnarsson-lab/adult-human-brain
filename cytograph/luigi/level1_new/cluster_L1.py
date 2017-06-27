@@ -39,10 +39,9 @@ class ClusterL1(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".clusters.txt"))
 
 	def run(self) -> None:
-		self.method = cg.clustering().method
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input()[0].fn)
-			cls = cg.Clustering(method=self.method)
+			cls = cg.Clustering(method=cg.cluster().method)
 			labels = cls.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
 			n_labels = np.max(labels) + 1

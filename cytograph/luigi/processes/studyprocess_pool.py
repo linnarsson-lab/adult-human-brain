@@ -41,7 +41,7 @@ class StudyProcessPool(luigi.Task):
 				# Select the tags as specified in the process file
 				filter_bool = cg.FilterManager(process_obj, ds, autoannotated.fn).compute_filter()
 
-				for (ix, selection, vals) in ds.batch_scan_layers(axis=1):
+				for (ix, selection, vals) in ds.batch_scan_layers(axis=1, batch_size=cg.memory().axis1):
 					# Filter the cells that belong to the selected tags
 					subset = np.intersect1d(np.where(filter_bool)[0], selection)
 					if subset.shape[0] == 0:

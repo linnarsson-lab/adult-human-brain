@@ -31,5 +31,5 @@ class AggregateL1(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input()[0].fn)
-			cg.Aggregator(self.n_markers).aggregate(ds, out_file)
+			cg.Aggregator(self.n_markers).aggregate(ds, out_file, batch_size=cg.memory().axis0)
 

@@ -64,7 +64,7 @@ class SplitAndPoolAa(luigi.Task):
 				for i, t in enumerate(tags):
 					if np.any(np.in1d(t, lineage_abbr)):
 						selected_tags.append(i)
-				for (ix, selection, vals) in ds.batch_scan(axis=1):
+				for (ix, selection, vals) in ds.batch_scan(axis=1, batch_size=cg.memory().axis1):
 					# Filter the cells that belong to the selected tags
 					subset = np.intersect1d(np.where(np.in1d(labels, selected_tags))[0], selection)
 					if subset.shape[0] == 0:
