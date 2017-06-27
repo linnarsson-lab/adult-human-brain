@@ -15,8 +15,6 @@ class PrepareTissuePool(luigi.Task):
 	Luigi Task to prepare tissue-level files from raw sample files, including gene and cell validation
 	"""
 	tissue = luigi.Parameter()
-	minP = luigi.FloatParameter(default=0.5)
-	maxOtherP = luigi.FloatParameter(default=0.2)
 
 	def requires(self) -> List[luigi.Task]:
 		samples = cg.PoolSpec().samples_for_tissue(self.tissue)
@@ -73,9 +71,9 @@ class PrepareTissuePool(luigi.Task):
 
 			if os.path.exists(os.path.join(cg.paths().build, "classifier.pickle")):
 				logging.info("Classifying cells by major class")
-				with open(self.input()[0].fn, "rb") as f:
+				with open(os.path.join(cg.paths().build, "classifier.pickle"), "rb") as f:
 					clf = pickle.load(f)  # type: cg.Classifier
-				(probs, labels) = clf.predict_proba(ds)  # probs shape is (n_cells, n_labels)
+				classes = clf.predict(ds)
 				mapping = {
 					"Astrocyte": "AstroEpendymal",
 					"Astrocyte,Cycling": "AstroEpendymal",
@@ -117,30 +115,17 @@ class PrepareTissuePool(luigi.Task):
 					"Vascular,Cycling": "Vascular",
 					"Vascular,Neurons": None,
 					"Vascular,Oligos": None,
-					"Vascular,Satellite-glia": None
+					"Vascular,Satellite-glia": None,
+					"Unknown": None
 				}
-				# Keep only cells that have P > 0.5 for subclass and have no P > 0.2 in any other major class
-				single_positives = np.sum(probs > 0.5, axis=1) == 1
-				other_negatives = np.sum(probs > 0.2, axis=1) == 1
-				selected = np.logical_and(single_positives, other_negatives)
-				selected_labels = []  # type: List[str]
-				for ix in range(ds.shape[1]):
-					if selected[ix]:
-						cls = labels[np.argmax(probs[ix, :])]
-					else:
-						selected_labels.append("Excluded")
 
-				classes = np.array(selected_labels, dtype=np.object_)
 				classes_pooled = np.array([str(mapping[c]) for c in classes], dtype=np.object_)
-
 				# mask invalid cells
 				classes[ds.col_attrs["_Valid"] == 0] = "Excluded"
 				classes_pooled[ds.col_attrs["_Valid"] == 0] = "Excluded"
 				classes_pooled[classes_pooled == "None"] = "Excluded"
 				ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
 				ds.set_attr("Subclass", classes.astype('str'), axis=1)
-				for ix, label in enumerate(labels):
-					ds.set_attr("Class_" + label, probs[:, ix], axis=1)
 			else:
 				logging.info("No classifier found in this build directory - skipping.")
 				ds.set_attr("Class", np.array(["Excluded"] * ds.shape[1]), axis=1)

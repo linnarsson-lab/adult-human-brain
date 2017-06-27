@@ -293,10 +293,13 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	clusterborders = np.cumsum(dsagg.col_attrs["NCells"])
 	gene_pos = clusterborders[np.argmax(enrichment, axis=1)]
-	tissues = set(ds.col_attrs["Tissue"])
+	tissues: Set[str] = set()
+	if "Tissue" in ds.col_attrs:
+		tissues = set(ds.col_attrs["Tissue"])
 	n_tissues = len(tissues)
 
-	classes = [x for x in ds.col_attrs.keys() if x.startswith("Class_")]
+	# classes = [x for x in ds.col_attrs.keys() if x.startswith("Class_")]
+	classes = sorted(list(set(ds.col_attrs["Subclass"])))
 	n_classes = len(classes)
 
 	genes = ["Cdk1", "Top2a", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Foxj1", "Aqp4", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
@@ -337,11 +340,11 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, cls in enumerate(classes):
 		ax = fig.add_subplot(gs[3 + n_tissues + ix])
-		ax.imshow(np.expand_dims(ds.col_attrs[cls][cells], axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
+		ax.imshow(np.expand_dims((ds.col_attrs["Subclass"] == cls).astype('int')[cells], axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
-		text = plt.text(0.001, 0.9, cls[6:], horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
+		text = plt.text(0.001, 0.9, cls, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
 		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
 
 	for ix, g in enumerate(genes):
