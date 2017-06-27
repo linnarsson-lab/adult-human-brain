@@ -13,12 +13,11 @@ class MarkerEnrichment:
 	Use the MarkerSelection class instead for a more powerful enrichment calculation, which avoids
 	division by zero and properly accounts for low counts and averages.
 	"""
-	def __init__(self, power: float, batch_size: int= 1000) -> None:
+	def __init__(self, power: float) -> None:
 		self.enrichment = None  # type: np.ndarray
 		self.power = power
 		self.genes = None  # type: np.ndarray
 		self.valid = None  # type: np.ndarray
-		self.batch_size = batch_size
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		cells = np.where(ds.col_attrs["Clusters"] >= 0)[0]
@@ -28,7 +27,7 @@ class MarkerEnrichment:
 		scores2 = np.empty((ds.shape[0], n_labels))
 
 		j = 0
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=self.batch_size):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=cg.memory().axis0):
 			for j, row in enumerate(selection):
 				data = vals[j, :]
 				mu0 = np.mean(data)

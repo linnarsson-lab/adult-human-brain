@@ -14,14 +14,13 @@ class PCAProjection:
 	to one dataset then used to project another. To work properly, both datasets must be normalized in the same 
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50, batch_size: int = 1000) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
 			max_n_components: 	Tha maximum number of projected components
 
 		"""
-		self.batch_size = batch_size
 		self.n_components = max_n_components
 		self.cells = None  # type: np.ndarray
 		self.genes = genes  # type: np.ndarray
@@ -35,7 +34,7 @@ class PCAProjection:
 		n_genes = self.genes.shape[0]
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=self.batch_size):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1):
 			vals = normalizer.transform(vals, selection)
 			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
@@ -46,7 +45,7 @@ class PCAProjection:
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=self.batch_size):
+		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1):
 			vals = normalizer.transform(vals, selection)
 			n_cells_in_batch = selection.shape[0]
 			temp = self.pca.transform(vals[self.genes, :].transpose())

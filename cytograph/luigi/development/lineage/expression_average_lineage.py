@@ -30,4 +30,4 @@ class ExpressionAverageLineage(luigi.Task):
 		with self.output().temporary_path() as out_file:
 			avgr = cg.Averager()
 			ds = loompy.connect(self.input().fn)
-			avgr.calculate_and_save(ds, out_file, batch_size=cg.memory().axis0)
+			avgr.calculate_and_save(ds, out_file)
