@@ -27,12 +27,17 @@ class PCAProjection:
 		self.genes = genes  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
+		self.accessions = None  # type: np.ndarray
 
 	def fit(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
 		n_cells = cells.shape[0]
 		n_genes = self.genes.shape[0]
+
+		# Support out-of-order datasets
+		if "Accession" in ds.row_attrs:
+			self.accessions = ds.row_attrs["Accession"]
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=self.batch_size):
@@ -44,9 +49,16 @@ class PCAProjection:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
 		n_cells = cells.shape[0]
 
+		# Support out--of-order datasets
+		if self.accessions is not None:
+			# This is magic sauce for making the order of one list be like another
+			ordering = np.where(ds.row_attrs["Accession"][None, :] == self.accessions[:, None])[1]
+
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
 		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=self.batch_size):
+			if self.accessions is not None:
+				vals = vals[ordering, :]
 			vals = normalizer.transform(vals, selection)
 			n_cells_in_batch = selection.shape[0]
 			temp = self.pca.transform(vals[self.genes, :].transpose())
