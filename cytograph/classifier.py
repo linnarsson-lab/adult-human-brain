@@ -31,6 +31,7 @@ class Classifier:
 		self.labels = None  # type: np.ndarray
 		self.pca = None  # type: cg.PCAProjection
 		self.mu = None  # type: np.ndarray
+		self.sd = None  # type: np.ndarray
 		self.classifier = None  # type: SVC
 		self.le = None  # type: LabelEncoder
 
@@ -84,9 +85,10 @@ class Classifier:
 		the predict() method will automatically use the optimal parameters discovered in fitting.
 		"""
 		logging.info("Normalization")
-		normalizer = cg.Normalizer(False)
+		normalizer = cg.Normalizer(True)
 		normalizer.fit(ds)
 		self.mu = normalizer.mu
+		self.sd = normalizer.sd
 
 		logging.info("Feature selection")
 		genes = cg.FeatureSelection(2000).fit(ds)
@@ -99,7 +101,7 @@ class Classifier:
 		self.le = LabelEncoder().fit(self.classes)
 		self.labels = self.le.transform(self.classes)
 
-		train_X, test_X, train_Y, test_Y = train_test_split(scale(transformed), self.labels, test_size=0.2, random_state=0)
+		train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels, test_size=0.2, random_state=0)
 		important_classes = [
 			"Astrocyte",
 			"Astrocyte,Cycling",
@@ -121,19 +123,21 @@ class Classifier:
 			"Vascular,Cycling"
 		]
 		self.classifier = SVC(class_weight={c: 10 for c in self.le.transform(important_classes)})
+		# self.classifier = SGDClassifier(loss="log")
 		self.classifier.fit(train_X, train_Y)
 		with open(os.path.join(self.build_dir, "performance.txt"), "w") as f:
 			f.write(classification_report(test_Y, self.classifier.predict(test_X), target_names=self.le.classes_))
 
 	def predict(self, ds: loompy.LoomConnection) -> List[str]:
 		logging.info("Normalization")
-		normalizer = cg.Normalizer(False)
+		normalizer = cg.Normalizer(True)
 		normalizer.fit(ds)
 		normalizer.mu = self.mu		# Use the same row means as were used during training
+		normalizer.sd = self.sd
 
 		logging.info("PCA projection")
 		transformed = self.pca.transform(ds, normalizer)
 
 		logging.info("Class prediction")
-		labels = self.classifier.predict(scale(transformed))
+		labels = self.classifier.predict(transformed)
 		return self.le.inverse_transform(labels)
