@@ -21,12 +21,11 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50, batch_size: int = 1000) -> None:
+	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50) -> None:
 		self.build_dir = build_dir
 		self.n_per_cluster = n_per_cluster
 		self.n_genes = n_genes
 		self.n_components = n_components
-		self.batch_size = batch_size
 		self.classes = None  # type: List[str]
 		self.labels = None  # type: np.ndarray
 		self.pca = None  # type: cg.PCAProjection
@@ -71,7 +70,7 @@ class Classifier:
 				# put the cells in the training dataset
 				# This is magic sauce for making the order of one list be like another
 				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=self.batch_size):
+				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=cg.memory().axis1):
 					ca = {key: val[selection] for key, val in ds.col_attrs.items()}
 					if ds_training is None:
 						loompy.create(foutname, vals, row_attrs=ds.row_attrs, col_attrs=ca)
@@ -94,7 +93,7 @@ class Classifier:
 		genes = cg.FeatureSelection(2000).fit(ds)
 
 		logging.info("PCA projection")
-		self.pca = cg.PCAProjection(genes, max_n_components=50, batch_size=self.batch_size)
+		self.pca = cg.PCAProjection(genes, max_n_components=50)
 		transformed = self.pca.fit_transform(ds, normalizer)
 
 		self.classes = ds.col_attrs["SubclassAssigned"]
