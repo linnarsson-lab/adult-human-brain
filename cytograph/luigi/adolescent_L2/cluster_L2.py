@@ -30,25 +30,57 @@ class ClusterL2(luigi.Task):
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
+	n_genes = luigi.IntParameter(default=1000)
+	gtsne = luigi.BoolParameter(default=True)
+	alpha = luigi.FloatParameter(default=1)
 
 	def requires(self) -> luigi.Task:
-		return [
-			cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class),
-			cg.ManifoldL2(tissue=self.tissue, major_class=self.major_class)
-		]
+		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".clusters.txt"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".clustered.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input()[0].fn)
+			logging.info("Learning the manifold")
+			ds = loompy.connect(self.input().fn)
+			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+			(knn, mknn, tsne) = ml.fit(ds)
+			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			ds.set_attr("_X", tsne[:, 0], axis=1)
+			ds.set_attr("_Y", tsne[:, 1], axis=1)
+
+			logging.info("Clustering on the manifold")
+			ds = loompy.connect(self.input().fn)
 			cls = cg.Clustering(method=self.method)
 			labels = cls.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
 			n_labels = np.max(labels) + 1
-			with open(out_file, "w") as f:
-				f.write(str(n_labels) + " clusters\n")
-			logging.info(str(n_labels) + " clusters")
+
+			logging.info("Removing outliers")
+			cells = np.where(ds.col_attrs["Outliers"] == 0)[0]
+			outlier_label = ds.Clusters[ds.Outliers == 1][0]
+			new_labels = np.array([x if x < outlier_label else x - 1 for x in ds.Clusters])[cells]
+			dsout = None  # type: loompy.LoomConnection
+			for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
+				ca = {key: v[selection] for key, v in ds.col_attrs.items()}
+				if dsout is None:
+					dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
+				else:
+					dsout.add_columns(vals, ca)
+			dsout.set_attr("Clusters", new_labels, axis=1)
 			ds.close()
 
+			# Close and reopen because of some subtle bug in assigning and reading back col attrs
+			dsout.close()
+			dsout = loompy.connect(out_file)
+			logging.info("Relearning the manifold with outliers removed")
+			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+			logging.info(dsout.col_attrs["_Valid"] == 1)
+			(knn, mknn, tsne) = ml.fit(dsout)
+
+			dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			dsout.set_attr("_X", tsne[:, 0], axis=1)
+			dsout.set_attr("_Y", tsne[:, 1], axis=1)

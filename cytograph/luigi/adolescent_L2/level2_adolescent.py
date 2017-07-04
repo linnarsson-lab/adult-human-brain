@@ -17,9 +17,7 @@ class Level2Adolescent(luigi.WrapperTask):
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		classes = ["Neurons", "Oligos", "AstroEpendymal", "Vascular", "Immune", "Blood", "PeripheralGlia"]  # "Excluded"]
 		for tissue in tissues:
-			yield cg.PlotManifoldL2(tissue=tissue, major_class="Neurons")
-			yield cg.PlotMarkerheatmapL2(tissue=tissue, major_class="Neurons")
+			yield cg.ExportL2(tissue=tissue, major_class="Neurons")
 
 		for cls in classes:
-			yield cg.PlotManifoldL2(tissue="All", major_class=cls)
-			yield cg.PlotMarkerheatmapL2(tissue="All", major_class=cls)
+			yield cg.ExportL2(tissue="All", major_class=cls)

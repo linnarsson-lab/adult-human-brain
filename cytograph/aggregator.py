@@ -12,6 +12,7 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
 from polo import optimal_leaf_ordering
+from statistics import mode
 
 
 class Aggregator:
@@ -23,16 +24,7 @@ class Aggregator:
 		ca_aggr = {
 			"Age": "tally",
 			"Clusters": "first",
-			"Class": "first",
-			"Class_Astrocyte": "mean",
-			"Class_Cycling": "mean",
-			"Class_Ependymal": "mean",
-			"Class_Neurons": "mean",
-			"Class_Immune": "mean",
-			"Class_Oligos": "mean",
-			"Class_OEC": "mean",
-			"Class_Schwann": "mean",
-			"Class_Vascular": "mean",
+			"Class": "mode",
 			"_Total": "mean",
 			"Sex": "tally",
 			"Tissue": "tally",
@@ -152,6 +144,8 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
 					ca[key + "_" + val] = npg.aggregate(labels, ds.col_attrs[key][cols] == val, func="sum", fill_value=0)
+			elif func == "mode":
+				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=mode, fill_value=0).astype('str')
 			elif func == "mean":
 				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=0)
 			elif func == "first":

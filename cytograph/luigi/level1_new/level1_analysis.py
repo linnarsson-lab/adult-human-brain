@@ -18,7 +18,6 @@ class Level1Analysis(luigi.WrapperTask):
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project(self.project)
 		for tissue in tissues:
-			yield cg.PlotManifoldL1(tissue=tissue)
-			yield cg.PlotMarkerheatmapL1(tissue=tissue)
+			yield cg.ExportL1(tissue=tissue)
 			if self.project == "Development":
 				yield cg.PlotGraphAgeL1(tissue=tissue)
