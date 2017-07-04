@@ -17,11 +17,13 @@ if __name__ == "__main__":
 			skipped.append(sampleid)
 		else:
 			print("Making loom file")
-			loompy.create_from_cellranger(d)
+			if not os.path.exists(os.path.join(d, sampleid + ".loom")):
+				loompy.create_from_cellranger(d)
 
 			print("Making zip file")
-			zipfile = os.path.join(d, sampleid + ".zip")
-			run(["zip", "-x", "*.bam", "-r", zipfile, os.path.join(d, "outs")])
+			if not os.path.exists(os.path.join(d, sampleid + ".zip")):
+				zipfile = os.path.join(d, sampleid + ".zip")
+				run(["zip", "-x", "*.bam", "-r", zipfile, os.path.join(d, "outs")])
 
 			localpath = sampleid + ".loom"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".loom"
