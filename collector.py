@@ -33,17 +33,17 @@ if __name__ == "__main__":
 			print(localpath + " -> " + gspath)
 			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
 
-			localpath = "/outs/possorted_genome_bam.bam"
+			localpath = "outs/possorted_genome_bam.bam"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".bam"
 			print(localpath + " -> " + gspath)
 			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
 
-			localpath = "/outs/possorted_genome_bam.bam.bai"
+			localpath = "outs/possorted_genome_bam.bam.bai"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".bai"
 			print(localpath + " -> " + gspath)
 			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
 
-			localpath = "/outs/web_summary.html"
+			localpath = "outs/web_summary.html"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".html"
 			print(localpath + " -> " + gspath)
 			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
