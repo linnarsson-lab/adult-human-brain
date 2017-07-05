@@ -18,9 +18,7 @@ class Sample(luigi.ExternalTask):
     def output(self) -> luigi.LocalTarget:
         if cg.paths().use_velocyto:
             fname = os.path.join(cg.paths().samples, self.sample, "velocyto", self.sample + ".loom")
-            logging.info("Loading " + fname)
             return luigi.LocalTarget(fname)
         else:
             fname = os.path.join(cg.paths().samples, self.sample, self.sample + ".loom")
-            logging.info("Loading " + fname)
             return luigi.LocalTarget(fname)
