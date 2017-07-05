@@ -67,6 +67,9 @@ class AutoAutoAnnotator:
 				candidates = np.where(np.logical_and(breadth > 0, positives[:, ix] == 1))[0]
 				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
 				candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]
+				while len(candidates) == 0:
+					narrowest += 1
+					candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]				
 				candidates = np.setdiff1d(candidates, selected)
 				candidates = np.setdiff1d(candidates, blocked)
 				candidates = np.intersect1d(candidates, genes)
