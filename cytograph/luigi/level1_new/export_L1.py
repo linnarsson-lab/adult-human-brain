@@ -42,7 +42,7 @@ class ExportL1(luigi.Task):
 			cg.plot_graph(ds, os.path.join(out_dir, "L1_" + self.tissue + "_manifold.aa.png"), tags)
 
 			logging.info("Plotting manifold graph with auto-auto-annotation")
-			tags = list(ds.col_attrs["MarkerGenes"])
+			tags = list(dsagg.col_attrs["MarkerGenes"])
 			cg.plot_graph(ds, os.path.join(out_dir, "L1_" + self.tissue + "_manifold.aaa.png"), tags)
 
 			logging.info("Plotting marker heatmap")
