@@ -14,6 +14,7 @@ class ExportL1(luigi.Task):
 	Luigi Task to export summary files
 	"""
 	tissue = luigi.Parameter()
+	n_markers = luigi.IntParameter(default=10)
 
 	def requires(self) -> List[luigi.Task]:
 		return [
