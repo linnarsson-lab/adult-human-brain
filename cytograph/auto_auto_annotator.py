@@ -70,9 +70,9 @@ class AutoAutoAnnotator:
 				while len(candidates) == 0:
 					narrowest += 1
 					candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]				
-				candidates = np.setdiff1d(candidates, selected)
-				candidates = np.setdiff1d(candidates, blocked)
-				candidates = np.intersect1d(candidates, genes)
+					candidates = np.setdiff1d(candidates, selected)
+					candidates = np.setdiff1d(candidates, blocked)
+					candidates = np.intersect1d(candidates, genes)
 				ordering = np.argsort(-enrichment[candidates, ix])
 				gene3.append(candidates[ordering][0])
 			gene3 = np.array(gene3)
