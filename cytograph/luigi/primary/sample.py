@@ -21,4 +21,8 @@ class Sample(luigi.ExternalTask):
             return luigi.LocalTarget(fname)
         else:
             fname = os.path.join(cg.paths().samples, self.sample, self.sample + ".loom")
-            return luigi.LocalTarget(fname)
+            if os.path.exists(fname):
+                return luigi.LocalTarget(fname)
+            else:
+                fname = os.path.join(cg.paths().samples, self.sample + ".loom")
+                return luigi.LocalTarget(fname)
