@@ -245,3 +245,8 @@ C1_all	C1_All	none	OK	C1_all
 10X82_2	Enteric	none	OK	Adolescent
 rosenberg	BrainSpinal	none	OK	SplitSeq
 classified	Classified	none	OK	Debug
+10X82_1 DentateGyrus E16 OK  Velocity
+10X83_2 DentateGyrus P0 OK  Velocity
+10X83_3 DentateGyrus P0 OK  Velocity
+10X84_2 DentateGyrus P5 OK  Velocity
+10X84_3 DentateGyrus P5 OK  Velocity
