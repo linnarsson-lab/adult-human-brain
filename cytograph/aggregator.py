@@ -152,7 +152,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 				ca[key] = npg.aggregate(labels, ds.col_attrs[key][cols], func=func, fill_value=ds.col_attrs[key][cols][0])
 	m = np.empty((ds.shape[0], n_groups))
 	for (ix, selection, vals) in ds.batch_scan(cells=cols, genes=None, axis=0):
-		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1, fill_value=0)
+		vals_aggr = npg.aggregate(labels, vals, func=aggr_by, axis=1, fill_value=0, size=n_groups)
 		m[selection, :] = vals_aggr
 
 	if return_matrix:
