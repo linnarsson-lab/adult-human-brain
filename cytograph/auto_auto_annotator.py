@@ -63,16 +63,15 @@ class AutoAutoAnnotator:
 		for _ in range(self.n_genes - 2):
 			gene3 = []
 			for ix in range(dsagg.shape[1]):
+				# For each gene, the number of clusters where it's positive, shape (n_genes)
 				breadth = (positives * np.prod(positives[selected[:, ix]], axis=0)).sum(axis=1)
-				candidates = np.where(np.logical_and(breadth > 0, positives[:, ix] == 1))[0]
-				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
-				candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]
-				while len(candidates) == 0:
-					narrowest += 1
-					candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]				
+				# The genes that are expressed in cluster ix, excluding previously selected and blocked genes
+				candidates = np.where(positives[:, ix] == 1)[0]
 				candidates = np.setdiff1d(candidates, selected)
 				candidates = np.setdiff1d(candidates, blocked)
-				candidates = np.intersect1d(candidates, genes)
+				# Now select the most specific gene, ranked by enrichment
+				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
+				candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
 				ordering = np.argsort(-enrichment[candidates, ix])
 				gene3.append(candidates[ordering][0])
 			gene3 = np.array(gene3)
