@@ -37,7 +37,7 @@ class PrepareTissuePool(luigi.Task):
 				ds.set_attr("_Total", mols, axis=1)
 				ds.set_attr("_NGenes", genes, axis=1)
 				
-				logging.info("Computing mito/ribo ratio")
+				logging.info("Computing mito/ribo ratio for " + sample)
 				mito = np.where(npstr.startswith(ds.row_attrs["Gene"], "mt-"))[0]
 				ribo = np.where(npstr.startswith(ds.row_attrs["Gene"], "Rpl"))[0]
 				ribo = np.union1d(ribo, np.where(npstr.startswith(ds.row_attrs["Gene"], "Rps"))[0])
