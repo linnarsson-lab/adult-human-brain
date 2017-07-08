@@ -78,7 +78,7 @@ class Clustering:
 			labels = lj.fit_predict(knn.tocoo())
 
 		labels_all = np.zeros(ds.shape[1], dtype='int')
-		labels_all[cells] = labels + 1
+		labels_all[cells] = labels - np.min(labels)
 		ds.set_attr("Clusters", labels_all, axis=1)
 		outliers = np.zeros(ds.shape[1], dtype='int')
 		outliers[labels_all == 0] = 1
