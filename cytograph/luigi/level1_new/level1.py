@@ -25,4 +25,4 @@ class Level1(luigi.WrapperTask):
         tissues = cg.targets_map[self.target]
         for tissue in tissues:
             if cg.time_check(tissue, self.time):
-                yield (cg.PlotManifoldL1(tissue=tissue), cg.PlotMarkerheatmapL1(tissue=tissue))
+                yield cg.ExportL1(tissue=tissue)  # this breaks all the the processes pipeline
