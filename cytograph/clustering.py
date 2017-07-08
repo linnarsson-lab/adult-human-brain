@@ -77,12 +77,13 @@ class Clustering:
 			lj = cg.LouvainJaccard(resolution=100, jaccard=False)
 			labels = lj.fit_predict(knn.tocoo())
 
+		# At this point, cells should be labeled 0, 1, 2, ...
+		# But there may also be cells labelled -1 for outliers, which we want to label
 		labels_all = np.zeros(ds.shape[1], dtype='int')
+		outliers = np.zeros(ds.shape[1], dtype='int')
+		outliers[labels_all == -1] = 1
 		labels_all[cells] = labels - np.min(labels)
 		ds.set_attr("Clusters", labels_all, axis=1)
-		outliers = np.zeros(ds.shape[1], dtype='int')
-		outliers[labels_all == 0] = 1
 		ds.set_attr("Outliers", outliers, axis=1)
 		logging.info("Found " + str(max(labels_all) + 1) + " clusters")
 		return labels_all
-
