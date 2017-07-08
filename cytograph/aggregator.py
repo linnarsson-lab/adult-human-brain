@@ -133,7 +133,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 	if select is not None:
 		cols = np.where(select)[0]
 	else:
-		cols = np.fromiter(range(ds.shape[1]))
+		cols = np.fromiter(range(ds.shape[1]), int)
 	labels = (ds.col_attrs[group_by][cols]).astype('int')
 	n_groups = len(set(labels))
 	if aggr_ca_by is not None:
