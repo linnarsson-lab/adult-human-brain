@@ -349,7 +349,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, g in enumerate(genes):
 		ax = fig.add_subplot(gs[3 + n_tissues + n_classes + ix])
-		gix = np.where(ds.Gene == g)[0]
+		gix = np.where(ds.Gene == g)[0][0]
 		vals = ds[gix, :][cells]
 		vals = vals / (np.percentile(vals, 99) + 0.1)
 		ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1)
