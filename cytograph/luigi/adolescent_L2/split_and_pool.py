@@ -7,6 +7,8 @@ import loompy
 import numpy as np
 import cytograph as cg
 import luigi
+import numpy_groupies.aggregate_numpy as npg
+from statistics import mode
 
 
 class SplitAndPool(luigi.Task):
@@ -21,9 +23,9 @@ class SplitAndPool(luigi.Task):
 	def requires(self) -> luigi.Task:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		if self.tissue == "All":
-			return [cg.PrepareTissuePool(tissue=tissue) for tissue in tissues]
+			return [(cg.PrepareTissuePool(tissue=tissue), cg.ClusterL1(tissue=tissue)) for tissue in tissues]
 		else:
-			return [cg.PrepareTissuePool(tissue=self.tissue)]
+			return [(cg.PrepareTissuePool(tissue=self.tissue), cg.ClusterL1(tissue=self.tissue))]
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".loom"))
@@ -31,23 +33,24 @@ class SplitAndPool(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
-			for clustered in self.input():
-				ds = loompy.connect(clustered.fn)
-				logging.info("Split/pool from " + clustered.fn)
+			for (prepared, clustered) in self.input():
+				ds = loompy.connect(prepared.fn)
+				logging.info("Split/pool from " + prepared.fn)
 				labels = ds.col_attrs["Class"]
-				if self.major_class not in labels:
-					with open(out_file, "w") as f:
-						f.write("Empty")
-				else:
-					for (ix, selection, vals) in ds.batch_scan(axis=1, batch_size=cg.memory().axis1):
-						subset = np.intersect1d(np.where(labels == self.major_class)[0], selection)
-						if subset.shape[0] == 0:
-							continue
-						m = vals[:, subset - ix]
-						ca = {}
-						for key in ds.col_attrs:
-							ca[key] = ds.col_attrs[key][subset]
-						if dsout is None:
-							dsout = loompy.create(out_file, m, ds.row_attrs, ca)
-						else:
-							dsout.add_columns(m, ca)
+				# Mask out cells that do not have the majority label of its cluster
+				clusters = ds.col_attrs["Clusters"]
+				majority_labels = npg.aggregate(clusters, labels, func=mode).astype('str')
+
+				cells = []
+				for ix in range(ds.shape[1]):
+					if labels[ix] == self.major_class and labels[ix] == majority_labels[clusters[ix]]:
+						cells.append(ix)
+				logging.info(labels)
+				for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
+					ca = {}
+					for key in ds.col_attrs:
+						ca[key] = ds.col_attrs[key][selection]
+					if dsout is None:
+						dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
+					else:
+						dsout.add_columns(vals, ca)
