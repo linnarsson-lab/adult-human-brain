@@ -79,10 +79,6 @@ class Classifier:
 						ds_training.add_columns(vals[ordering, :], ca)
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
-		"""
-		Fit, optimize using k-fold cross-validation and then measure the performance. After fitting,
-		the predict() method will automatically use the optimal parameters discovered in fitting.
-		"""
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(True)
 		normalizer.fit(ds)
