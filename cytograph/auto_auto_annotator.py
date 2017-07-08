@@ -34,34 +34,18 @@ class AutoAutoAnnotator:
 		positives = (trinaries > (1 - self.pep)).astype('int')
 		genes = np.where(np.logical_and(positives.sum(axis=1) < n_clusters * 0.5, positives.sum(axis=1) > 0))[0]
 
-		# Select the most specific gene for each cluster, breaking ties by enrichment
-		gene1 = []
-		breadth = positives.sum(axis=1)
+		# Select the most enriched gene in each cluster
+		gene1 = []  # type: List[int]
 		for ix in range(dsagg.shape[1]):
-			candidates = np.where(np.logical_and(breadth > 0, positives[:, ix] == 1))[0]
-			narrowest = breadth[candidates].min()
-			candidates = np.where(np.logical_and(breadth == narrowest, positives[:, ix] == 1))[0]
-			candidates = np.intersect1d(candidates, genes)
+			candidates = np.where(positives[:, ix] == 1)[0]
 			candidates = np.setdiff1d(candidates, blocked)
 			ordering = np.argsort(-enrichment[candidates, ix])
 			gene1.append(candidates[ordering][0])
-		gene1 = np.array(gene1)
-
-		# Select the most enriched gene in each cluster
-		gene2 = []
-		for ix in range(dsagg.shape[1]):
-			candidates = np.where(positives[:, ix] == 1)[0]
-			candidates = np.setdiff1d(candidates, gene1)
-			candidates = np.setdiff1d(candidates, blocked)
-			ordering = np.argsort(-enrichment[candidates, ix])
-			gene2.append(candidates[ordering][0])
-		gene2 = np.array(gene2)
-
-		selected = np.vstack([gene1, gene2])
+		selected = np.array(gene1)[None, :]
 
 		# Select the most enriched most specific gene for each cluster, given genes previously selected
-		for _ in range(self.n_genes - 2):
-			gene3 = []
+		for _ in range(self.n_genes - 1):
+			gene2 = []
 			for ix in range(dsagg.shape[1]):
 				# For each gene, the number of clusters where it's positive, shape (n_genes)
 				breadth = (positives * np.prod(positives[selected[:, ix]], axis=0)).sum(axis=1)
@@ -73,9 +57,10 @@ class AutoAutoAnnotator:
 				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
 				candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
 				ordering = np.argsort(-enrichment[candidates, ix])
-				gene3.append(candidates[ordering][0])
-			gene3 = np.array(gene3)
-			selected = np.vstack([selected, gene3])
+				gene2.append(candidates[ordering][0])
+			gene2 = np.array(gene2)
+			selected = np.vstack([selected, gene2])
+
 		selectivity = np.cumprod(positives[selected], axis=0).sum(axis=1)
 		robustness = np.array([np.cumprod(trinaries[selected[:, ix], ix]) for ix in np.arange(n_clusters)]).T
 
