@@ -40,7 +40,10 @@ class AutoAutoAnnotator:
 			candidates = np.where(positives[:, ix] == 1)[0]
 			candidates = np.setdiff1d(candidates, blocked)
 			ordering = np.argsort(-enrichment[candidates, ix])
-			gene1.append(candidates[ordering][0])
+			try:
+				gene1.append(candidates[ordering][0])
+			except IndexError:
+				gene1.append(0)  # NOTE NOTE NOTE very bad patch but I want to make it run to the end
 		selected = np.array(gene1)[None, :]
 
 		# Select the most enriched most specific gene for each cluster, given genes previously selected
@@ -57,7 +60,10 @@ class AutoAutoAnnotator:
 				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
 				candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
 				ordering = np.argsort(-enrichment[candidates, ix])
-				gene2.append(candidates[ordering][0])
+				try:
+					gene2.append(candidates[ordering][0])
+				except IndexError:
+					gene2.append(0)  # NOTE NOTE NOTE very bad patch but I want to make it run to the end
 			gene2 = np.array(gene2)
 			selected = np.vstack([selected, gene2])
 
