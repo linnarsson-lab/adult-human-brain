@@ -56,13 +56,13 @@ class AutoAutoAnnotator:
 				candidates = np.where(positives[:, ix] == 1)[0]
 				candidates = np.setdiff1d(candidates, selected)
 				candidates = np.setdiff1d(candidates, blocked)
-				# Now select the most specific gene, ranked by enrichment
-				narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
-				candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
-				ordering = np.argsort(-enrichment[candidates, ix])
 				try:
+					# Now select the most specific gene, ranked by enrichment
+					narrowest = breadth[candidates][breadth[candidates].nonzero()].min()
+					candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
+					ordering = np.argsort(-enrichment[candidates, ix])
 					gene2.append(candidates[ordering][0])
-				except IndexError:
+				except (IndexError, ValueError) as e:
 					gene2.append(0)  # NOTE NOTE NOTE very bad patch but I want to make it run to the end
 			gene2 = np.array(gene2)
 			selected = np.vstack([selected, gene2])
