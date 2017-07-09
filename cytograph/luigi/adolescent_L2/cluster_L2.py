@@ -43,7 +43,8 @@ class ClusterL2(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			logging.info("Learning the manifold")
-			ds = loompy.connect(self.input().fn)
+			copyfile(self.input().fn, out_file)
+			ds = loompy.connect(out_file)
 			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
@@ -58,29 +59,28 @@ class ClusterL2(luigi.Task):
 			ds.set_attr("Clusters", labels, axis=1)
 			n_labels = np.max(labels) + 1
 
-			logging.info("Removing outliers")
-			cells = np.where(ds.col_attrs["Outliers"] == 0)[0]
-			outlier_label = ds.Clusters[ds.Outliers == 1][0]
-			new_labels = np.array([x if x < outlier_label else x - 1 for x in ds.Clusters])[cells]
-			dsout = None  # type: loompy.LoomConnection
-			for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
-				ca = {key: v[selection] for key, v in ds.col_attrs.items()}
-				if dsout is None:
-					dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
-				else:
-					dsout.add_columns(vals, ca)
-			dsout.set_attr("Clusters", new_labels, axis=1)
-			ds.close()
+			# logging.info("Removing outliers")
+			# cells = np.where(ds.col_attrs["Outliers"] == 0)[0]
+			# outlier_label = ds.Clusters[ds.Outliers == 1][0]
+			# new_labels = np.array([x if x < outlier_label else x - 1 for x in ds.Clusters])[cells]
+			# dsout = None  # type: loompy.LoomConnection
+			# for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
+			# 	ca = {key: v[selection] for key, v in ds.col_attrs.items()}
+			# 	if dsout is None:
+			# 		dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
+			# 	else:
+			# 		dsout.add_columns(vals, ca)
+			# dsout.set_attr("Clusters", new_labels, axis=1)
+			# ds.close()
 
-			# Close and reopen because of some subtle bug in assigning and reading back col attrs
-			dsout.close()
-			dsout = loompy.connect(out_file)
-			logging.info("Relearning the manifold with outliers removed")
-			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
-			logging.info(dsout.col_attrs["_Valid"] == 1)
-			(knn, mknn, tsne) = ml.fit(dsout)
+			# # Close and reopen because of some subtle bug in assigning and reading back col attrs
+			# dsout.close()
+			# dsout = loompy.connect(out_file)
+			# logging.info("Relearning the manifold with outliers removed")
+			# ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+			# (knn, mknn, tsne) = ml.fit(dsout)
 
-			dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
-			dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
-			dsout.set_attr("_X", tsne[:, 0], axis=1)
-			dsout.set_attr("_Y", tsne[:, 1], axis=1)
+			# dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			# dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			# dsout.set_attr("_X", tsne[:, 0], axis=1)
+			# dsout.set_attr("_Y", tsne[:, 1], axis=1)

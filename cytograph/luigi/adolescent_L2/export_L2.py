@@ -38,12 +38,12 @@ class ExportL2(luigi.Task):
 			dsagg.export(os.path.join(out_dir, "L2_" + self.major_class + self.tissue + "_trinaries.tab"), layer="trinaries")
 
 			logging.info("Plotting manifold graph with auto-annotation")
-			tags = list(dsagg.col_attrs["AutoAnnotation"])
+			tags = list(dsagg.col_attrs["AutoAnnotation"][np.argsort(dsagg.col_attrs["Clusters"])])
 			ds = loompy.connect(self.input()[1].fn)
 			cg.plot_graph(ds, os.path.join(out_dir, "L2_" + self.major_class + self.tissue + "_manifold.aa.png"), tags)
 
 			logging.info("Plotting manifold graph with auto-auto-annotation")
-			tags = list(dsagg.col_attrs["MarkerGenes"])
+			tags = list(dsagg.col_attrs["MarkerGenes"][np.argsort(dsagg.col_attrs["Clusters"])])
 			cg.plot_graph(ds, os.path.join(out_dir, "L2_" + self.major_class + self.tissue + "_manifold.aaa.png"), tags)
 
 			logging.info("Plotting marker heatmap")
