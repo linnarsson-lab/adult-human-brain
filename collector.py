@@ -38,7 +38,7 @@ if __name__ == "__main__":
 			localpath = "outs/possorted_genome_bam.bam"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".bam"
 			print(localpath + " -> " + gspath)
-#			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
+			run(["gsutil", "cp", os.path.join(d, localpath), gspath])
 
 			localpath = "outs/possorted_genome_bam.bam.bai"
 			gspath = "gs://linnarsson-lab-chromium/" + sampleid + "/" + sampleid + ".bai"
