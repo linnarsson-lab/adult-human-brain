@@ -2,6 +2,7 @@ from typing import *
 import os
 import csv
 import numpy as np
+import pandas as pd
 import pickle
 import logging
 import luigi
@@ -24,14 +25,30 @@ class PrepareTissuePool(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L0_" + self.tissue + ".loom"))
 
 	def run(self) -> None:
+		# Load metadata
+		metadata: np.ndarray = None
+		meta_attrs: np.ndarray = None
+		metadata_file = os.path.join(cg.paths().samples, "metadata", "metadata.xlsx")
+		if os.path.exists(metadata_file):
+			temp = pd.read_excel(metadata_file)
+			meta_attrs = temp.columns.values
+			metadata = temp.values
+
 		with self.output().temporary_path() as out_file:
 			attrs = {"title": self.tissue}
 			valid_cells = []
 			sample_files = [s.fn for s in self.input()]
 			for sample in sample_files:
 				# Connect and perform file-specific cell validation
-				logging.info("Marking invalid cells")
 				ds = loompy.connect(sample)
+
+				if metadata is not None:
+					logging.info("Inserting metadata")
+					vals = temp.values[metadata[:, 0] == os.path.basename(sample)][0]
+					for ix in range(vals.shape[0]):
+						ds.set_attr(meta_attrs[ix], np.array([vals[ix]] * ds.shape[1]), axis=1)
+
+				logging.info("Marking invalid cells")
 				(mols, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 				valid_cells.append(np.logical_and(mols >= 600, (mols / genes) >= 1.2).astype('int'))
 				ds.set_attr("_Total", mols, axis=1)
