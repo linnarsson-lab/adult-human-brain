@@ -81,6 +81,7 @@ class Clustering:
 		# But there may also be cells labelled -1 for outliers, which we want to label
 		labels_all = np.zeros(ds.shape[1], dtype='int')
 		outliers = np.zeros(ds.shape[1], dtype='int')
+		labels_all[cells] = labels
 		outliers[labels_all == -1] = 1
 		labels_all[cells] = labels - np.min(labels)
 		ds.set_attr("Clusters", labels_all, axis=1)
