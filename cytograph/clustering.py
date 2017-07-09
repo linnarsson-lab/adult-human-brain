@@ -78,7 +78,7 @@ class Clustering:
 			labels = lj.fit_predict(knn.tocoo())
 
 		# At this point, cells should be labeled 0, 1, 2, ...
-		# But there may also be cells labelled -1 for outliers, which we want to label
+		# But there may also be cells labelled -1 for outliers, which we want to keep track of
 		labels_all = np.zeros(ds.shape[1], dtype='int')
 		outliers = np.zeros(ds.shape[1], dtype='int')
 		labels_all[cells] = labels

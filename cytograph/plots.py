@@ -298,9 +298,11 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		tissues = set(ds.col_attrs["Tissue"])
 	n_tissues = len(tissues)
 
-	# classes = [x for x in ds.col_attrs.keys() if x.startswith("Class_")]
 	classes = sorted(list(set(ds.col_attrs["Subclass"])))
 	n_classes = len(classes)
+
+	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
+	n_probclasses = len(probclasses)
 
 	genes = ["Cdk1", "Top2a", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Foxj1", "Aqp4", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	genes = [g for g in genes if g in ds.Gene]
@@ -310,8 +312,8 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	topmarkers = data / colormax[None].T
 	n_topmarkers = topmarkers.shape[0]
 
-	fig = plt.figure(figsize=(30, 4.5 + n_tissues / 5 + n_classes / 5 + n_genes / 5 + n_topmarkers / 10))
-	gs = gridspec.GridSpec(3 + n_tissues + n_classes + n_genes + 1, 1, height_ratios=[1, 1, 1] + [1] * n_tissues + [1] * n_classes + [1] * n_genes + [0.5 * n_topmarkers])
+	fig = plt.figure(figsize=(30, 4.5 + n_tissues / 5 + n_classes / 5 + n_probclasses / 5 + n_genes / 5 + n_topmarkers / 10))
+	gs = gridspec.GridSpec(3 + n_tissues + n_classes + n_probclasses + n_genes + 1, 1, height_ratios=[1, 1, 1] + [1] * n_tissues + [1] * n_classes + [1] * n_probclasses + [1] * n_genes + [0.5 * n_topmarkers])
 
 	ax = fig.add_subplot(gs[1])
 	if "Outliers" in ds.col_attrs:
@@ -340,15 +342,24 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, cls in enumerate(classes):
 		ax = fig.add_subplot(gs[3 + n_tissues + ix])
-		ax.imshow(np.expand_dims((ds.col_attrs["Subclass"] == cls).astype('int')[cells], axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
+		ax.imshow(np.expand_dims((ds.col_attrs["Subclass"] == cls).astype('int')[cells], axis=0), aspect='auto', cmap="binary_r", vmin=0, vmax=1)
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
 		text = plt.text(0.001, 0.9, cls, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
 		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
 
-	for ix, g in enumerate(genes):
+	for ix, cls in enumerate(probclasses):
 		ax = fig.add_subplot(gs[3 + n_tissues + n_classes + ix])
+		ax.imshow(np.expand_dims(ds.col_attrs[cls][cells], axis=0), aspect='auto', cmap="pink", vmin=0, vmax=1)
+		ax.set_frame_on(False)
+		ax.set_xticks([])
+		ax.set_yticks([])
+		text = plt.text(0.001, 0.9, "P(" + cls[17:] + ")", horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
+		text.set_path_effects([path_effects.Stroke(linewidth=2, foreground='black'), path_effects.Normal()])
+
+	for ix, g in enumerate(genes):
+		ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_probclasses + ix])
 		gix = np.where(ds.Gene == g)[0][0]
 		vals = ds[gix, :][cells]
 		vals = vals / (np.percentile(vals, 99) + 0.1)
@@ -358,7 +369,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		ax.set_yticks([])
 		text = plt.text(0.001, 0.9, g, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="white", weight="bold")
 
-	ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_genes])
+	ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_probclasses + n_genes])
 	# Draw border between clusters
 	tops = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) - 0.5)).T
 	bottoms = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) + n_topmarkers - 0.5)).T

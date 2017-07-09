@@ -69,8 +69,7 @@ class PrepareTissuePool(luigi.Task):
 				logging.info("Classifying cells by major class")
 				with open(classifier_path, "rb") as f:
 					clf = pickle.load(f)  # type: cg.Classifier
-				classes = clf.predict(ds)
-				classifier_loaded = True
+				(classes, probs, class_labels) = clf.predict(ds, probability=True)
 
 				mapping = {
 					"Astrocyte": "AstroEpendymal",
@@ -124,6 +123,8 @@ class PrepareTissuePool(luigi.Task):
 				classes_pooled[classes_pooled == "None"] = "Excluded"
 				ds.set_attr("Class", classes_pooled.astype('str'), axis=1)
 				ds.set_attr("Subclass", classes.astype('str'), axis=1)
+				for ix, cls in enumerate(class_labels):
+					ds.set_attr("ClassProbability_" + str(cls), probs[:, ix], axis=1)
 			else:
 				logging.info("No classifier found in this build directory - skipping.")
 				ds.set_attr("Class", np.array(["Excluded"] * ds.shape[1]), axis=1)

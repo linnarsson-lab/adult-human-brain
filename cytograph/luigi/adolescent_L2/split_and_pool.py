@@ -45,7 +45,6 @@ class SplitAndPool(luigi.Task):
 				for ix in range(ds.shape[1]):
 					if labels[ix] == self.major_class and labels[ix] == majority_labels[clusters[ix]]:
 						cells.append(ix)
-				logging.info(labels)
 				for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
 					ca = {}
 					for key in ds.col_attrs:

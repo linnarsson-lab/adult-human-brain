@@ -76,11 +76,9 @@ class Aggregator:
         optimal_Z = optimal_leaf_ordering(Z, D)
         ordering = hc.leaves_list(optimal_Z)
 
-        merged = hc.fcluster(optimal_Z, 5, criterion='distance') - 1
-
         # Permute the aggregated file, and renumber
         dsout.permute(ordering, axis=1)
-        dsout.set_attr("Clusters", merged, axis=1)
+        dsout.set_attr("Clusters", np.arange(n_labels), axis=1)
 
         # Renumber the original file, and permute
         new_clusters = renumber(ds.col_attrs["Clusters"], ordering, np.arange(n_labels))
