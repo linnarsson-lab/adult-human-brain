@@ -8,7 +8,7 @@ import numpy as np
 import cytograph as cg
 import luigi
 import numpy_groupies.aggregate_numpy as npg
-from statistics import mode
+import scipy.stats
 
 
 class ClusterL2(luigi.Task):
@@ -41,6 +41,10 @@ class ClusterL2(luigi.Task):
 				labels = ds.col_attrs["Class"]
 				# Mask out cells that do not have the majority label of its cluster
 				clusters = ds.col_attrs["Clusters"]
+
+				def mode(x):
+					return scipy.stats.mode(x)[0][0]
+
 				majority_labels = npg.aggregate(clusters, labels, func=mode).astype('str')
 
 				cells = []

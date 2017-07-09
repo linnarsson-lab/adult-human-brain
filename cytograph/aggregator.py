@@ -12,7 +12,7 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
 from polo import optimal_leaf_ordering
-from statistics import mode
+import scipy.stats
 
 
 class Aggregator:
@@ -151,6 +151,8 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
                 for val in set(ds.col_attrs[key]):
                     ca[key + "_" + val] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key][cols] == val, func="sum", fill_value=0)
             elif func == "mode":
+                def mode(x):
+                    return scipy.stats.mode(x)[0][0]
                 ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key][cols], func=mode, fill_value=0).astype('str')
             elif func == "mean":
                 ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key][cols], func=func, fill_value=0)
