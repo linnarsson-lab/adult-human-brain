@@ -8,15 +8,16 @@ import cytograph as cg
 import luigi
 
 
-class Level2Adolescent(luigi.WrapperTask):
+class Level12Adolescent(luigi.WrapperTask):
 	"""
-	Luigi Task to run all Level 2 analyses
+	Luigi Task to run all Level 1 and 2 analyses
 	"""
 
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
 		classes = ["Neurons", "Oligos", "AstroEpendymal", "Vascular", "Immune", "Blood", "PeripheralGlia"]  # "Excluded"]
 		for tissue in tissues:
+			yield cg.ExportL1(tissue=tissue)
 			yield cg.ExportL2(tissue=tissue, major_class="Neurons")
 
 		for cls in classes:
