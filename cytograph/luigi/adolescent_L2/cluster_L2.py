@@ -39,12 +39,9 @@ class ClusterL2(luigi.Task):
 				ds = loompy.connect(clustered.fn)
 				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
-				logging.info(labels)
 				# Mask out cells that do not have the majority label of its cluster
 				clusters = ds.col_attrs["Clusters"]
-				logging.info(clusters)
 				majority_labels = npg.aggregate(clusters, labels, func=mode).astype('str')
-				logging.info(majority_labels)
 
 				cells = []
 				for ix in range(ds.shape[1]):
