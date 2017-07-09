@@ -19,7 +19,7 @@ class ExportL1(luigi.Task):
 	def requires(self) -> List[luigi.Task]:
 		return [
 			cg.AggregateL1(tissue=self.tissue),
-			cg.PrepareTissuePool(tissue=self.tissue)
+			cg.ClusterL1(tissue=self.tissue)
 		]
 
 	def output(self) -> luigi.Target:

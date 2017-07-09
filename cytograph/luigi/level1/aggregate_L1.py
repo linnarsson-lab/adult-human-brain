@@ -25,17 +25,14 @@ class AggregateL1(luigi.Task):
 	n_auto_genes = luigi.IntParameter(default=6)
 
 	def requires(self) -> List[luigi.Task]:
-		return [
-			cg.PrepareTissuePool(tissue=self.tissue),
-			cg.ClusterL1(tissue=self.tissue)
-		]
+		return cg.ClusterL1(tissue=self.tissue)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".agg.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			ds = loompy.connect(self.input()[0].fn)
+			ds = loompy.connect(self.input().fn)
 			cg.Aggregator(self.n_markers).aggregate(ds, out_file)
 			dsagg = loompy.connect(out_file)
 

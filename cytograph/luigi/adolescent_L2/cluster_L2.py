@@ -1,26 +1,14 @@
 from typing import *
 import os
-from shutil import copyfile
-import numpy as np
+import csv
 import logging
-import luigi
-import cytograph as cg
+import pickle
 import loompy
-import logging
-from scipy import sparse
-from scipy.special import polygamma
-from sklearn.cluster import AgglomerativeClustering, KMeans, Birch
-from sklearn.decomposition import PCA, IncrementalPCA, FastICA
-from sklearn.manifold import TSNE
-from sklearn.metrics import pairwise_distances
-from sklearn.metrics.pairwise import pairwise_distances
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-from sklearn.preprocessing import scale
-from sklearn.svm import SVR
-from scipy.stats import ks_2samp
-import networkx as nx
-import hdbscan
-from sklearn.cluster import DBSCAN
+import numpy as np
+import cytograph as cg
+import luigi
+import numpy_groupies.aggregate_numpy as npg
+from statistics import mode
 
 
 class ClusterL2(luigi.Task):
@@ -35,15 +23,45 @@ class ClusterL2(luigi.Task):
 	alpha = luigi.FloatParameter(default=1)
 
 	def requires(self) -> luigi.Task:
-		return cg.SplitAndPool(tissue=self.tissue, major_class=self.major_class)
+		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
+		if self.tissue == "All":
+			return [cg.ClusterL1(tissue=tissue) for tissue in tissues]
+		else:
+			return [cg.ClusterL1(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".clustered.loom"))
-
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".loom"))
+		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
+			dsout = None  # type: loompy.LoomConnection
+			for clustered in self.input():
+				ds = loompy.connect(clustered.fn)
+				logging.info("Split/pool from " + clustered.fn)
+				labels = ds.col_attrs["Class"]
+				logging.info(labels)
+				# Mask out cells that do not have the majority label of its cluster
+				clusters = ds.col_attrs["Clusters"]
+				logging.info(clusters)
+				majority_labels = npg.aggregate(clusters, labels, func=mode).astype('str')
+				logging.info(majority_labels)
+
+				cells = []
+				for ix in range(ds.shape[1]):
+					if labels[ix] == self.major_class and labels[ix] == majority_labels[clusters[ix]]:
+						cells.append(ix)
+				logging.info("Keeping " + str(len(cells)) + " cells with majority labels")
+				for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
+					ca = {}
+					for key in ds.col_attrs:
+						ca[key] = ds.col_attrs[key][selection]
+					if dsout is None:
+						dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
+					else:
+						dsout.add_columns(vals, ca)
+			dsout.close()
+
 			logging.info("Learning the manifold")
-			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
@@ -53,34 +71,9 @@ class ClusterL2(luigi.Task):
 			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
 			logging.info("Clustering on the manifold")
-			ds = loompy.connect(self.input().fn)
 			cls = cg.Clustering(method=self.method)
 			labels = cls.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
 			n_labels = np.max(labels) + 1
 
-			# logging.info("Removing outliers")
-			# cells = np.where(ds.col_attrs["Outliers"] == 0)[0]
-			# outlier_label = ds.Clusters[ds.Outliers == 1][0]
-			# new_labels = np.array([x if x < outlier_label else x - 1 for x in ds.Clusters])[cells]
-			# dsout = None  # type: loompy.LoomConnection
-			# for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
-			# 	ca = {key: v[selection] for key, v in ds.col_attrs.items()}
-			# 	if dsout is None:
-			# 		dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
-			# 	else:
-			# 		dsout.add_columns(vals, ca)
-			# dsout.set_attr("Clusters", new_labels, axis=1)
-			# ds.close()
-
-			# # Close and reopen because of some subtle bug in assigning and reading back col attrs
-			# dsout.close()
-			# dsout = loompy.connect(out_file)
-			# logging.info("Relearning the manifold with outliers removed")
-			# ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
-			# (knn, mknn, tsne) = ml.fit(dsout)
-
-			# dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
-			# dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
-			# dsout.set_attr("_X", tsne[:, 0], axis=1)
-			# dsout.set_attr("_Y", tsne[:, 1], axis=1)
+			ds.close()

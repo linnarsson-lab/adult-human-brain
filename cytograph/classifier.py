@@ -73,10 +73,24 @@ class Classifier:
 				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=cg.memory().axis1):
 					ca = {key: val[selection] for key, val in ds.col_attrs.items()}
 					if ds_training is None:
-						loompy.create(foutname, vals, row_attrs=ds.row_attrs, col_attrs=ca)
+						loompy.create(foutname, vals[ordering], row_attrs=ds.row_attrs, col_attrs=ca)
 						ds_training = loompy.connect(foutname)
 					else:
 						ds_training.add_columns(vals[ordering, :], ca)
+
+		# We had a bug after newly creating a loom file, so close and reopen to be sure it's flushed
+		ds_training.close()
+		ds_training = loompy.connect(foutname)
+
+		# Make sure we don't have both "Neurons,Oligos" and "Oligos,Neurons"
+		classes = ds_training.col_attrs["SubclassAssigned"]
+		classes_fixed = []
+		for cls in classes:
+			items = cls.split(",")
+			if len(items) == 2 and items[1] != "Cycling":
+				items = sorted(items)
+			classes_fixed.append(",".join(items))
+		ds_training.set_attr("SubclassAssigned", np.array(classes_fixed), axis=1)
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info("Normalization")
@@ -117,13 +131,14 @@ class Classifier:
 			"Vascular",
 			"Vascular,Cycling"
 		]
-		self.classifier = SVC(class_weight={c: 10 for c in self.le.transform(important_classes)})
-		# self.classifier = SGDClassifier(loss="log")
+		self.classifier = SVC(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, probability=True)
+		# self.classifier = LogisticRegressionCV(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, solver='liblinear', penalty='l1')
+		# self.classifier = LogisticRegressionCV()
 		self.classifier.fit(train_X, train_Y)
 		with open(os.path.join(self.build_dir, "performance.txt"), "w") as f:
 			f.write(classification_report(test_Y, self.classifier.predict(test_X), target_names=self.le.classes_))
 
-	def predict(self, ds: loompy.LoomConnection) -> List[str]:
+	def predict(self, ds: loompy.LoomConnection, probability: bool = False) -> Union[List[str], Tuple[List[str], np.ndarray, List[str]]]:
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(True)
 		normalizer.fit(ds)
@@ -135,4 +150,8 @@ class Classifier:
 
 		logging.info("Class prediction")
 		labels = self.classifier.predict(transformed)
-		return self.le.inverse_transform(labels)
+		if probability == False:
+			return self.le.inverse_transform(labels)
+		else:
+			probs = self.classifier.predict_proba(transformed)
+			return (self.le.inverse_transform(labels), probs, self.le.inverse_transform(self.classifier.classes_))

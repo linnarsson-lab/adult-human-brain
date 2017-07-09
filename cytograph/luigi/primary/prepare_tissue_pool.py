@@ -100,19 +100,18 @@ class PrepareTissuePool(luigi.Task):
 					"OEC": "AstroEpendymal",
 					"Oligos": "Oligos",
 					"Oligos,Cycling": "Oligos",
-					"Oligos,Immune": None,
-					"Oligos,Neurons": None,
+					"Immune,Oligos": None,
 					"Oligos,Vascular": None,
 					"Satellite-glia": "PeripheralGlia",
 					"Satellite-glia,Cycling": "PeripheralGlia",
 					"Schwann": "PeripheralGlia",
-					"Schwann,Satellite-glia": None,
+					"Satellite-glia,Schwann": None,
 					"Ttr": "AstroEpendymal",
 					"Vascular": "Vascular",
 					"Vascular,Cycling": "Vascular",
-					"Vascular,Neurons": None,
+					"Neurons,Vascular": None,
 					"Vascular,Oligos": None,
-					"Vascular,Satellite-glia": None,
+					"Satellite-glia,Vascular": None,
 					"Unknown": None
 				}
 

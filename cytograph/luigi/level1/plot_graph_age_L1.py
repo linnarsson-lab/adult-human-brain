@@ -16,10 +16,10 @@ class PlotGraphAgeL1(luigi.Task):
 	tissue = luigi.Parameter()
 
 	def requires(self) -> List[luigi.Task]:
-		return [cg.ClusterLayoutL1(tissue=self.tissue), cg.AutoAnnotateL1(tissue=self.tissue)]
+		return [cg.PrepareTissuePool(tissue=self.tissue), cg.AutoAnnotateL1(tissue=self.tissue)]
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, self.tissue + ".mknnage.png"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".age.png"))
 
 	def run(self) -> None:
 		logging.info("Plotting MKNN graph age")
