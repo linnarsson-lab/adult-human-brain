@@ -19,8 +19,8 @@ class TrainClassifier(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as fname:
 			logging.info("Retraining classifier")
-			pathname = os.path.join(cg.paths().build, "classified")
-			clf = cg.Classifier(os.path.join(cg.paths().build, "classified"), n_per_cluster=100)
+			pathname = os.path.join(cg.paths().samples, "classified")
+			clf = cg.Classifier(pathname, n_per_cluster=100)
 			clf.generate()
 			ds_training = loompy.connect(os.path.join(pathname, "classified.loom"))
 			clf.fit(ds_training)

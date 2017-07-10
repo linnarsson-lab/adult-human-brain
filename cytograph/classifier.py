@@ -21,8 +21,8 @@ class Classifier:
 	Generate test and validation datasets, train a classifier to recognize main classes of cells, then
 	split the datasets into new files representing those classes (neurons further split by region).
 	"""
-	def __init__(self, build_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50) -> None:
-		self.build_dir = build_dir
+	def __init__(self, classified_dir: str, n_per_cluster: int, n_genes: int = 2000, n_components: int = 50) -> None:
+		self.classified_dir = classified_dir
 		self.n_per_cluster = n_per_cluster
 		self.n_genes = n_genes
 		self.n_components = n_components
@@ -38,14 +38,23 @@ class Classifier:
 		"""
 		Scan the build folder and generate training dataset
 		"""
-		foutname = os.path.join(self.build_dir, "classified.loom")
+		foutname = os.path.join(self.classified_dir, "classified.loom")
 		if os.path.exists(foutname):
 			logging.info("Training dataset already exists; reusing it.")
 			return
 		accessions = None  # type: np.ndarray
-		for fname in os.listdir(self.build_dir):
-			if fname.startswith("L0_"):
-				ds = loompy.connect(os.path.join(self.build_dir, fname))
+		for fname in os.listdir(self.classified_dir):
+			if fname.startswith("L1_") and fname.endswith(".loom"):
+				ds = loompy.connect(os.path.join(self.classified_dir, fname))
+				afname = fname[:-5] + "_10-Jul-2017_clusters_mainClass.txt"
+				if os.path.exists(afname):
+					d = {}
+					with open(afname, "r") as f:
+						for line in f.readlines():
+							items = line[:-1].split("\t")
+							d[int(items[0])] = items[1]
+					sa = np.array(list(map(lambda x: d[x], ds.Clusters)))
+					ds.set_attr("SubclassAssigned", sa, axis=1)
 				if accessions is None:
 					# Keep track of the gene order in the first file
 					accessions = ds.row_attrs["Accession"]
