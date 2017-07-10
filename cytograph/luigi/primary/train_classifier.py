@@ -14,7 +14,7 @@ class TrainClassifier(luigi.Task):
 	"""
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "classifier.pickle"))
+		return luigi.LocalTarget(os.path.join(cg.paths().samples, "classified", "classifier.pickle"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as fname:
