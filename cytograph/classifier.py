@@ -47,7 +47,9 @@ class Classifier:
 			if fname.startswith("L1_") and fname.endswith(".loom"):
 				ds = loompy.connect(os.path.join(self.classified_dir, fname))
 				afname = fname[:-5] + "_10-Jul-2017_clusters_mainClass.txt"
+				logging.info("Looking for subclass assignments at " + afname)
 				if os.path.exists(afname):
+					logging.info("Loading subclass assignments from " + afname)
 					d = {}
 					with open(afname, "r") as f:
 						for line in f.readlines():
