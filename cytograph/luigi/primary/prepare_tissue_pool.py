@@ -82,7 +82,7 @@ class PrepareTissuePool(luigi.Task):
 			n_total = ds.shape[1]
 			logging.info("%d of %d cells were valid", n_valid, n_total)
 			
-			classifier_path = os.path.join(cg.paths().build, "classifier.pickle")
+			classifier_path = os.path.join(cg.paths().samples, "classified", "classifier.pickle")
 			if os.path.exists(classifier_path):
 				logging.info("Classifying cells by major class")
 				with open(classifier_path, "rb") as f:
@@ -100,6 +100,8 @@ class PrepareTissuePool(luigi.Task):
 					"Blood": "Blood",
 					"Blood,Cycling": "Blood",
 					"Blood,Vascular": None,
+					"Enteric-glia": "PeripheralGlia",
+					"Enteric-glia,Cycling": "PeripheralGlia",
 					"Ependymal": "AstroEpendymal",
 					"Ex-Astrocyte": None,
 					"Ex-Blood": None,
