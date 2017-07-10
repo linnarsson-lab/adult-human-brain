@@ -121,27 +121,28 @@ class Classifier:
 		self.labels = self.le.transform(self.classes)
 
 		train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels, test_size=0.2, random_state=0)
-		important_classes = [
-			"Astrocyte",
-			"Astrocyte,Cycling",
-			"Bergmann-glia",
-			"Blood",
-			"Blood,Cycling",
-			"Ependymal",
-			"Immune",
-			"Neurons",
-			"Neurons,Cycling",
-			"OEC",
-			"Oligos",
-			"Oligos,Cycling",
-			"Satellite-glia",
-			"Satellite-glia,Cycling",
-			"Schwann",
-			"Ttr",
-			"Vascular",
-			"Vascular,Cycling"
-		]
-		self.classifier = SVC(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, probability=True)
+		# important_classes = [
+		# 	"Astrocyte",
+		# 	"Astrocyte,Cycling",
+		# 	"Bergmann-glia",
+		# 	"Blood",
+		# 	"Blood,Cycling",
+		# 	"Ependymal",
+		# 	"Immune",
+		# 	"Neurons",
+		# 	"Neurons,Cycling",
+		# 	"OEC",
+		# 	"Oligos",
+		# 	"Oligos,Cycling",
+		# 	"Satellite-glia",
+		# 	"Satellite-glia,Cycling",
+		# 	"Schwann",
+		# 	"Ttr",
+		# 	"Vascular",
+		# 	"Vascular,Cycling"
+		# ]
+		# self.classifier = SVC(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, probability=True)
+		self.classifier = SVC(probability=True)
 		# self.classifier = LogisticRegressionCV(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, solver='liblinear', penalty='l1')
 		# self.classifier = LogisticRegressionCV()
 		self.classifier.fit(train_X, train_Y)
