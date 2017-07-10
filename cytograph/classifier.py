@@ -146,7 +146,7 @@ class Classifier:
 		# self.classifier = LogisticRegressionCV(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, solver='liblinear', penalty='l1')
 		# self.classifier = LogisticRegressionCV()
 		self.classifier.fit(train_X, train_Y)
-		with open(os.path.join(self.build_dir, "performance.txt"), "w") as f:
+		with open(os.path.join(self.classified_dir, "performance.txt"), "w") as f:
 			f.write(classification_report(test_Y, self.classifier.predict(test_X), target_names=self.le.classes_))
 
 	def predict(self, ds: loompy.LoomConnection, probability: bool = False) -> Union[List[str], Tuple[List[str], np.ndarray, List[str]]]:
