@@ -132,7 +132,8 @@ class PrepareTissuePool(luigi.Task):
 					"Neurons,Vascular": None,
 					"Vascular,Oligos": None,
 					"Satellite-glia,Vascular": None,
-					"Unknown": None
+					"Unknown": None,
+					"Outliers": None
 				}
 
 				classes_pooled = np.array([str(mapping[c]) for c in classes], dtype=np.object_)
