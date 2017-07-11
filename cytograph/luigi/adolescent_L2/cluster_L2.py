@@ -35,10 +35,16 @@ class ClusterL2(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
+			accessions = None  # type: np.ndarray
 			for clustered in self.input():
 				ds = loompy.connect(clustered.fn)
 				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
+
+				# Keep track of the gene order in the first file
+				if accessions is None:
+					accessions = ds.row_attrs["Accession"]
+
 				# Mask out cells that do not have the majority label of its cluster
 				clusters = ds.col_attrs["Clusters"]
 
@@ -52,14 +58,15 @@ class ClusterL2(luigi.Task):
 					if labels[ix] == self.major_class and labels[ix] == majority_labels[clusters[ix]]:
 						cells.append(ix)
 				logging.info("Keeping " + str(len(cells)) + " cells with majority labels")
+				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
 				for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
 					ca = {}
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][selection]
 					if dsout is None:
-						dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
+						dsout = loompy.create(out_file, vals[ordering, :], ds.row_attrs, ca)
 					else:
-						dsout.add_columns(vals, ca)
+						dsout.add_columns(vals[ordering, :], ca)
 			dsout.close()
 
 			logging.info("Learning the manifold")

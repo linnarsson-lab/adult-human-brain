@@ -83,7 +83,7 @@ class Classifier:
 				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=cg.memory().axis1):
 					ca = {key: val[selection] for key, val in ds.col_attrs.items()}
 					if ds_training is None:
-						loompy.create(foutname, vals[ordering], row_attrs=ds.row_attrs, col_attrs=ca)
+						loompy.create(foutname, vals[ordering, :], row_attrs=ds.row_attrs, col_attrs=ca)
 						ds_training = loompy.connect(foutname)
 					else:
 						ds_training.add_columns(vals[ordering, :], ca)
