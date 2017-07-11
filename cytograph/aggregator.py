@@ -44,7 +44,7 @@ class Aggregator:
         data = np.log(dsout[:, :] + 1)[ds.row_attrs["_Selected"] == 1, :].T
         D = pdist(data, 'euclidean')
         Z = hc.linkage(D, 'ward')
-        merged = hc.fcluster(Z, 5, criterion='distance') - 1
+        merged = hc.fcluster(Z, 4, criterion='distance') - 1
 
         # Keep the outliers separate
         outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
