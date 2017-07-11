@@ -278,5 +278,9 @@ C1_all	C1_All	none	OK	C1_all
 10X37_2	Gastrulation	E7	OK	Velocity
 10X39_2	Gastrulation	E7	OK	Velocity
 10X39_3	Gastrulation	E7	OK	Velocity
+10X_17_012	hgForebrain	none	OK	HumanEmbryo
+10X_17_013	hgForebrain	none	OK	HumanEmbryo
+10X_17_014	hgForebrain	none	OK	HumanEmbryo
+10X_17_015	hgForebrain	none	OK	HumanEmbryo
 rosenberg	BrainSpinal	none	OK	SplitSeq
 classified	Classified	none	OK	Debug
