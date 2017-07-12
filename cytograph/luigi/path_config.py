@@ -8,3 +8,4 @@ class paths(luigi.Config):
     runs = luigi.Parameter(default="/data/runs")
     transcriptome = luigi.Parameter(default="/data/ref/cellranger/")
     use_velocyto = luigi.BoolParameter(default=False)
+    autoannotation = luigi.Parameter(default="../auto-annotation")
