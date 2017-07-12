@@ -72,9 +72,18 @@ class PrepareTissuePool(luigi.Task):
 			# Validating genes
 			logging.info("Marking invalid genes")
 			ds = loompy.connect(out_file)
-			nnz = ds.map([np.count_nonzero], axis=0)[0]
-			valid_genes = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
-			ds.set_attr("_Valid", valid_genes, axis=0)
+			vgpath = os.path.join(cg.paths().samples, "classified", "genes.txt")
+			if os.path.exists(vgpath):
+				valids = np.zeros(ds.shape[0])
+				with open(vgpath, "r") as f:
+					line = f.readline()
+					items = line[:-1].split("\t")
+					valids[np.where(ds.Accession == items[0])] = int(items[1])
+				ds.set_attr("_Valids", valids, axis=0)
+			else:
+				nnz = ds.map([np.count_nonzero], axis=0)[0]
+				valid_genes = np.logical_and(nnz > 20, nnz < ds.shape[1] * 0.6)
+				ds.set_attr("_Valid", valid_genes, axis=0)
 
 			logging.info("Marking invalid cells")
 			ds.set_attr("_Valid", np.concatenate(valid_cells), axis=1)
