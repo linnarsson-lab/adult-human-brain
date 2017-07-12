@@ -47,10 +47,11 @@ class Aggregator:
         merged = hc.fcluster(Z, 4, criterion='distance') - 1
 
         # Keep the outliers separate
-        outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
-        if (merged == outliers).sum() > 1:
-            merged[dsout.col_attrs["Outliers"] == 1] = -1
-            merged += 1
+        if dsout.col_attrs["Outliers"].sum() > 0:
+            outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
+            if (merged == outliers).sum() > 1:
+                merged[dsout.col_attrs["Outliers"] == 1] = -1
+                merged += 1
 
         new_clusters = renumber(ds.col_attrs["Clusters"], np.arange(n_labels), merged)
         ds.set_attr("Clusters", new_clusters, axis=1)

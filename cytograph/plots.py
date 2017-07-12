@@ -304,7 +304,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
 	n_probclasses = len(probclasses)
 
-	genes = ["Cdk1", "Top2a", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Foxj1", "Aqp4", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	genes = [g for g in genes if g in ds.Gene]
 	n_genes = len(genes)
 

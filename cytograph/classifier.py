@@ -54,7 +54,7 @@ class Classifier:
 						for line in f.readlines():
 							items = line[:-1].split("\t")
 							d[int(items[0])] = items[1]
-					sa = np.array(list(map(lambda x: d[x], ds.Clusters)))
+					sa = np.array(list(map(lambda x: d[x] if d[x] != "Outliers" else "Unknown", ds.Clusters)))
 					ds.set_attr("SubclassAssigned", sa, axis=1)
 				if accessions is None:
 					# Keep track of the gene order in the first file
@@ -103,6 +103,18 @@ class Classifier:
 		ds_training.set_attr("SubclassAssigned", np.array(classes_fixed), axis=1)
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
+		# Validating genes
+		logging.info("Marking invalid genes")
+		nnz = ds.map([np.count_nonzero], axis=0)[0]
+		valid_genes = np.logical_and(nnz > 5, nnz < ds.shape[1] * 0.5).astype("int")
+		ds.set_attr("_Valid", valid_genes, axis=0)
+		with open(os.path.join(self.classified_dir, "genes.txt"), "w") as f:
+			for ix in range(valid_genes.shape[0]):
+				f.write(ds.Accession[ix])
+				f.write("\t")
+				f.write(str(valid_genes[ix]))
+				f.write("\n")
+
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(True)
 		normalizer.fit(ds)
@@ -121,30 +133,7 @@ class Classifier:
 		self.labels = self.le.transform(self.classes)
 
 		train_X, test_X, train_Y, test_Y = train_test_split(transformed, self.labels, test_size=0.2, random_state=0)
-		# important_classes = [
-		# 	"Astrocyte",
-		# 	"Astrocyte,Cycling",
-		# 	"Bergmann-glia",
-		# 	"Blood",
-		# 	"Blood,Cycling",
-		# 	"Ependymal",
-		# 	"Immune",
-		# 	"Neurons",
-		# 	"Neurons,Cycling",
-		# 	"OEC",
-		# 	"Oligos",
-		# 	"Oligos,Cycling",
-		# 	"Satellite-glia",
-		# 	"Satellite-glia,Cycling",
-		# 	"Schwann",
-		# 	"Ttr",
-		# 	"Vascular",
-		# 	"Vascular,Cycling"
-		# ]
-		# self.classifier = SVC(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, probability=True)
 		self.classifier = SVC(probability=True)
-		# self.classifier = LogisticRegressionCV(class_weight={c: 0.1 for c in self.le.transform(important_classes)}, solver='liblinear', penalty='l1')
-		# self.classifier = LogisticRegressionCV()
 		self.classifier.fit(train_X, train_Y)
 		with open(os.path.join(self.classified_dir, "performance.txt"), "w") as f:
 			f.write(classification_report(test_Y, self.classifier.predict(test_X), target_names=self.le.classes_))
