@@ -12,10 +12,6 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 
 
-class autoannotate(luigi.Config):
-	species = luigi.Parameter(default="Mm")
-
-
 class AggregateL1(luigi.Task):
 	"""
 	Aggregate all clusters in a new Loom file
@@ -37,12 +33,7 @@ class AggregateL1(luigi.Task):
 			dsagg = loompy.connect(out_file)
 
 			logging.info("Computing auto-annotation")
-			if autoannotate().species == "Mm":
-				aa = cg.AutoAnnotator()
-			elif autoannotate().species == "Hs":
-				aa = cg.AutoAnnotator(root="../auto-annotationHs")
-			else:
-				raise ValueError("%s is not a valid autoannotate-species, try with Mm/Hs" % autoannotate().species)
+			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
 			aa.annotate_loom(dsagg)
 			aa.save_in_loom(dsagg)
 			ds.close()

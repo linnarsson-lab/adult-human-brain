@@ -24,6 +24,6 @@ class AutoAnnotateProcess(luigi.Task):
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			aa = cg.AutoAnnotator()
+			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
 			aa.annotate(self.input().fn)
 			aa.save(out_file)
