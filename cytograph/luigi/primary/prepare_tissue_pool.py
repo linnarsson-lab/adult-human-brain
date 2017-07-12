@@ -83,7 +83,7 @@ class PrepareTissuePool(luigi.Task):
 			logging.info("%d of %d cells were valid", n_valid, n_total)
 			
 			classifier_path = os.path.join(cg.paths().samples, "classified", "classifier.pickle")
-			if os.path.exists(classifier_path):
+			if os.path.exists(classifier_path) and not cg.skip().classifier:
 				logging.info("Classifying cells by major class")
 				with open(classifier_path, "rb") as f:
 					clf = pickle.load(f)  # type: cg.Classifier
@@ -146,7 +146,10 @@ class PrepareTissuePool(luigi.Task):
 				for ix, cls in enumerate(class_labels):
 					ds.set_attr("ClassProbability_" + str(cls), probs[:, ix], axis=1)
 			else:
-				logging.info("No classifier found in this build directory - skipping.")
-				ds.set_attr("Class", np.array(["Excluded"] * ds.shape[1]), axis=1)
+				if cg.skip().classifier:
+					logging.info("Classification was explicitelly skipped!")
+				else:
+					logging.info("No classifier found in this build directory - skipping.")
+				ds.set_attr("Class", np.array(["Unknown"] * ds.shape[1]), axis=1)
 				ds.set_attr("Subclass", np.array(["Unknown"] * ds.shape[1]), axis=1)
 			ds.close()
