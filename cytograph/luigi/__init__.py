@@ -10,3 +10,4 @@ from .level1 import *
 from .path_config import paths
 from .cluster_config import cluster
 from .memory_config import memory
+from .skip_config import skip
