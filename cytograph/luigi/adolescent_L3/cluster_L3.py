@@ -52,22 +52,33 @@ class ClusterL3(luigi.Task):
 			dsagg = loompy.connect(self.input()[1].fn)
 			nix_clusters = set()
 			for lbl in range(max(ds.col_attrs["Clusters"]) + 1):
+				# Small clusters
 				n_cells_in_cluster = (ds.Clusters == lbl).sum()
-				if n_cells_in_cluster < 20:
-					logging.info("Nixing cluster {} because less than 20 cells".format(lbl))
+				if n_cells_in_cluster < 10:
+					logging.info("Nixing cluster {} because less than 10 cells".format(lbl))
 					nix_clusters.add(lbl)
 				else:
-					for cls in nix_genes.keys():
-						if cls == self.major_class:
-							continue
-						for gene in nix_genes[cls]:
-							if gene not in ds.Gene:
-								logging.warn("Couldn't use '" + gene + "' to nix clusters")
-							gix = np.where(ds.Gene == gene)[0][0]
-							if np.count_nonzero(ds[gix, :][ds.Clusters == lbl]) > 0.5 * n_cells_in_cluster:
-								if np.count_nonzero(ds[gix, :]) < 0.25 * ds.shape[1]:
-									logging.info("Nixing cluster {} because {} was detected".format(lbl, gene))
-									nix_clusters.add(lbl)
+					# Clusters where the enriched markers are hardly expressed at all
+					# E.g. top ten enriched genes have average trinarization score less than 0.5
+					top_enriched = sorted(np.argsort(-dsagg.layer["enrichment"][:, lbl])[:10])
+					top_trinaries = dsagg.layer["trinaries"][top_enriched, :][:, lbl]
+					if (top_trinaries > 0.95).sum() < 3:
+						logging.info("Nixing cluster {} because less than three expressed enriched genes".format(lbl))
+						nix_clusters.add(lbl)
+					else:
+						# Clusters with markers of other major class
+						for cls in nix_genes.keys():
+							if cls == self.major_class:
+								continue
+							for gene in nix_genes[cls]:
+								if gene not in ds.Gene:
+									logging.warn("Couldn't use '" + gene + "' to nix clusters")
+								gix = np.where(ds.Gene == gene)[0][0]
+								if np.count_nonzero(ds[gix, :][ds.Clusters == lbl]) > 0.5 * n_cells_in_cluster:
+									# But let it slide if this marker is abundant in the whole tissue
+									if np.count_nonzero(ds[gix, :]) < 0.25 * ds.shape[1]:
+										logging.info("Nixing cluster {} because {} was detected".format(lbl, gene))
+										nix_clusters.add(lbl)
 			logging.info("Nixing " + str(len(nix_clusters)) + " clusters")
 			nix_attr = np.zeros(dsagg.shape[1], dtype='int')
 			nix_attr[np.array(list(nix_clusters), dtype='int')] = 1
@@ -100,10 +111,10 @@ class ClusterL3(luigi.Task):
 			ds.set_attr("_X", tsne[:, 0], axis=1)
 			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
-			# logging.info("Clustering on the manifold")
-			# cls = cg.Clustering(method=self.method)
-			# labels = cls.fit_predict(ds)
-			# ds.set_attr("Clusters", labels, axis=1)
-			# n_labels = np.max(labels) + 1
+			logging.info("Clustering on the manifold")
+			clusterer = cg.Clustering(method=self.method, outliers=False)
+			labels = clusterer.fit_predict(ds)
+			ds.set_attr("Clusters", labels, axis=1)
+			n_labels = np.max(labels) + 1
 
 			ds.close()
