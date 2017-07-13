@@ -49,8 +49,16 @@ class ClusterL1(luigi.Task):
                                                               axis=1):
                 ca = {key: val[selection] for key, val in ds.col_attrs.items()}
                 if dsout is None:
-                    loompy.create(out_file, vals, row_attrs=ds.row_attrs, col_attrs=ca)
-                    dsout = loompy.connect(out_file)
+                    # NOTE Loompy Create should support multilayer !!!!
+                    if vals is dict:
+                        dsout = loompy.create(out_file, vals["@DEFAULT"], row_attrs=ds.row_attrs, col_attrs=ca)
+                        for layername, layervalues in vals.items():
+                            if layername != "@DEFAULT":
+                                dsout.set_layer(layername, layervalues)
+                        dsout = loompy.connect(out_file)
+                    else:
+                        loompy.create(out_file, vals, row_attrs=ds.row_attrs, col_attrs=ca)
+                        dsout = loompy.connect(out_file)
                 else:
                     dsout.add_columns(vals, ca)
             dsout.close()
