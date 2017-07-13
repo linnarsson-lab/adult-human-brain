@@ -30,3 +30,4 @@ class TrainClassifier(luigi.Task):
 			# Verify that it works (to catch some obscure intermittent UnicodeDecodeError)
 			with open(fname, "rb") as f:
 				clf = pickle.load(f)
+				clf.aggregate_export()

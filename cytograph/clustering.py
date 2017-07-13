@@ -24,9 +24,15 @@ from sklearn.cluster import DBSCAN
 
 
 class Clustering:
-	def __init__(self, method: str) -> None:
+	def __init__(self, method: str, outliers: bool = True) -> None:
+		"""
+		Args:
+			method		'hdbscan', 'dbscan', or 'lj'
+			outliers	True to allow outliers
+		"""
 		self.method = method
-	
+		self.outliers = outliers
+
 	def fit_predict(self, ds: loompy.LoomConnection) -> np.ndarray:
 		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 		n_total = ds.shape[1]
@@ -39,21 +45,6 @@ class Clustering:
 			min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
 			tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 			clusterer = hdbscan.HDBSCAN(min_cluster_size=min_pts)
-			labels = clusterer.fit_predict(tsne_pos)
-		elif self.method == "dbscan3d":
-			logging.info("DBSCAN clustering in t-SNE space")
-			min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
-			eps_pct = 65
-			tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"], ds.col_attrs["_Z"])).transpose()[cells, :]
-
-			# Determine a good epsilon
-			nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
-			nn.fit(tsne_pos)
-			knn = nn.kneighbors_graph(mode='distance')
-			k_radius = knn.max(axis=1).toarray()
-			epsilon = np.percentile(k_radius, eps_pct)
-
-			clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
 			labels = clusterer.fit_predict(tsne_pos)
 		elif self.method == "dbscan":
 			logging.info("DBSCAN clustering in t-SNE space")
@@ -70,6 +61,12 @@ class Clustering:
 
 			clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
 			labels = clusterer.fit_predict(tsne_pos)
+			if not self.outliers:
+				# Assign each outlier to the same cluster as the nearest non-outlier
+				nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
+				nn.fit(tsne_pos[labels >= 0])
+				nearest = nn.kneighbors(tsne_pos[labels == -1], n_neighbors=1, return_distance=False)
+				labels[labels == -1] = labels[labels >= 0][nearest]
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)

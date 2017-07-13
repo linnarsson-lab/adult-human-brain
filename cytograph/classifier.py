@@ -102,6 +102,41 @@ class Classifier:
 			classes_fixed.append(",".join(items))
 		ds_training.set_attr("SubclassAssigned", np.array(classes_fixed), axis=1)
 
+	def aggregate_export(self) -> None:
+		# Aggregate and compute enrichment, trinaries etc.
+		logging.info("Aggregating loom file")
+		ds_training = loompy.connect(os.path.join(self.classified_dir, "classified.loom"))
+		classes = ds_training.col_attrs["SubclassAssigned"]
+		ds_training.set_attr("Clusters", LabelEncoder().fit_transform(classes), axis=1)
+		out_file = os.path.join(self.classified_dir, "classified.agg.loom")
+		cg.Aggregator(10).aggregate(ds_training, out_file)
+		dsagg = loompy.connect(out_file)
+
+		logging.info("Computing auto-annotation")
+		aa = cg.AutoAnnotator()
+		aa.annotate_loom(dsagg)
+		aa.save_in_loom(dsagg)
+
+		logging.info("Computing auto-auto-annotation")
+		n_clusters = dsagg.shape[1]
+		(selected, selectivity, specificity, robustness) = cg.AutoAutoAnnotator(n_genes=6).fit(dsagg)
+		dsagg.set_attr("MarkerGenes", np.array([" ".join(ds_training.Gene[selected[:, ix]]) for ix in np.arange(n_clusters)]), axis=1)
+		np.set_printoptions(precision=1, suppress=True)
+		dsagg.set_attr("MarkerSelectivity", np.array([str(selectivity[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
+		dsagg.set_attr("MarkerSpecificity", np.array([str(specificity[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
+		dsagg.set_attr("MarkerRobustness", np.array([str(robustness[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
+		dsagg.close()
+
+		out_dir = os.path.join(self.classified_dir, "classified_exported")
+		logging.info("Exporting cluster data")
+		if not os.path.exists(out_dir):
+			os.mkdir(out_dir)
+		dsagg = loompy.connect(out_file)
+		dsagg.export(os.path.join(out_dir, "classified_expression.tab"))
+		dsagg.export(os.path.join(out_dir, "classified_enrichment.tab"), layer="enrichment")
+		dsagg.export(os.path.join(out_dir, "classified_enrichment_q.tab"), layer="enrichment_q")
+		dsagg.export(os.path.join(out_dir, "classified_trinaries.tab"), layer="trinaries")
+
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		# Validating genes
 		logging.info("Marking invalid genes")
@@ -137,7 +172,7 @@ class Classifier:
 		self.classifier.fit(train_X, train_Y)
 		with open(os.path.join(self.classified_dir, "performance.txt"), "w") as f:
 			f.write(classification_report(test_Y, self.classifier.predict(test_X), target_names=self.le.classes_))
-
+		
 	def predict(self, ds: loompy.LoomConnection, probability: bool = False) -> Union[List[str], Tuple[List[str], np.ndarray, List[str]]]:
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(True)
