@@ -16,14 +16,12 @@ class BNPF:
 		self.W: np.ndarray = None
 		self.H: np.ndarray = None
 
-	def fit(self, X: sparse.coo_matrix, test_size: float = 0.25, validate_size: float = 0.25) -> None:
+	def fit(self, X: sparse.coo_matrix) -> None:
 		"""
 		Fit a BNPF model to the data matrix
 
 		Args:
 			x      			Data matrix, shape (n_samples, n_features)
-			test_size		Fraction of the data to use for testing the performance, in (0, 1)
-			validate_size	Fraction of the data to use for validating the performance, in (0, 1)
 
 		Returns:
 			self
@@ -35,22 +33,14 @@ class BNPF:
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-		# Split the input
-		# Note: gaprec wants the same matrix for training, test and validation, but with subsets of the nonzeros held out; hence we need to split the underlying nonzeros
-		rest_row, rest_col, rest_data, test_row, test_col, test_data = train_test_split(X.row, X.col, X.data, test_size=test_size)
-		train_row, train_col, train_data, validate_row, validate_col, validate_data = train_test_split(rest_row, rest_col, rest_data, test_size=(validate_size / (1 - test_size)))
-		
-		# Save to TSV files
-		def save_tsv(fname: str, m: sparse.coo_matrix) -> None:
-			b = m.tocoo()
-			np.savetxt("test.tsv", np.vstack([b.row, b.col, b.data]).T, delimiter="\t")
 		with tempfile.TemporaryDirectory() as tmpdirname:
 			tmpdirname = "/Users/sten/gaprec"
 			if not os.path.exists(tmpdirname):
 				os.mkdir(tmpdirname)
-			save_tsv(os.path.join(tmpdirname, "train.tsv"), sparse.coo_matrix((train_data, (train_row, train_col)), shape=X.shape))
-			save_tsv(os.path.join(tmpdirname, "test.tsv"), sparse.coo_matrix((test_data, (test_row, test_col)), shape=X.shape))
-			save_tsv(os.path.join(tmpdirname, "validation.tsv"), sparse.coo_matrix((validate_data, (validate_row, validate_col)), shape=X.shape))
+			# Save to TSV file
+			np.savetxt(os.path.join(tmpdirname, "train.tsv"), np.vstack([X.row, X.col, X.data]).T, delimiter="\t")
+			np.savetxt(os.path.join(tmpdirname, "test.tsv"), np.vstack([X.row, X.col, X.data]).T, delimiter="\t")
+			np.savetxt(os.path.join(tmpdirname, "validation.tsv"), np.vstack([X.row, X.col, X.data]).T, delimiter="\t")
 
 			# Run gaprec
 			bnpf_p = Popen((
