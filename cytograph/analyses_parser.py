@@ -12,7 +12,7 @@ import copy
 analysis_type_dict = {"Level1": Level1, "PerformAnalysis": PerformAnalysis}
 
 
-class AnalysesParser(object):
+class AnalysesParser(object):  # Status: needs to be run but looks ok
     def __init__(self, root: str = "../cg-analysis") -> None:
         self.root = root
         self._analyses_dict = {}  # type: Dict
@@ -100,7 +100,7 @@ def parse_analysis_todo(process_obj: Dict) -> Iterator[luigi.Task]:
         if analysis_type not in safenames:
             raise NotImplementedError("type: %s not allowed, becouse is not a valid luigi task" % analysis_type)
         else:
-            Analysis_class = eval("cg.%s" % analysis_type)
+            Analysis_class = getattr(cg, analysis_type)  # eval("cg.%s" % analysis_type)
 
             def Analysis(analysis: Any) -> luigi.Task:
                 return Analysis_class(analysis, **analysis_kwargs)

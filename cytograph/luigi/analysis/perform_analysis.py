@@ -24,4 +24,4 @@ class PerformAnalysis(luigi.WrapperTask):  # Status: check what it should return
 		other_tasks = []
 		for task in cg.parse_analysis_todo(analysis_obj):
 			other_tasks.append(task(analysis=self.analysis))
-		return [[cg.ExportAnalysis(analysis=self.analysis), *other_tasks]]
+		return [cg.ExportAnalysis(analysis=self.analysis), *other_tasks]  # Not sure why but before t was [[]]

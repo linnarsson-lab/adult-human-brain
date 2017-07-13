@@ -7,7 +7,7 @@ from .louvain_jaccard import LouvainJaccard
 from .layout import OpenOrd, SFDP, TSNE
 from .normalizer import Normalizer, div0
 from .projection import PCAProjection
-from .analyses_parser import AnalysesParser, parse_project_requirements, parse_analysis_todo
+from .analyses_parser import AnalysesParser, parse_analysis_requirements, parse_analysis_todo
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
 from .enrichment import MarkerEnrichment
