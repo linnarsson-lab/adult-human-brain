@@ -72,7 +72,7 @@ class PrepareTissuePool(luigi.Task):
 			# Validating genes
 			logging.info("Marking invalid genes")
 			ds = loompy.connect(out_file)
-			vgpath = os.path.join(cg.paths().samples, "classified", "genes.txt")
+			vgpath = os.path.join(cg.paths().build, "genes.txt")
 			if os.path.exists(vgpath):
 				valids = np.zeros(ds.shape[0])
 				with open(vgpath, "r") as f:
