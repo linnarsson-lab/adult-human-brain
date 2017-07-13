@@ -22,6 +22,6 @@ class PerformAnalysis(luigi.WrapperTask):
 	def requires(self) -> List[List[luigi.Task]]:
 		analysis_obj = cg.ProcessesParser()[self.analysis]
 		other_tasks = []
-		for task in cg.parse_analysis_todo(process_obj):
-			other_tasks.append(task(processname=self.analysis))
-		return [[cg.ClusterLayoutProcess(processname=self.analysis), cg.AutoAnnotateProcess(processname=self.processname), *other_tasks]]
+		for task in cg.parse_analysis_todo(analysis_obj):
+			other_tasks.append(task(analysis=self.analysis))
+		return [[cg.ExportAnalysis(analysis=self.analysis), *other_tasks]]
