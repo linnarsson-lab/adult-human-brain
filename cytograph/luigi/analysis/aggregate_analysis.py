@@ -12,19 +12,19 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 
 
-class AggregateAnalysis(luigi.Task):  # TODO
+class AggregateAnalysis(luigi.Task):  # Status: Ok
 	"""
 	Aggregate all clusters in a new Loom file
 	"""
-	tissue = luigi.Parameter()
+	analysis = luigi.Parameter()
 	n_markers = luigi.IntParameter(default=10)
 	n_auto_genes = luigi.IntParameter(default=6)
 
 	def requires(self) -> List[luigi.Task]:
-		return cg.ClusterL1(tissue=self.tissue)
+		return cg.ClusterAnalysis(analysis=self.analysis)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".agg.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "Analysis_" + self.analysis + ".agg.loom"))
 
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:

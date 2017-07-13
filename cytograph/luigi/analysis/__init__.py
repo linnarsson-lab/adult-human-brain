@@ -9,5 +9,7 @@
 # from .plot_graph_age_process import PlotGraphAgeProcess
 # from .plot_graph_process import PlotGraphProcess
 # from .trinarize_process import TrinarizeProcess
+from .cluster_analysis import ClusterAnalysis
+from .aggregate_analysis import AggregateAnalysis
 from .export_analysis import ExportAnalysis
 from .perform_analysis import PerformAnalysis
