@@ -3,18 +3,19 @@ import yaml
 import os
 import luigi
 import cytograph as cg
-from .luigi import Level1, StudyProcess
+from .luigi import Level1, PerformAnalysis, Level1Analysis
 import logging
 from collections import defaultdict
 import copy
 
-analysis_type_dict = {"Level1": Level1, "StudyProcess": StudyProcess}
+# those are the analyses allowed, if a kind of analysis is not here cannot be run using the analysis submodule
+analysis_type_dict = {"Level1": Level1, "PerformAnalysis": PerformAnalysis}
 
 
-class ProcessesParser(object):
-    def __init__(self, root: str = "../dev-processes") -> None:
+class AnalysesParser(object):  # Status: needs to be run but looks ok
+    def __init__(self, root: str = "../cg-analysis") -> None:
         self.root = root
-        self._processes_dict = {}  # type: Dict
+        self._analyses_dict = {}  # type: Dict
         self.model = {}  # type: Dict
         self._load_model()
         self._load_defs()
@@ -40,53 +41,53 @@ class ProcessesParser(object):
                                         try:
                                             model_copy[k][kk][kkk] = temp_dict[k][kk][kkk]
                                         except KeyError:
-                                            debug_msgs[name].append("Process %s `%s:%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, kkk, model_copy[k][kk][kkk]))
+                                            debug_msgs[name].append("Analysis %s `%s:%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, kkk, model_copy[k][kk][kkk]))
                                 else:
                                     try:
                                         model_copy[k][kk] = temp_dict[k][kk]
                                     except KeyError:
-                                        debug_msgs[name].append("Process %s `%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, model_copy[k][kk]))
+                                        debug_msgs[name].append("Analysis %s `%s:%s` was not found. The Default `%s` will be used" % (name, k, kk, model_copy[k][kk]))
                         else:
                             try:
                                 model_copy[k] = temp_dict[k]
                             except KeyError:
-                                debug_msgs[name].append("Process %s `%s` was not found. The Default `%s` will be used" % (name, k, model_copy[k]))
-                    self._processes_dict[name] = copy.deepcopy(model_copy)
+                                debug_msgs[name].append("Analysis %s `%s` was not found. The Default `%s` will be used" % (name, k, model_copy[k]))
+                    self._analyses_dict[name] = copy.deepcopy(model_copy)
                     self.debug_msgs = debug_msgs
 
     @property
-    def all_processes(self) -> List:
-        return list(self._processes_dict.values())
+    def all_analyses(self) -> List:
+        return list(self._analyses_dict.values())
 
     @property
-    def all_processes_dict(self) -> Dict[str, Dict]:
-        return dict(self._processes_dict)
+    def all_analyses_dict(self) -> Dict[str, Dict]:
+        return dict(self._analyses_dict)
 
     def __getitem__(self, key: Any) -> Dict:
         for i in self.debug_msgs[key]:
             logging.debug(i)
-        return self._processes_dict[key]
+        return self._analyses_dict[key]
 
 
-def parse_project_requirements(process_obj: Dict) -> List[Tuple[luigi.Task]]:
+def parse_analysis_requirements(process_obj: Dict) -> List[Tuple[luigi.Task]]:
     """
     This assume the requirements be always a TaskWrapper
     """
-    requirements = []  # type: List[luigi.WrapperTask]
+    requirements: List[luigi.WrapperTask] = []
     for i in range(len(process_obj["parent_analyses"])):
         parent_type = process_obj["parent_analyses"][i]["type"]
         parent_kwargs = process_obj["parent_analyses"][i]["kwargs"]
         if parent_type not in analysis_type_dict:
             raise NotImplementedError("type: %s not allowed, you need to allow it adding it to analysis_type_dict" % parent_type)
         Analysis = analysis_type_dict[parent_type]
-        if parent_kwargs == {}:
-            requirements += list(Analysis().requires())
+        if parent_kwargs == {}:  # maybe there is no need of this if statement
+            requirements += list(Analysis().requires())  # Requires returns an Iterator
         else:
             requirements += list(Analysis(**parent_kwargs).requires())
     return requirements
 
 
-def parse_project_todo(process_obj: Dict) -> Iterator[luigi.Task]:
+def parse_analysis_todo(process_obj: Dict) -> Iterator[luigi.Task]:
     """Yields luigi.Tasks after parsing out a dictionary describing the kind of tasks and their arguments
     """
     # the following safenames is implemented to make the eval statement secure
@@ -99,9 +100,9 @@ def parse_project_todo(process_obj: Dict) -> Iterator[luigi.Task]:
         if analysis_type not in safenames:
             raise NotImplementedError("type: %s not allowed, becouse is not a valid luigi task" % analysis_type)
         else:
-            Analysis_class = eval("cg.%s" % analysis_type)
+            Analysis_class = getattr(cg, analysis_type)  # eval("cg.%s" % analysis_type)
 
-            def Analysis(processname: Any) -> luigi.Task:
-                return Analysis_class(processname, **analysis_kwargs)
+            def Analysis(analysis: Any) -> luigi.Task:
+                return Analysis_class(analysis, **analysis_kwargs)
             
             yield Analysis

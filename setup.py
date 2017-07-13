@@ -20,8 +20,6 @@ setup(
 		'polo'
 	],
 	dependency_links=['http://github.com/linnarsson-lab/numpy-groupies/tarball/master#egg=numpy_groupies'],
-
-	scripts=['cytograph/markerheatmap'],
 	
 	# metadata
 	author="Linnarsson Lab",

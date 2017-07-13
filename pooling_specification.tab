@@ -248,6 +248,10 @@ C1_all	C1_All	none	OK	C1_all
 10X83_3	DentateGyrus	P0	OK	Velocity
 10X84_2	DentateGyrus	P5	OK	Velocity
 10X84_3	DentateGyrus	P5	OK	Velocity
+10X83_2	DentateGyrusP	P0	OK	Velocity
+10X83_3	DentateGyrusP	P0	OK	Velocity
+10X84_2	DentateGyrusP	P5	OK	Velocity
+10X84_3	DentateGyrusP	P5	OK	Velocity
 10X43_1	DentateGyrusV1	none	OK	Velocity
 10X46_1	DentateGyrusV1	none	OK	Velocity
 10X83_1	Cortex	P0	OK	Velocity

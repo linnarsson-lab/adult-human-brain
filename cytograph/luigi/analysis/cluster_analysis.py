@@ -23,20 +23,20 @@ import hdbscan
 from sklearn.cluster import DBSCAN
 
 
-class ClusterL1(luigi.Task):
+class ClusterAnalysis(luigi.Task):  # Status: OK
     """
-    Level 1 clustering
+    Level 1 clustering of the Analysis task
     """
-    tissue = luigi.Parameter()
+    analysis = luigi.Parameter()
     n_genes = luigi.IntParameter(default=1000)
     gtsne = luigi.BoolParameter(default=True)
     alpha = luigi.FloatParameter(default=1)
 
     def requires(self) -> luigi.Task:
-        return cg.PrepareTissuePool(tissue=self.tissue)
+        return cg.AnalysisPool(analysis=self.analysis)
 
     def output(self) -> luigi.Target:
-        return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".loom"))
+        return luigi.LocalTarget(os.path.join(cg.paths().build, "Analysis_" + self.analysis + ".loom"))
 
     def run(self) -> None:
         with self.output().temporary_path() as out_file:

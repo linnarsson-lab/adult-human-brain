@@ -10,25 +10,25 @@ import luigi
 from collections import defaultdict
 
 
-class StudyProcessPool(luigi.Task):
+class AnalysisPool(luigi.Task):  # Status: check the filter manager
 	"""
 	Luigi Task to generate a particular slice of the data as specified by a description file
 
-	`processname` needs to match th name specified in the .yaml file in the folder ../dev-processes
+	`analysis` needs to match the name specified in the .yaml file in the folder ../cg-analysis
 	"""
 	
-	processname = luigi.Parameter()
+	analysis = luigi.Parameter()
 
 	def requires(self) -> Iterator[luigi.Task]:
-		process_obj = cg.ProcessesParser()[self.processname]
-		return cg.parse_project_requirements(process_obj)
+		analysis_obj = cg.AnalysesParser()[self.analysis]
+		return cg.parse_analysis_requirements(analysis_obj)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.loom" % (self.processname,)))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.loom" % (self.analysis,)))
 		
 	def run(self) -> None:
-		process_obj = cg.ProcessesParser()[self.processname]
-		logging.debug("Generating the pooled file %s.loom" % self.processname)
+		analysis_obj = cg.AnalysesParser()[self.analysis]
+		logging.debug("Generating the pooled file %s.loom" % self.analysis)
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
 			# The following assumes assumes that for every process taskwrapper the
@@ -39,7 +39,7 @@ class StudyProcessPool(luigi.Task):
 				ds = loompy.connect(clustered.fn)
 				
 				# Select the tags as specified in the process file
-				filter_bool = cg.FilterManager(process_obj, ds, autoannotated.fn).compute_filter()
+				filter_bool = cg.FilterManager(analysis_obj, ds, autoannotated.fn).compute_filter()
 
 				for (ix, selection, vals) in ds.batch_scan_layers(axis=1, batch_size=cg.memory().axis1):
 					# Filter the cells that belong to the selected tags
