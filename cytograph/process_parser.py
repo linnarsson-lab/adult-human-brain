@@ -86,7 +86,7 @@ def parse_project_requirements(process_obj: Dict) -> List[Tuple[luigi.Task]]:
     return requirements
 
 
-def parse_project_todo(process_obj: Dict) -> Iterator[luigi.Task]:
+def parse_analysis_todo(process_obj: Dict) -> Iterator[luigi.Task]:
     """Yields luigi.Tasks after parsing out a dictionary describing the kind of tasks and their arguments
     """
     # the following safenames is implemented to make the eval statement secure

@@ -14,21 +14,21 @@ class StudyProcessPool(luigi.Task):
 	"""
 	Luigi Task to generate a particular slice of the data as specified by a description file
 
-	`processname` needs to match th name specified in the .yaml file in the folder ../dev-processes
+	`analysis` needs to match the name specified in the .yaml file in the folder ../cyto-analysis
 	"""
 	
-	processname = luigi.Parameter()
+	analysis = luigi.Parameter()
 
 	def requires(self) -> Iterator[luigi.Task]:
-		process_obj = cg.ProcessesParser()[self.processname]
+		process_obj = cg.ProcessesParser()[self.analysis]
 		return cg.parse_project_requirements(process_obj)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.loom" % (self.processname,)))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.loom" % (self.analysis,)))
 		
 	def run(self) -> None:
-		process_obj = cg.ProcessesParser()[self.processname]
-		logging.debug("Generating the pooled file %s.loom" % self.processname)
+		process_obj = cg.ProcessesParser()[self.analysis]
+		logging.debug("Generating the pooled file %s.loom" % self.analysis)
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection
 			# The following assumes assumes that for every process taskwrapper the
