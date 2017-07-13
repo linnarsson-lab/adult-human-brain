@@ -2,7 +2,6 @@ from ._version import __version__
 from .bi_pca import broken_stick, biPCA, select_sig_pcs
 from .auto_annotator import AutoAnnotator, CellTag, read_autoannotation
 from .auto_auto_annotator import AutoAutoAnnotator
-from .facet_learning import Facet, FacetLearning
 from .filter_manager import FilterManager
 from .louvain_jaccard import LouvainJaccard
 from .layout import OpenOrd, SFDP, TSNE
@@ -11,7 +10,6 @@ from .projection import PCAProjection
 from .process_parser import ProcessesParser, parse_project_requirements, parse_project_todo
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
-from .metagraph import MetaGraph
 from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer, load_trinaries
 from .pool_spec import PoolSpec
