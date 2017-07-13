@@ -20,14 +20,14 @@ class StudyProcessPool(luigi.Task):
 	analysis = luigi.Parameter()
 
 	def requires(self) -> Iterator[luigi.Task]:
-		process_obj = cg.ProcessesParser()[self.analysis]
+		process_obj = cg.AnalysesParser()[self.analysis]
 		return cg.parse_project_requirements(process_obj)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "%s.loom" % (self.analysis,)))
 		
 	def run(self) -> None:
-		process_obj = cg.ProcessesParser()[self.analysis]
+		process_obj = cg.AnalysesParser()[self.analysis]
 		logging.debug("Generating the pooled file %s.loom" % self.analysis)
 		with self.output().temporary_path() as out_file:
 			dsout = None  # type: loompy.LoomConnection

@@ -10,17 +10,17 @@ import luigi
 from collections import defaultdict
 
 
-class PerformAnalysis(luigi.WrapperTask):
+class PerformAnalysis(luigi.WrapperTask):  # Status: check what it should return
 	"""
 	Luigi Task Wrapper to run a set of analyses on a particular slice of the data as specified by a description file
 
-	`processname` needs to match th name specified in the .yaml file in the folder ../dev-processes
+	`analysis` needs to match th name specified in the .yaml file in the folder ../cg-analysis
 	"""
 	
 	analysis = luigi.Parameter()
 
 	def requires(self) -> List[List[luigi.Task]]:
-		analysis_obj = cg.ProcessesParser()[self.analysis]
+		analysis_obj = cg.AnalysesParser()[self.analysis]
 		other_tasks = []
 		for task in cg.parse_analysis_todo(analysis_obj):
 			other_tasks.append(task(analysis=self.analysis))
