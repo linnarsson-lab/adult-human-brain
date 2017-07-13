@@ -47,7 +47,7 @@ class Aggregator:
         merged = hc.fcluster(Z, 4, criterion='distance') - 1
 
         # Keep the outliers separate
-        if "Outliers" in dsout.col_attrs.keys() and dsout.col_attrs["Outliers"].sum() > 0:
+        if "Outliers" in dsout.col_attrs.keys() and np.any(dsout.col_attrs["Outliers"] == 1):
             outliers = merged[dsout.col_attrs["Outliers"] == 1][0]
             if (merged == outliers).sum() > 1:
                 merged[dsout.col_attrs["Outliers"] == 1] = -1
