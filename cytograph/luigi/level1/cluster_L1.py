@@ -50,11 +50,11 @@ class ClusterL1(luigi.Task):
                 ca = {key: val[selection] for key, val in ds.col_attrs.items()}
                 if dsout is None:
                     # NOTE Loompy Create should support multilayer !!!!
-                    if vals is dict:
-                        dsout = loompy.create(out_file, vals["@DEFAULT"], row_attrs=ds.row_attrs, col_attrs=ca)
+                    if type(vals) is dict:
+                        dsout = loompy.create(out_file, vals["@DEFAULT"], row_attrs=ds.row_attrs, col_attrs=ca, dtype=vals["@DEFAULT"].dtype)
                         for layername, layervalues in vals.items():
                             if layername != "@DEFAULT":
-                                dsout.set_layer(layername, layervalues)
+                                dsout.set_layer(layername, layervalues, dtype=layervalues.dtype)
                         dsout = loompy.connect(out_file)
                     else:
                         loompy.create(out_file, vals, row_attrs=ds.row_attrs, col_attrs=ca)
