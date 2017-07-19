@@ -1,5 +1,4 @@
 from ._version import __version__
-from .bi_pca import broken_stick, biPCA, select_sig_pcs
 from .auto_annotator import AutoAnnotator, CellTag, read_autoannotation
 from .auto_auto_annotator import AutoAutoAnnotator
 from .filter_manager import FilterManager
@@ -25,4 +24,4 @@ from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
-from .BNPF import BNPF
+from .HPF import HPF
