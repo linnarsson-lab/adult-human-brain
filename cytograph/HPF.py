@@ -24,9 +24,8 @@ class HPF:
 		self.d = d
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
-		self._hbeta: str = None
-		self._betarate_rate: str = None
-		self._betarate_shape: str = None
+
+		self._cache: Dict[str, str] = {}
 
 	def fit(self, X: sparse.coo_matrix) -> None:
 		"""
@@ -68,7 +67,7 @@ class HPF:
 			), cwd=tmpdirname)
 			bnpf_p.wait()
 			if bnpf_p.returncode != 0:
-				logging.error("HPF failed to execute external binary 'gaprec' (check $PATH)")
+				logging.error("HPF failed to execute external binary 'hgaprec' (check $PATH)")
 				raise RuntimeError()
 			sf = f"n{X.shape[0]}-m{X.shape[1]}-k{self.k}-batch-hier-vb"
 
@@ -76,12 +75,11 @@ class HPF:
 			self.theta = np.loadtxt(os.path.join(tmpdirname, sf, "htheta.tsv"))[:, 2:]
 			temp = np.loadtxt(os.path.join(tmpdirname, sf, "hbeta.tsv"))
 			self.beta = temp[:, 2:][np.argsort(temp[:, 1]), :]  # the beta matrix with the correct rows ordering
-			with open(os.path.join(tmpdirname, sf, "hbeta.tsv")) as f:
-				self._hbeta = f.read()
-			with open(os.path.join(tmpdirname, sf, "betarate_rate.tsv")) as f:
-				self._betarate_rate = f.read()
-			with open(os.path.join(tmpdirname, sf, "betarate_shape.tsv")) as f:
-				self._betarate_shape = f.read()
+
+			# Cache the beta branch of the model, so we can refit later with fixed beta
+			for file in ["betarate.tsv", "betarate_rate.tsv", "betarate_shape.tsv", "hbeta.tsv", "hbeta_rate.tsv", "hbeta_shape.tsv"]:
+				with open(os.path.join(tmpdirname, sf, file)) as f:
+					self._cache[file] = f.read()
 
 	def transform(self, X: sparse.coo_matrix) -> np.ndarray:
 		if self.beta is None:
@@ -93,7 +91,7 @@ class HPF:
 		if np.any(np.sum(X, axis=1) == 0):
 			raise ValueError("Every sample (row) must have at least one non-zero feature (column)")
 		with tempfile.TemporaryDirectory() as tmpdirname:
-			tmpdirname = "/Users/sten/gaprec2"
+			tmpdirname = "/Users/sten/gaprec"
 			if not os.path.exists(tmpdirname):
 				os.mkdir(tmpdirname)
 
@@ -102,12 +100,14 @@ class HPF:
 			np.savetxt(os.path.join(tmpdirname, "test.tsv"), np.vstack([X.row + 1, X.col + 1, X.data]).T, delimiter="\t", fmt="%d")
 			np.savetxt(os.path.join(tmpdirname, "validation.tsv"), np.vstack([X.row + 1, X.col + 1, X.data]).T, delimiter="\t", fmt="%d")
 
-			with open(os.path.join(tmpdirname, "hbeta.tsv"), "w") as f:
-				f.write(self._hbeta)
-			with open(os.path.join(tmpdirname, "betarate_rate.tsv"), "w") as f:
-				f.write(self._betarate_rate)
-			with open(os.path.join(tmpdirname, "betarate_shape.tsv"), "w") as f:
-				f.write(self._betarate_shape)
+			# Write the previously saved beta samples for reuse
+			# sf = f"n{X.shape[0]}-m{X.shape[1]}-k{self.k}-batch-hier-vb-beta-precomputed"
+			# if not os.path.exists(os.path.join(tmpdirname, sf)):
+			# 	os.mkdir(os.path.join(tmpdirname, sf))
+				
+			for file in self._cache.keys():
+				with open(os.path.join(tmpdirname, file), "w") as f:
+					f.write(self._cache[file])
 
 			# Run hgaprec
 			bnpf_p = Popen((
@@ -125,7 +125,7 @@ class HPF:
 			), cwd=tmpdirname)
 			bnpf_p.wait()
 			if bnpf_p.returncode != 0:
-				logging.error("HPF failed to execute external binary 'gaprec' (check $PATH)")
+				logging.error("HPF failed to execute external binary 'hgaprec' (check $PATH)")
 				raise RuntimeError()
 			sf = f"n{X.shape[0]}-m{X.shape[1]}-k{self.k}-batch-hier-vb-beta-precomputed"
 			return np.loadtxt(os.path.join(tmpdirname, sf, "htheta.tsv"))[:, 2:]
