@@ -7,6 +7,7 @@ import logging
 import scipy.sparse as sparse
 from sklearn.model_selection import train_test_split
 from sklearn.exceptions import NotFittedError
+from scipy.special import gammaln, digamma
 
 
 class HPF:
@@ -26,6 +27,66 @@ class HPF:
 		self.theta: np.ndarray = None
 
 		self._cache: Dict[str, str] = {}
+
+	def fit_python(self, X: sparse.coo_matrix) -> None:
+		"""
+		Fit an HPF model to the data matrix
+
+		Args:
+			X      			Data matrix, shape (n_users, n_items)
+
+		Remarks:
+			TODO check this
+			After fitting, the factor matrices beta and theta are available as self.beta of shape
+			(n_users, k) and self.theta of shape (k, n_items)
+		"""
+		if type(X) is not sparse.coo_matrix:
+			raise TypeError("Input matrix must be in sparse.coo_matrix format")
+		
+		(n_users, n_items) = X.shape
+		(a, b, c, d) = (self.a, self.b, self.c, self.d)
+		k = self.k
+		(u, i, y) = (X.row, X.col, X.data)
+
+		kappa_shape = np.zeros(n_users) + a + k * b
+		kappa_rate = np.zeros(n_users)
+		gamma_shape = np.zeros((n_users, k))  # TODO: add prior
+		gamma_rate = np.zeros((n_users, k))   # TODO: add prior
+
+		tau_shape = np.zeros(n_items) + c + k * d
+		tau_rate = np.zeros(n_items)
+		lambda_shape = np.zeros((n_items, k))  # TODO: add prior
+		lambda_rate = np.zeros((n_items, k))   # TODO: add prior
+
+		while True:
+			# Make them nonzero and calculate phi
+			gamma_shape += 1e-30
+			gamma_rate += 1e-30
+			kappa_shape += 1e-30
+			kappa_rate += 1e-30
+			
+			# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
+			# Shape of phi will be (nnz, k)
+			y_phi = y * np.exp(digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :]))
+
+			# Upate the variational parameters corresponding to theta (the users)
+			y_phi_sum_u = sparse.coo_matrix((u, i, y_phi[0]), X.shape).sum(axis=0)
+			for ix in range(1, k):
+				y_phi_sum_u += sparse.coo_matrix((u, i, y_phi[ix]), X.shape).sum(axis=0)
+			gamma_shape = a + y_phi_sum_u
+			gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0).T
+			kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
+
+			# Upate the variational parameters corresponding to beta (the items)
+			y_phi_sum_i = sparse.coo_matrix((u, i, y_phi[0]), X.shape).sum(axis=1)
+			for ix in range(1, k):
+				y_phi_sum_i += sparse.coo_matrix((u, i, y_phi[ix]), X.shape).sum(axis=1)
+			lambda_shape = c + y_phi_sum_i
+			lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0).T
+			tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
+
+			# Compute the log likelihood
+			
 
 	def fit(self, X: sparse.coo_matrix) -> None:
 		"""
@@ -120,7 +181,6 @@ class HPF:
 				"-b", str(self.b),
 				"-c", str(self.c),
 				"-d", str(self.d),
-				"-hier",
 				"-beta-precomputed"
 			), cwd=tmpdirname)
 			bnpf_p.wait()
