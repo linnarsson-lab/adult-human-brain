@@ -10,6 +10,17 @@ from sklearn.exceptions import NotFittedError
 from scipy.special import gammaln, digamma
 
 
+def make_nonzero(a: np.ndarray) -> np.ndarray:
+	"""
+	Make the array nonzero in place, by replacing zeros with 1e-30
+
+	Returns:
+		a	The input array
+	"""
+	a[a == 0.0] = 1e-30
+	return a
+
+
 class HPF:
 	"""
 	Bayesian scalable hierarchical Poisson matrix factorization
@@ -59,13 +70,13 @@ class HPF:
 		lambda_rate = np.zeros((n_items, k))   # TODO: add prior
 
 		while True:
-			# Make them nonzero and calculate phi
-			gamma_shape += 1e-30
-			gamma_rate += 1e-30
-			kappa_shape += 1e-30
-			kappa_rate += 1e-30
+			make_nonzero(gamma_shape)
+			make_nonzero(gamma_rate)
+			make_nonzero(lambda_shape)
+			make_nonzero(lambda_rate)
 			
 			# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
+			# phi is calculated on log scale from expectations of the gammas, then exponentiated, hence the digamma and log terms
 			# Shape of phi will be (nnz, k)
 			y_phi = y * np.exp(digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :]))
 
@@ -85,8 +96,13 @@ class HPF:
 			lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0).T
 			tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
 
-			# Compute the log likelihood
-			
+			# Compute the log likelihood and assess convergence
+			egamma = make_nonzero(gamma_shape / gamma_rate)
+			elambda = make_nonzero(lambda_shape / lambda_rate)
+			# Sum over k for the expectations
+			# This is really a dot product but we're only computing it for the nonzeros (indexed by u and i)
+			s = (egamma[u] * elambda[i]).sum(axis=1)
+			log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
 
 	def fit(self, X: sparse.coo_matrix) -> None:
 		"""
