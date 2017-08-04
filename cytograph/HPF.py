@@ -39,7 +39,7 @@ class HPF:
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
 
-		self._cache: Dict[str, str] = {}
+		self.log_likelihoods: List[float] = []
 
 	def fit(self, X: sparse.coo_matrix) -> None:
 		"""
@@ -74,7 +74,7 @@ class HPF:
 		lambda_shape = np.full((n_items, k), c) + np.random.uniform(1, 0.1, (n_items, k))
 		lambda_rate = np.full((n_items, k), d) + np.random.uniform(1, 1.1, (n_items, k))
 
-		log_likelihoods = []
+		self.log_likelihoods = []
 		n_iter = 0
 		while True:
 			n_iter += 1
@@ -84,12 +84,14 @@ class HPF:
 			make_nonzero(lambda_rate)
 
 			# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
-			# phi is calculated on log scale from expectations of the gammas, then exponentiated, hence the digamma and log terms
+			# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 			# Shape of phi will be (nnz, k)
 			phi = digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :])
+			# Multiply y by phi normalized (in log space) along the k axis
 			y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
 			
 			# Upate the variational parameters corresponding to theta (the users)
+			# Sum of y_phi over users, for each k
 			y_phi_sum_u = np.zeros((n_users, k))
 			for ix in range(k):
 				y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
@@ -98,15 +100,17 @@ class HPF:
 			kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
 
 			# Upate the variational parameters corresponding to beta (the items)
+			# Sum of y_phi over items, for each k
 			y_phi_sum_i = np.zeros((n_items, k))
 			for ix in range(k):
 				y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
 			lambda_shape = c + y_phi_sum_i
-			lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)[None, :]
+			lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
 			tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
 
 			if n_iter % self.stop_interval == 0:
 				# Compute the log likelihood and assess convergence
+				# Expectations
 				egamma = make_nonzero(gamma_shape / gamma_rate)
 				elambda = make_nonzero(lambda_shape / lambda_rate)
 				# Sum over k for the expectations
@@ -114,7 +118,7 @@ class HPF:
 				s = (egamma[u] * elambda[i]).sum(axis=1)
 				# We use gammaln to compute the log factorial, hence the "y + 1"
 				log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
-				log_likelihoods.append(log_likelihood)
+				self.log_likelihoods.append(log_likelihood)
 
 				# Time to stop?
 				if n_iter >= self.max_iter:
@@ -122,8 +126,8 @@ class HPF:
 
 				# Check for convergence
 				# TODO: allow for small fluctuations?
-				if len(log_likelihoods) > 1:
-					prev_ll = log_likelihoods[-2]
+				if len(self.log_likelihoods) > 1:
+					prev_ll = self.log_likelihoods[-2]
 					diff = abs((log_likelihood - prev_ll) / prev_ll)
 					logging.info(f"Iteration {n_iter}, ll = {log_likelihood}, diff = {diff}")
 					if diff < 0.000001:
