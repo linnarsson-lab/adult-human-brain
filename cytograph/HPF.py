@@ -34,7 +34,7 @@ class HPF:
 		self.c = c
 		self.d = d
 		self.max_iter = max_iter
-		self.stop_interval = max(5, stop_interval)
+		self.stop_interval = stop_interval
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
@@ -66,13 +66,13 @@ class HPF:
 		# Initialize the variational parameters with priors
 		kappa_shape = np.full(n_users, a) + np.random.uniform(0, 0.1, n_users)
 		kappa_rate = np.full(n_users, b + k)
-		gamma_shape = np.full((n_users, k), a) + np.random.uniform(1, 1.1, (n_users, k))
-		gamma_rate = np.full((n_users, k), b) + np.random.uniform(1, 1.1, (n_users, k))
+		gamma_shape = np.full((n_users, k), a) + np.random.uniform(0, 0.1, (n_users, k))
+		gamma_rate = np.full((n_users, k), b) + np.random.uniform(0, 0.1, (n_users, k))
 
 		tau_shape = np.full(n_items, c) + np.random.uniform(0, 0.1, n_items)
 		tau_rate = np.full(n_items, d + k)
 		lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
-		lambda_rate = np.full((n_items, k), d) + np.random.uniform(1, 1.1, (n_items, k))
+		lambda_rate = np.full((n_items, k), d) + np.random.uniform(0, 0.1, (n_items, k))
 
 		self.log_likelihoods = []
 		n_iter = 0
