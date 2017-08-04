@@ -7,7 +7,7 @@ import logging
 import scipy.sparse as sparse
 from sklearn.model_selection import train_test_split
 from sklearn.exceptions import NotFittedError
-from scipy.special import gammaln, digamma
+from scipy.special import gammaln, digamma, psi
 from scipy.misc import logsumexp
 
 
@@ -69,9 +69,9 @@ class HPF:
 		gamma_shape = np.full((n_users, k), a) + np.random.uniform(1, 1.1, (n_users, k))
 		gamma_rate = np.full((n_users, k), b) + np.random.uniform(1, 1.1, (n_users, k))
 
-		tau_shape = np.full(n_items, c) + np.random.uniform(1, 0.1, n_items)
+		tau_shape = np.full(n_items, c) + np.random.uniform(0, 0.1, n_items)
 		tau_rate = np.full(n_items, d + k)
-		lambda_shape = np.full((n_items, k), c) + np.random.uniform(1, 0.1, (n_items, k))
+		lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
 		lambda_rate = np.full((n_items, k), d) + np.random.uniform(1, 1.1, (n_items, k))
 
 		self.log_likelihoods = []
@@ -86,6 +86,7 @@ class HPF:
 			# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 			# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 			# Shape of phi will be (nnz, k)
+			# TODO: digamma function is superslow!!!
 			phi = digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :])
 			# Multiply y by phi normalized (in log space) along the k axis
 			# TODO: this normalization is one of the slowest steps, could be accelerated using numba
