@@ -88,6 +88,7 @@ class HPF:
 			# Shape of phi will be (nnz, k)
 			phi = digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :])
 			# Multiply y by phi normalized (in log space) along the k axis
+			# TODO: this normalization is one of the slowest steps, could be accelerated using numba
 			y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
 			
 			# Upate the variational parameters corresponding to theta (the users)
