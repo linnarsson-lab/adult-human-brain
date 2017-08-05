@@ -14,7 +14,7 @@ import math
 
 
 @vectorize([float64(float64), float32(float32)], nopython=True)
-def simple_digamma(x: Any) -> Any:
+def simple_digamma(x):
     r = 0
 
     while (x <= 5):
@@ -29,9 +29,7 @@ def simple_digamma(x: Any) -> Any:
 
 
 @jit(float64[:, :](int64[:], int64[:], float64[:, :], float64[:, :], float64[:, :], float64[:, :]), parallel=False)
-def calculate_phi(u: np.ndarray, i: np.ndarray,
-                  gamma_shape: np.ndarray, gamma_rate: np.ndarray,
-                  lambda_shape: np.ndarray, lambda_rate: np.ndarray) -> np.ndarray:
+def calculate_phi(u, i, gamma_shape, gamma_rate, lambda_shape, lambda_rate):
     a = simple_digamma(gamma_shape[u, :])
     b = - np.log(gamma_rate[u, :])
     c = simple_digamma(lambda_shape[i, :])
