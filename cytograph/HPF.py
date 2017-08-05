@@ -29,7 +29,8 @@ def numexpr_logsumexp(x: np.ndarray, axis: int=None) -> np.ndarray:
 def y_phi_calculation(y: np.ndarray, phi: np.ndarray) -> np.ndarray:
     return numexpr.evaluate("y * exp(phi - logsumexp)",
                             local_dict={"y": y[:, None],
-                                        "logsumexp": numexpr_logsumexp(phi, axis=1)[:, None]})
+                                        "logsumexp": numexpr_logsumexp(phi, axis=1)[:, None],
+                                        "phi": phi})
 
 
 def update_x_r(x: np.ndarray, r: np.ndarray) -> None:
