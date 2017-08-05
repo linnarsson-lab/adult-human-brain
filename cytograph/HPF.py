@@ -45,7 +45,7 @@ def update_x_r(x: np.ndarray, r: np.ndarray) -> None:
 
 def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     """See https://en.wikipedia.org/wiki/Digamma_function#Computation_and_approximation
-    and 
+    and
     https://github.com/probml/pmtksupport/blob/master/GPstuff-2.0/dist/winCsource/digamma1.c
     or
     https://gist.github.com/miksu/223d81add9df8f878d75d39caa42873f
@@ -54,7 +54,7 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     r = np.zeros_like(x)
     update_x_r(x, r)
     crazy_expr = "r + log(x) - 1/(2*x) + (1/(x*x))*(-1/12.0 + (1/(x*x))*(1/120 + (1/(x*x))*(-1/252 + (1/(x*x))*(1/240 + (1/(x*x))*(-1/132 + (1/(x*x))*(691/32760 + (1/(x*x))*(-1/12 + (1/(x*x))*3617/8160)))))))"
-    numexpr.evaluate(crazy_expr, out=x, casting="same_kind")
+    numexpr.evaluate(crazy_expr, out=x)  # casting="same_kind"
     return x
 
 
@@ -316,53 +316,52 @@ class HPFprofiled:
 
         self.log_likelihoods = []
         n_iter = 0
-        clock = Clock()
+        # clock = Clock()
         while True:
             n_iter += 1
-            clock.tic()
+            # clock.tic()
             make_nonzero(gamma_shape)
             make_nonzero(gamma_rate)
             make_nonzero(lambda_shape)
             make_nonzero(lambda_rate)
-            logging.debug("make_nonzero %.4e" % clock.toc())
+            # logging.debug("make_nonzero %.4e" % clock.toc())
 
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
-            clock.tic()
+            # clock.tic()
             phi = numexpr_digamma(gamma_shape[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_logprod(gamma_rate[u, :], lambda_rate[i, :])
-            logging.debug("phi_calc %.4e" % clock.toc())
+            # logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
-            clock.tic()
+            # clock.tic()
             y_phi = y_phi_calculation(y, phi)
-            logging.debug("y_phi_calc %.4e" % clock.toc())
+            # logging.debug("y_phi_calc %.4e" % clock.toc())
 
-            clock.tic()
+            # clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
             y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape, 1)
-            logging.debug("theta_update_p1 %.4e" % clock.toc())
-            clock.tic()
+            # logging.debug("theta_update_p1 %.4e" % clock.toc())
+            # clock.tic()
             gamma_shape = a + y_phi_sum_u
             gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
             kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
-            logging.debug("theta_update_p1 %.4e" % clock.toc())
+            # logging.debug("theta_update_p1 %.4e" % clock.toc())
 
             if not beta_precomputed:
-                clock.tic()
+                # clock.tic()
                 # Upate the variational parameters corresponding to beta (the items)
                 # Sum of y_phi over items, for each k
                 y_phi_sum_i = special_concatenate(y_phi, u, i, k, X.shape, 0)
-                logging.debug("beta_update_p1 %.4e" % clock.toc())
-                clock.tic()
+                # logging.debug("beta_update_p1 %.4e" % clock.toc())
+                # clock.tic()
                 lambda_shape = c + y_phi_sum_i
                 lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
                 tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
-                logging.debug("beta_update_p2 %.4e" % clock.toc())
+                # logging.debug("beta_update_p2 %.4e" % clock.toc())
                 
-
             if n_iter % self.stop_interval == 0:
-                clock.tic()
+                # clock.tic()
                 # Compute the log likelihood and assess convergence
                 # Expectations
                 egamma = make_nonzero(gamma_shape / gamma_rate)
@@ -373,7 +372,7 @@ class HPFprofiled:
                 # We use gammaln to compute the log factorial, hence the "y + 1"
                 log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
                 self.log_likelihoods.append(log_likelihood)
-                logging.debug("compute_lik %.4e" % clock.toc())
+                # logging.debug("compute_lik %.4e" % clock.toc())
 
                 # Time to stop?
                 if n_iter >= self.max_iter:
@@ -381,19 +380,19 @@ class HPFprofiled:
 
                 # Check for convergence
                 if len(self.log_likelihoods) > 1:
-                    clock.tic()
+                    # clock.tic()
                     prev_ll = self.log_likelihoods[-2]
                     diff = abs((log_likelihood - prev_ll) / prev_ll)
                     logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {diff:.6f}")
-                    logging.debug("log_lik_calc %.4e" % clock.toc())
+                    # logging.debug("log_lik_calc %.4e" % clock.toc())
                     if diff < self.stop_at_ll:
                         break
         # End of the main fitting loop
         # Compute beta and theta, which are given by the expectations, i.e. shape / rate
-        clock.tic()
+        # clock.tic()
         beta = lambda_shape / lambda_rate
         theta = gamma_shape / gamma_rate
-        logging.debug("finalize %.4e" % clock.toc())
+        # logging.debug("finalize %.4e" % clock.toc())
 
         if not beta_precomputed:
             # Save these for future use in self.transform()
