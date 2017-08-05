@@ -14,7 +14,7 @@ import math
 
 
 @vectorize([float64(float64), float32(float32)], nopython=True)
-def simple_digamma(x: Any) -> Any:
+def simple_digamma(x):
 	r = 0
 
 	while (x <= 5):
