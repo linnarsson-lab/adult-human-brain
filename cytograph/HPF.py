@@ -173,7 +173,7 @@ class HPF:
 				if len(self.log_likelihoods) > 1:
 					prev_ll = self.log_likelihoods[-2]
 					diff = abs((log_likelihood - prev_ll) / prev_ll)
-					logging.info(f"Iteration {n_iter}, ll = {log_likelihood}, diff = {diff}")
+					logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {diff:.6f}")
 					if diff < 0.000001:
 						break
 		# End of the main fitting loop
