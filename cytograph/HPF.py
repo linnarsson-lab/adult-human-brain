@@ -79,12 +79,19 @@ class HPF:
             TODO check this
             After fitting, the factor matrices beta and theta are available as self.beta of shape
             (n_users, k) and self.theta of shape (k, n_items)
+
+        PROFILING RESULTS of input 1500 samples, 1000 genes
+        make_nonzero 2.1148e-04
+        digamma normalization 1.5492e+00
+        theta update 1.3353e-01
+        beta update 1.4134e-01
+        loglik computation 1.0144e-01
         """
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
         clock = Clock()  # PROFILING
-        clock.tic()
+        
         # Create local variables for convenience
         (n_users, n_items) = X.shape
         (a, b, c, d) = (self.a, self.b, self.c, self.d)
@@ -103,30 +110,35 @@ class HPF:
         lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
         lambda_rate = np.full((n_items, k), d) + np.random.uniform(0, 0.1, (n_items, k))
         
-        logging.debug("Initialization %.4e" % clock.toc())  # PROFILING
-
         self.log_likelihoods = []
         n_iter = 0
         while True:
             n_iter += 1
-            clock.tic()  # PROFILING
             make_nonzero(gamma_shape)
             make_nonzero(gamma_rate)
             make_nonzero(lambda_shape)
             make_nonzero(lambda_rate)
             logging.debug("make_nonzero %.4e" % clock.toc())  # PROFILING
 
-            clock.tic()  # PROFILING
+            
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
             # TODO: digamma function can be superslow depending imput parameters!!!
-            phi = simple_digamma(gamma_shape[u, :]) - np.log(gamma_rate[u, :]) + simple_digamma(lambda_shape[i, :]) - np.log(lambda_rate[i, :])
+            clock.tic()  # PROFILING
+            phi_digamma_part = simple_digamma(gamma_shape[u, :]) + simple_digamma(lambda_shape[i, :])
+            logging.debug("phi_digamma calculation %.4e" % clock.toc())  # PROFILING
+            clock.tic()  # PROFILING
+            phi_log_part = - np.log(gamma_rate[u, :]) - np.log(lambda_rate[i, :])
+            logging.debug("phi_log calculation %.4e" % clock.toc())  # PROFILING
+            phi = phi_digamma_part + phi_log_part
+            
+            clock.tic()
             # Multiply y by phi normalized (in log space) along the k axis
             # TODO: this normalization is one of the slowest steps, could be accelerated using numba
             y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
-            logging.debug("digamma normalization %.4e" % clock.toc())  # PROFILING
-
+            logging.debug("y_phi calculation %.4e" % clock.toc())
+            
             clock.tic()  # PROFILING
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
