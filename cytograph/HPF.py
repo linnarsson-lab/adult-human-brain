@@ -173,13 +173,13 @@ class HPF:
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
-            # clock.tic()
+            clock.tic()
             phi = numexpr_digamma(gamma_shape)[u, :] + numexpr_digamma(lambda_shape)[i, :] - fast_log(gamma_rate)[u, :] - fast_log(lambda_rate)[i, :]
-            # logging.debug("phi_calc %.4e" % clock.toc())
+            logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
-            # clock.tic()
+            clock.tic()
             y_phi = y_phi_calculation(y, phi)
-            # logging.debug("y_phi_calc %.4e" % clock.toc())
+            logging.debug("y_phi_calc %.4e" % clock.toc())
 
             # clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
