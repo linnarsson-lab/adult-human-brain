@@ -276,7 +276,10 @@ class HPFprofiled:
         self.theta = theta
         return self
 
-    def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False, n_threads: int=None) -> Tuple[np.ndarray, np.ndarray]:
+
+        if n_threads is not None:
+            previous_setting = numexpr.set_num_threads(int(n_threads))
         # Create local variables for convenience
         (n_users, n_items) = X.shape
         (a, b, c, d) = (self.a, self.b, self.c, self.d)
@@ -306,10 +309,12 @@ class HPFprofiled:
         clock = Clock()
         while True:
             n_iter += 1
+            clock.tic()
             make_nonzero(gamma_shape)
             make_nonzero(gamma_rate)
             make_nonzero(lambda_shape)
             make_nonzero(lambda_rate)
+            logging.debug("make_nonzero %.4e" % clock.toc())
 
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
@@ -359,7 +364,7 @@ class HPFprofiled:
                 # We use gammaln to compute the log factorial, hence the "y + 1"
                 log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
                 self.log_likelihoods.append(log_likelihood)
-                logging.debug("beta_update %.4e" % clock.toc())
+                logging.debug("compute_lik %.4e" % clock.toc())
 
                 # Time to stop?
                 if n_iter >= self.max_iter:
@@ -388,6 +393,9 @@ class HPFprofiled:
             self._lambda_shape = lambda_shape
             self._lambda_rate = lambda_rate
 
+        if n_threads is not None:
+            numexpr.set_num_threads(previous_setting)
+        
         return (beta, theta)
 
     def transform(self, X: sparse.coo_matrix) -> np.ndarray:
