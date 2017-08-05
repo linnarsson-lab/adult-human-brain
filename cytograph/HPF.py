@@ -38,28 +38,23 @@ def y_phi_calculation(y: np.ndarray, phi: np.ndarray) -> np.ndarray:
 
 
 def update_x_r(x: np.ndarray, r: np.ndarray) -> None:
-    numexpr.evaluate('where(x<=5, r-1/x, r)', out=r)
-    numexpr.evaluate('where(x<=5, x+1, x)', out=x)
-    for i in range(4):
+    for i in range(5):
         numexpr.evaluate('where(x<=5, r-1/x, r)', out=r)
         numexpr.evaluate('where(x<=5, x+1, x)', out=x)
 
 
-def numexpr_digamma(a: np.ndarray, inpalce: bool=False) -> np.ndarray:
+def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     """See https://en.wikipedia.org/wiki/Digamma_function#Computation_and_approximation
     and 
     https://github.com/probml/pmtksupport/blob/master/GPstuff-2.0/dist/winCsource/digamma1.c
     or
     https://gist.github.com/miksu/223d81add9df8f878d75d39caa42873f
     """
-    if inpalce:
-        x = a
-    else:
-        x = np.copy(a)
+    x = np.array(a, dtype="float32")
     r = np.zeros_like(x)
     update_x_r(x, r)
-    crazy_expr = "r + log(x) - 0.5/x + (1/(x*x))*(-1/12.0 + (1/(x*x))*(1/120 + (1/(x*x))*(-1/252 + (1/(x*x))*(1/240 + (1/(x*x))*(-1/132 + (1/(x*x))*(691/32760 + (1/(x*x))*(-1/12 + (1/(x*x))*3617/8160)))))))"
-    numexpr.evaluate(crazy_expr, out=x)  # casting="same_kind" ca be used if we move to float 32
+    crazy_expr = "r + log(x) - 1/(2*x) + (1/(x*x))*(-1/12.0 + (1/(x*x))*(1/120 + (1/(x*x))*(-1/252 + (1/(x*x))*(1/240 + (1/(x*x))*(-1/132 + (1/(x*x))*(691/32760 + (1/(x*x))*(-1/12 + (1/(x*x))*3617/8160)))))))"
+    numexpr.evaluate(crazy_expr, out=x, casting="same_kind")
     return x
 
 
@@ -257,7 +252,7 @@ class HPFprofiled:
         self._lambda_rate: np.ndarray = None
         self._lambda_shape: np.ndarray = None
 
-    def fit(self, X: sparse.coo_matrix) -> Any:
+    def fit(self, X: sparse.coo_matrix, n_threads: int=None) -> Any:
         """
         Fit an HPF model to the data matrix
 
@@ -271,7 +266,7 @@ class HPFprofiled:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-        (beta, theta) = self._fit(X)
+        (beta, theta) = self._fit(X, n_threads=n_threads)
         self.beta = beta
         self.theta = theta
         return self
@@ -319,12 +314,10 @@ class HPFprofiled:
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
-            # TODO: digamma function can be superslow depending imput parameters!!!
             clock.tic()
             phi = numexpr_digamma(gamma_shape[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_logprod(gamma_rate[u, :], lambda_rate[i, :])
             logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
-            # TODO: this normalization is one of the slowest steps, could be accelerated using numba
             clock.tic()
             y_phi = y_phi_calculation(y, phi)
             logging.debug("y_phi_calc %.4e" % clock.toc())
