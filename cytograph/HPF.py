@@ -160,7 +160,7 @@ class HPF:
 
         self.log_likelihoods = []
         n_iter = 0
-        # clock = Clock()
+        clock = Clock()
         while True:
             n_iter += 1
             # clock.tic()
