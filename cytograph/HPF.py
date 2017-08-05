@@ -58,13 +58,19 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     return x
 
 
-@jit("float64[:,:](float64[:,:], int32[:], int32[:], int64, int64)", nopython=True)
-def special_concatenate(y_phi, u, i, k, n_cells):
-    y_phi_sum_u = np.zeros((n_cells, k), dtype=np.float64)
-    for ix in range(k):
-        for n in range(len(u)):
-            y_phi_sum_u[u[n], ix] += y_phi[n, ix]
-    return y_phi_sum_u
+@jit("float64[:,:](float64[:,:], int32[:], int32[:], int64, Tuple((int64,int64)), int64)", nopython=True)
+def special_concatenate(y_phi, u, i, k, Xshape, axis):
+    if axis == 1:
+        y_phi_sum = np.zeros((Xshape[0], k), dtype=np.float64)
+        for ix in range(k):   
+            for n in range(len(u)):
+                y_phi_sum[u[n], ix] += y_phi[n, ix]
+    elif axis == 0:
+        y_phi_sum = np.zeros((Xshape[1], k), dtype=np.float64)
+        for ix in range(k):   
+            for n in range(len(i)):
+                y_phi_sum[i[n], ix] += y_phi[n, ix]
+    return y_phi_sum
 
 
 def make_nonzero(a: np.ndarray) -> np.ndarray:
@@ -334,7 +340,7 @@ class HPFprofiled:
             clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
-            y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape[0])
+            y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape, 1)
             logging.debug("theta_update_p1 %.4e" % clock.toc())
             clock.tic()
             gamma_shape = a + y_phi_sum_u
@@ -346,13 +352,14 @@ class HPFprofiled:
                 clock.tic()
                 # Upate the variational parameters corresponding to beta (the items)
                 # Sum of y_phi over items, for each k
-                y_phi_sum_i = np.zeros((n_items, k))
-                for ix in range(k):
-                    y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
+                y_phi_sum_i = special_concatenate(y_phi, u, i, k, X.shape, 0)
+                logging.debug("beta_update_p1 %.4e" % clock.toc())
+                clock.tic()
                 lambda_shape = c + y_phi_sum_i
                 lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
                 tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
-                logging.debug("beta_update %.4e" % clock.toc())
+                logging.debug("beta_update_p2 %.4e" % clock.toc())
+                
 
             if n_iter % self.stop_interval == 0:
                 clock.tic()
