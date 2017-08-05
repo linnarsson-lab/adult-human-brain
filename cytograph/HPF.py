@@ -83,6 +83,9 @@ class HPF:
         PROFILING RESULTS of input 1500 samples, 1000 genes
         make_nonzero 2.1148e-04
         digamma normalization 1.5492e+00
+            phi_digamma calculation 6.5351e-01
+            phi_log calculation 5.3066e-01
+            y_phi calculation 4.2811e-01
         theta update 1.3353e-01
         beta update 1.4134e-01
         loglik computation 1.0144e-01
