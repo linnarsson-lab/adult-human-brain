@@ -62,7 +62,7 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
 def special_concatenate(y_phi, u, i, k, Xshape, axis):
     if axis == 1:
         y_phi_sum = np.zeros((Xshape[0], k), dtype=np.float64)
-        for ix in range(k):   
+        for ix in range(k):
             for n in range(len(u)):
                 y_phi_sum[u[n], ix] += y_phi[n, ix]
     elif axis == 0:
@@ -108,7 +108,7 @@ class HPF:
         self._lambda_rate: np.ndarray = None
         self._lambda_shape: np.ndarray = None
 
-    def fit(self, X: sparse.coo_matrix) -> Any:
+    def fit(self, X: sparse.coo_matrix, n_threads: int=None) -> Any:
         """
         Fit an HPF model to the data matrix
 
@@ -122,12 +122,15 @@ class HPF:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-        (beta, theta) = self._fit(X)
+        (beta, theta) = self._fit(X, n_threads=n_threads)
         self.beta = beta
         self.theta = theta
         return self
 
-    def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False, n_threads: int=None) -> Tuple[np.ndarray, np.ndarray]:
+
+        if n_threads is not None:
+            previous_setting = numexpr.set_num_threads(int(n_threads))
         # Create local variables for convenience
         (n_users, n_items) = X.shape
         (a, b, c, d) = (self.a, self.b, self.c, self.d)
@@ -154,27 +157,26 @@ class HPF:
 
         self.log_likelihoods = []
         n_iter = 0
+
         while True:
             n_iter += 1
+            
             make_nonzero(gamma_shape)
             make_nonzero(gamma_rate)
             make_nonzero(lambda_shape)
             make_nonzero(lambda_rate)
-
+            
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
-            # TODO: digamma function can be superslow depending imput parameters!!!
-            phi = numexpr_digamma(gamma_shape[u, :]) - fast_log(gamma_rate[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_log(lambda_rate[i, :])
+            phi = numexpr_digamma(gamma_shape[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_logprod(gamma_rate[u, :], lambda_rate[i, :])
             # Multiply y by phi normalized (in log space) along the k axis
-            # TODO: this normalization is one of the slowest steps, could be accelerated using numba
-            y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
-            
+            y_phi = y_phi_calculation(y, phi)
+
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
-            y_phi_sum_u = np.zeros((n_users, k))
-            for ix in range(k):
-                y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
+            y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape, 1)
+            
             gamma_shape = a + y_phi_sum_u
             gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
             kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
@@ -182,12 +184,11 @@ class HPF:
             if not beta_precomputed:
                 # Upate the variational parameters corresponding to beta (the items)
                 # Sum of y_phi over items, for each k
-                y_phi_sum_i = np.zeros((n_items, k))
-                for ix in range(k):
-                    y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
+                y_phi_sum_i = special_concatenate(y_phi, u, i, k, X.shape, 0)
                 lambda_shape = c + y_phi_sum_i
                 lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
                 tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
+                
 
             if n_iter % self.stop_interval == 0:
                 # Compute the log likelihood and assess convergence
@@ -224,9 +225,12 @@ class HPF:
             self._lambda_shape = lambda_shape
             self._lambda_rate = lambda_rate
 
+        if n_threads is not None:
+            numexpr.set_num_threads(previous_setting)
+        
         return (beta, theta)
 
-    def transform(self, X: sparse.coo_matrix) -> np.ndarray:
+    def transform(self, X: sparse.coo_matrix, n_threads: int=None) -> np.ndarray:
         """
         Transform the data matrix using an already fitted HPF model
 
@@ -239,7 +243,7 @@ class HPF:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-        (beta, theta) = self._fit(X, beta_precomputed=True)
+        (beta, theta) = self._fit(X, beta_precomputed=True, n_threads=n_threads)
         return theta
 
 
@@ -407,7 +411,7 @@ class HPFprofiled:
         
         return (beta, theta)
 
-    def transform(self, X: sparse.coo_matrix) -> np.ndarray:
+    def transform(self, X: sparse.coo_matrix, n_threads: int=None) -> np.ndarray:
         """
         Transform the data matrix using an already fitted HPF model
 
@@ -420,7 +424,7 @@ class HPFprofiled:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-        (beta, theta) = self._fit(X, beta_precomputed=True)
+        (beta, theta) = self._fit(X, beta_precomputed=True, n_threads=n_threads)
         return theta
 
 
