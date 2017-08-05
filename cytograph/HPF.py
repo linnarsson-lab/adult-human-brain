@@ -58,6 +58,15 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     return x
 
 
+@jit("float64[:,:](float64[:,:], int64[:], int64[:], int64, int64)", nopython=True)
+def special_concatenate(y_phi, u, i, k, n_cells):
+    y_phi_sum_u = np.zeros((n_cells, k), dtype=np.float64)
+    for ix in range(k):
+        for n in range(len(u)):
+            y_phi_sum_u[u[n], ix] += y_phi[n, ix]
+    return y_phi_sum_u
+
+
 def make_nonzero(a: np.ndarray) -> np.ndarray:
     """
     Make the array nonzero in place, by replacing zeros with 1e-30
@@ -325,13 +334,13 @@ class HPFprofiled:
             clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
-            y_phi_sum_u = np.zeros((n_users, k))
-            for ix in range(k):
-                y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
+            y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape[0])
+            logging.debug("theta_update_p1 %.4e" % clock.toc())
+            clock.tic()
             gamma_shape = a + y_phi_sum_u
             gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
             kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
-            logging.debug("theta_update %.4e" % clock.toc())
+            logging.debug("theta_update_p1 %.4e" % clock.toc())
 
             if not beta_precomputed:
                 clock.tic()
