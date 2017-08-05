@@ -54,7 +54,7 @@ class HPF:
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
 	"""
-	def __init__(self, k: int, a: float = 0.3, b: float = 0.3, c: float = 0.3, d: float = 0.3, max_iter: int = 1000, stop_interval: int = 10) -> None:
+	def __init__(self, k: int, a: float = 0.3, b: float = 0.3, c: float = 0.3, d: float = 0.3, max_iter: int = 1000, stop_interval: int = 10, stop_at_ll: float = 0.000001) -> None:
 		self.k = k
 		self.a = a
 		self.b = b
@@ -62,6 +62,7 @@ class HPF:
 		self.d = d
 		self.max_iter = max_iter
 		self.stop_interval = stop_interval
+		self.stop_at_ll = stop_at_ll
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
@@ -170,12 +171,11 @@ class HPF:
 					break
 
 				# Check for convergence
-				# TODO: allow for small fluctuations?
 				if len(self.log_likelihoods) > 1:
 					prev_ll = self.log_likelihoods[-2]
 					diff = abs((log_likelihood - prev_ll) / prev_ll)
 					logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {diff:.6f}")
-					if diff < 0.000001:
+					if diff < self.stop_at_ll:
 						break
 		# End of the main fitting loop
 		# Compute beta and theta, which are given by the expectations, i.e. shape / rate
