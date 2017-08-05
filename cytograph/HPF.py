@@ -330,7 +330,6 @@ class HPFprofiled:
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
             # clock.tic()
-            logging.debug(f"{np.min(gamma_shape[u, :])}, {np.max(gamma_shape[u, :])}; {np.min(lambda_shape[i, :])}, {np.max(lambda_shape[i, :])}")
             phi = numexpr_digamma(gamma_shape[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_logprod(gamma_rate[u, :], lambda_rate[i, :])
             # logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
