@@ -19,6 +19,10 @@ def fast_log(x: np.ndarray) -> np.ndarray:
     return numexpr.evaluate('log(x)')
 
 
+def fast_logprod(a, b):
+    return numexpr.evaluate("log(a) + log(b)")
+
+
 def numexpr_logsumexp(x: np.ndarray, axis: int=None) -> np.ndarray:
     if axis is None:
         return fast_log(numexpr.evaluate("sum(exp(x))"))
@@ -47,9 +51,9 @@ def numexpr_digamma(a: np.ndarray, inpalce: bool=False) -> np.ndarray:
     else:
         x = np.copy(a)
     r = np.zeros_like(x)
-    update_x_r(x,r)
+    update_x_r(x, r)
     crazy_expr = "r + log(x) - 0.5/x + (1/(x*x))*(-1/12.0 + (1/(x*x))*(1/120 + (1/(x*x))*(-1/252 + (1/(x*x))*(1/240 + (1/(x*x))*(-1/132 + (1/(x*x))*(691/32760 + (1/(x*x))*(-1/12 + (1/(x*x))*3617/8160)))))))"
-    numexpr.evaluate(crazy_expr, out=x)
+    numexpr.evaluate(crazy_expr, out=x)  # casting="same_kind" ca be used if we move to float 32
     return x
 
 
@@ -306,7 +310,7 @@ class HPFprofiled:
             # Shape of phi will be (nnz, k)
             # TODO: digamma function can be superslow depending imput parameters!!!
             clock.tic()
-            phi = numexpr_digamma(gamma_shape[u, :]) - fast_log(gamma_rate[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_log(lambda_rate[i, :])
+            phi = numexpr_digamma(gamma_shape[u, :]) + numexpr_digamma(lambda_shape[i, :]) - fast_logprod(gamma_rate[u, :], lambda_rate[i, :])
             logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
             # TODO: this normalization is one of the slowest steps, could be accelerated using numba
