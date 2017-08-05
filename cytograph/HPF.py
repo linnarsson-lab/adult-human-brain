@@ -177,14 +177,15 @@ class HPF:
             # phi = (numexpr_digamma(gamma_shape) - fast_log(gamma_rate))[u, :] + (numexpr_digamma(lambda_shape) - fast_log(lambda_rate))[i, :]
             phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
             # logging.debug("phi_calc %.4e" % clock.toc())
+
             # Multiply y by phi normalized (in log space) along the k axis
             # clock.tic()
             y_phi = y_phi_calculation(y, phi)
             # logging.debug("y_phi_calc %.4e" % clock.toc())
-
-            # clock.tic()
+            
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
+            # clock.tic()
             y_phi_sum_u = np.zeros((n_users, k))
             for ix in range(k):
                 y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
