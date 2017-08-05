@@ -50,7 +50,7 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     or
     https://gist.github.com/miksu/223d81add9df8f878d75d39caa42873f
     """
-    x = np.array(a, dtype="float32")
+    x = np.array(a, dtype="float64")  # to use float32 and produce speedup you would need to avoid casting later on
     r = np.zeros_like(x)
     update_x_r(x, r)
     crazy_expr = "r + log(x) - 1/(2*x) + (1/(x*x))*(-1/12.0 + (1/(x*x))*(1/120 + (1/(x*x))*(-1/252 + (1/(x*x))*(1/240 + (1/(x*x))*(-1/132 + (1/(x*x))*(691/32760 + (1/(x*x))*(-1/12 + (1/(x*x))*3617/8160)))))))"
