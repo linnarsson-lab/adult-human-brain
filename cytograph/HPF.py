@@ -82,6 +82,8 @@ class HPF:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
+        clock = Clock()  # PROFILING
+        clock.tic()
         # Create local variables for convenience
         (n_users, n_items) = X.shape
         (a, b, c, d) = (self.a, self.b, self.c, self.d)
@@ -99,16 +101,21 @@ class HPF:
         tau_rate = np.full(n_items, d + k)
         lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
         lambda_rate = np.full((n_items, k), d) + np.random.uniform(0, 0.1, (n_items, k))
+        
+        logging.debug("Initialization %.4e" % clock.toc())  # PROFILING
 
         self.log_likelihoods = []
         n_iter = 0
         while True:
             n_iter += 1
+            clock.tic()  # PROFILING
             make_nonzero(gamma_shape)
             make_nonzero(gamma_rate)
             make_nonzero(lambda_shape)
             make_nonzero(lambda_rate)
+            logging.debug("make_nonzero %.4e" % clock.toc())  # PROFILING
 
+            clock.tic()  # PROFILING
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
@@ -117,7 +124,9 @@ class HPF:
             # Multiply y by phi normalized (in log space) along the k axis
             # TODO: this normalization is one of the slowest steps, could be accelerated using numba
             y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
-            
+            logging.debug("digamma normalization %.4e" % clock.toc())  # PROFILING
+
+            clock.tic()  # PROFILING
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
             y_phi_sum_u = np.zeros((n_users, k))
@@ -126,7 +135,9 @@ class HPF:
             gamma_shape = a + y_phi_sum_u
             gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
             kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
+            logging.debug("theta update %.4e" % clock.toc())  # PROFILING
 
+            clock.tic()  # PROFILING
             # Upate the variational parameters corresponding to beta (the items)
             # Sum of y_phi over items, for each k
             y_phi_sum_i = np.zeros((n_items, k))
@@ -135,8 +146,10 @@ class HPF:
             lambda_shape = c + y_phi_sum_i
             lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
             tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
+            logging.debug("beta update %.4e" % clock.toc())  # PROFILING
 
             if n_iter % self.stop_interval == 0:
+                clock.tic()  # PROFILING
                 # Compute the log likelihood and assess convergence
                 # Expectations
                 egamma = make_nonzero(gamma_shape / gamma_rate)
@@ -147,7 +160,7 @@ class HPF:
                 # We use gammaln to compute the log factorial, hence the "y + 1"
                 log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
                 self.log_likelihoods.append(log_likelihood)
-
+                logging.debug("loglik computation %.4e" % clock.toc())  # PROFILING
                 # Time to stop?
                 if n_iter >= self.max_iter:
                     break
@@ -155,12 +168,28 @@ class HPF:
                 # Check for convergence
                 # TODO: allow for small fluctuations?
                 if len(self.log_likelihoods) > 1:
+                    clock.tic()  # PROFILING
                     prev_ll = self.log_likelihoods[-2]
                     diff = abs((log_likelihood - prev_ll) / prev_ll)
                     logging.info(f"Iteration {n_iter}, ll = {log_likelihood}, diff = {diff}")
+                    logging.debug("convergence check %.4e" % clock.toc())
                     if diff < 0.000001:
                         break
         # End of the main fitting loop
         # Compute beta and theta, which are given by the expectations, i.e. shape / rate
         self.beta = lambda_shape / lambda_rate
         self.theta = gamma_shape / gamma_rate
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.internal = 0.
+
+    def tic(self) -> None:
+        self.internal = time.time()
+    
+    def toc(self) -> float:
+        return time.time() - self.internal
+
+    def reset(self) -> None:
+        self.internal = 0
