@@ -19,7 +19,7 @@ def fast_log(x: np.ndarray) -> np.ndarray:
     return numexpr.evaluate('log(x)')
 
 
-def fast_logprod(a, b):
+def fast_logprod(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return numexpr.evaluate("log(a) + log(b)")
 
 
@@ -46,6 +46,12 @@ def update_x_r(x: np.ndarray, r: np.ndarray) -> None:
 
 
 def numexpr_digamma(a: np.ndarray, inpalce: bool=False) -> np.ndarray:
+    """See https://en.wikipedia.org/wiki/Digamma_function#Computation_and_approximation
+    and 
+    https://github.com/probml/pmtksupport/blob/master/GPstuff-2.0/dist/winCsource/digamma1.c
+    or
+    https://gist.github.com/miksu/223d81add9df8f878d75d39caa42873f
+    """
     if inpalce:
         x = a
     else:
@@ -317,7 +323,8 @@ class HPFprofiled:
             clock.tic()
             y_phi = y_phi_calculation(y, phi)
             logging.debug("y_phi_calc %.4e" % clock.toc())
-            clock.toc()
+
+            clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
             y_phi_sum_u = np.zeros((n_users, k))
@@ -326,8 +333,10 @@ class HPFprofiled:
             gamma_shape = a + y_phi_sum_u
             gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
             kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
+            logging.debug("theta_update %.4e" % clock.toc())
 
             if not beta_precomputed:
+                clock.tic()
                 # Upate the variational parameters corresponding to beta (the items)
                 # Sum of y_phi over items, for each k
                 y_phi_sum_i = np.zeros((n_items, k))
@@ -336,8 +345,10 @@ class HPFprofiled:
                 lambda_shape = c + y_phi_sum_i
                 lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
                 tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
+                logging.debug("beta_update %.4e" % clock.toc())
 
             if n_iter % self.stop_interval == 0:
+                clock.tic()
                 # Compute the log likelihood and assess convergence
                 # Expectations
                 egamma = make_nonzero(gamma_shape / gamma_rate)
@@ -348,6 +359,7 @@ class HPFprofiled:
                 # We use gammaln to compute the log factorial, hence the "y + 1"
                 log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
                 self.log_likelihoods.append(log_likelihood)
+                logging.debug("beta_update %.4e" % clock.toc())
 
                 # Time to stop?
                 if n_iter >= self.max_iter:
@@ -355,15 +367,19 @@ class HPFprofiled:
 
                 # Check for convergence
                 if len(self.log_likelihoods) > 1:
+                    clock.tic()
                     prev_ll = self.log_likelihoods[-2]
                     diff = abs((log_likelihood - prev_ll) / prev_ll)
                     logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {diff:.6f}")
+                    logging.debug("log_lik_calc %.4e" % clock.toc())
                     if diff < self.stop_at_ll:
                         break
         # End of the main fitting loop
         # Compute beta and theta, which are given by the expectations, i.e. shape / rate
+        clock.tic()
         beta = lambda_shape / lambda_rate
         theta = gamma_shape / gamma_rate
+        logging.debug("finalize %.4e" % clock.toc())
 
         if not beta_precomputed:
             # Save these for future use in self.transform()
