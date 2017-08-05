@@ -174,8 +174,8 @@ class HPF:
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
             # clock.tic()
-            # phi = (numexpr_digamma(gamma_shape) - fast_log(gamma_rate))[u, :] + (numexpr_digamma(lambda_shape) - fast_log(lambda_rate))[i, :]
-            phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
+            phi = (numexpr_digamma(gamma_shape) - fast_log(gamma_rate))[u, :] + (numexpr_digamma(lambda_shape) - fast_log(lambda_rate))[i, :]
+            # phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
             # logging.debug("phi_calc %.4e" % clock.toc())
             # Multiply y by phi normalized (in log space) along the k axis
             # clock.tic()
