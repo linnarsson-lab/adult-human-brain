@@ -19,6 +19,19 @@ def fast_log(x: np.ndarray) -> np.ndarray:
     return numexpr.evaluate('log(x)')
 
 
+def numexpr_logsumexp(x: np.ndarray, axis: int=None) -> np.ndarray:
+    if axis is None:
+        return fast_log(numexpr.evaluate("sum(exp(x))"))
+    else:
+        return fast_log(numexpr.evaluate("sum(exp(x), axis=%i)" % axis))
+
+
+def y_phi_calculation(y: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    return numexpr.evaluate("y * exp(phi - logsumexp)",
+                            local_dict={"y": y[:, None],
+                                        "logsumexp": numexpr_logsumexp(phi, axis=1)[:, None]})
+
+
 def update_x_r(x: np.ndarray, r: np.ndarray) -> None:
     numexpr.evaluate('where(x<=5, r-1/x, r)', out=r)
     numexpr.evaluate('where(x<=5, x+1, x)', out=x)
@@ -297,7 +310,7 @@ class HPFprofiled:
             # Multiply y by phi normalized (in log space) along the k axis
             # TODO: this normalization is one of the slowest steps, could be accelerated using numba
             clock.tic()
-            y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
+            y_phi = y_phi_calculation(y, phi)
             logging.debug("y_phi_calc %.4e" % clock.toc())
             clock.toc()
             # Upate the variational parameters corresponding to theta (the users)
