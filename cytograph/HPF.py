@@ -12,6 +12,11 @@ from scipy.special import gammaln, digamma, psi
 from scipy.misc import logsumexp
 from numba import jit, vectorize, float32, float64, int64
 import math
+import numexpr
+
+
+def fast_log(x):
+    return numexpr.evaluate('log(x)')
 
 
 @vectorize([float64(float64), float32(float32)], nopython=True)
@@ -89,6 +94,9 @@ class HPF:
         theta update 1.3353e-01
         beta update 1.4134e-01
         loglik computation 1.0144e-01
+
+        NOTE:
+            super weird np.log(xxx) is slower than np.log2(xxx) / np.log2(np.e)
         """
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
@@ -127,7 +135,7 @@ class HPF:
             # Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
             # phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
             # Shape of phi will be (nnz, k)
-            # TODO: digamma function can be superslow depending imput parameters!!!
+            # TODO: digamma function can be superslow depending input parameters!!!
             clock.tic()  # PROFILING
             phi_digamma_part = simple_digamma(gamma_shape[u, :]) + simple_digamma(lambda_shape[i, :])
             logging.debug("phi_digamma calculation %.4e" % clock.toc())  # PROFILING
