@@ -58,16 +58,16 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     return x
 
 
-@jit("float64[:,:](float64[:,:], int32[:], int32[:], int64, Tuple((int64,int64)), int64)", nopython=True)
+@jit(nopython=True)  # "float64[:,:](float64[:,:], int32[:], int32[:], int64, Tuple((int64,int64)), int64)",
 def special_concatenate(y_phi, u, i, k, Xshape, axis):
     if axis == 1:
         y_phi_sum = np.zeros((Xshape[0], k), dtype=np.float64)
-        for ix in range(k):   
+        for ix in range(k):
             for n in range(len(u)):
                 y_phi_sum[u[n], ix] += y_phi[n, ix]
     elif axis == 0:
         y_phi_sum = np.zeros((Xshape[1], k), dtype=np.float64)
-        for ix in range(k):   
+        for ix in range(k):
             for n in range(len(i)):
                 y_phi_sum[i[n], ix] += y_phi[n, ix]
     return y_phi_sum
@@ -407,7 +407,7 @@ class HPFprofiled:
         
         return (beta, theta)
 
-    def transform(self, X: sparse.coo_matrix) -> np.ndarray:
+    def transform(self, X: sparse.coo_matrix, n_threads: int=None) -> np.ndarray:
         """
         Transform the data matrix using an already fitted HPF model
 
@@ -420,7 +420,7 @@ class HPFprofiled:
         if type(X) is not sparse.coo_matrix:
             raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-        (beta, theta) = self._fit(X, beta_precomputed=True)
+        (beta, theta) = self._fit(X, beta_precomputed=True, n_threads=n_threads)
         return theta
 
 
