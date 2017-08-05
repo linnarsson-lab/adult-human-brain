@@ -58,7 +58,7 @@ def numexpr_digamma(a: np.ndarray) -> np.ndarray:
     return x
 
 
-@jit("float64[:,:](float64[:,:], int64[:], int64[:], int64, int64)", nopython=True)
+@jit("float64[:,:](float64[:,:], int32[:], int32[:], int64, int64)", nopython=True)
 def special_concatenate(y_phi, u, i, k, n_cells):
     y_phi_sum_u = np.zeros((n_cells, k), dtype=np.float64)
     for ix in range(k):
