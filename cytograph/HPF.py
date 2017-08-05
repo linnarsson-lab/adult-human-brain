@@ -340,9 +340,7 @@ class HPFprofiled:
             # clock.tic()
             # Upate the variational parameters corresponding to theta (the users)
             # Sum of y_phi over users, for each k
-            y_phi_sum_u = np.zeros((n_users, k))
-            for ix in range(k):
-                y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
+            y_phi_sum_u = special_concatenate(y_phi, u, i, k, X.shape, 1)
             # logging.debug("theta_update_p1 %.4e" % clock.toc())
             # clock.tic()
             gamma_shape = a + y_phi_sum_u
