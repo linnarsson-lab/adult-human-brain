@@ -19,7 +19,8 @@ class ClusterL2(luigi.Task):
 	tissue = luigi.Parameter(default="All")
 	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
 	n_genes = luigi.IntParameter(default=1000)
-	gtsne = luigi.BoolParameter(default=True)
+	n_components = luigi.IntParameter(default=50)
+	gtsne = luigi.BoolParameter(default=False)
 	alpha = luigi.FloatParameter(default=1)
 
 	def requires(self) -> luigi.Task:
@@ -71,6 +72,7 @@ class ClusterL2(luigi.Task):
 
 			logging.info("Learning the manifold")
 			ds = loompy.connect(out_file)
+			# ml = cg.ManifoldLearningHPF(self.n_genes, self.n_components, self.gtsne, self.alpha)
 			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
