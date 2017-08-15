@@ -8,7 +8,7 @@ import cytograph as cg
 import luigi
 
 
-class Level123Adolescent(luigi.WrapperTask):
+class Level1234Adolescent(luigi.WrapperTask):
 	"""
 	Luigi Task to run all Level 1 and 2 analyses
 	"""
