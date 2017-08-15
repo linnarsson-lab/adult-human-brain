@@ -10,7 +10,7 @@ import luigi
 
 class Level123Adolescent(luigi.WrapperTask):
 	"""
-	Luigi Task to run all Level 1 - 3 analyses
+	Luigi Task to run all Level 1 and 2 analyses
 	"""
 
 	def requires(self) -> Iterator[luigi.Task]:
@@ -24,3 +24,4 @@ class Level123Adolescent(luigi.WrapperTask):
 		for cls in classes:
 			yield cg.ExportL2(tissue="All", major_class=cls)
 			yield cg.ExportL3(tissue="All", major_class=cls)
+		yield cg.ExportL4()
