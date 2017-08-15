@@ -18,7 +18,7 @@ class PoolL4(luigi.Task):
 
 	def requires(self) -> luigi.Task:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "AstroEpendymal", "Vascular", "Immune", "Blood", "PeripheralGlia"]
+		classes = ["Oligos", "AstroEpendymal", "Vascular", "Immune", "PeripheralGlia"]
 		for tissue in tissues:
 			yield cg.ClusterL3(tissue=tissue, major_class="Neurons")
 		for cls in classes:
