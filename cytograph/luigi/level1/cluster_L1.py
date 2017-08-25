@@ -72,7 +72,7 @@ class ClusterL1(luigi.Task):
             dsout.set_attr("_X", tsne[:, 0], axis=1)
             dsout.set_attr("_Y", tsne[:, 1], axis=1)
 
-            cls = cg.Clustering(method=cg.cluster().method)
+            cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers)
             labels = cls.fit_predict(dsout)
             dsout.set_attr("Clusters", labels, axis=1)
             n_labels = np.max(labels) + 1
