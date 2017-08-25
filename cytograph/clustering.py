@@ -22,6 +22,13 @@ import networkx as nx
 import hdbscan
 from sklearn.cluster import DBSCAN
 
+try:
+	import igraph
+	passed_import = True
+except ModuleNotFoundError:
+	logging.warning("Import of igraph failed. Clustering will fall back to lj")
+	passed_import = False
+
 
 class Clustering:
 	def __init__(self, method: str, outliers: bool = True) -> None:
@@ -67,6 +74,22 @@ class Clustering:
 				nn.fit(tsne_pos[labels >= 0])
 				nearest = nn.kneighbors(tsne_pos[labels == -1], n_neighbors=1, return_distance=False)
 				labels[labels == -1] = labels[labels >= 0][nearest]
+		elif self.method == "multilev" and passed_import:
+			logging.info("comunity-multilevel clustering on unweighted KNN graph")
+			(a, b, w) = ds.get_edges("KNN", axis=1)
+			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
+			# sources, targets = knn.nonzero()
+			G = igraph.Graph(list(zip(a, b)), directed=False)
+			VxCl = G.community_multilevel(return_levels=False)
+			labels = np.array(VxCl.membership)
+		elif self.method == "wmultilev" and passed_import:
+			logging.info("comunity-multilevel clustering on the multiscale KNN graph")
+			(a, b, w) = ds.get_edges("KNN", axis=1)
+			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
+			# a, b = knn.nonzero()
+			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
+			VxCl = G.community_multilevel(return_levels=False, weight="weight")
+			labels = np.array(VxCl.membership)
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
