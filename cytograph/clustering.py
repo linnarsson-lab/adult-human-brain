@@ -73,7 +73,7 @@ class Clustering:
 				nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
 				nn.fit(tsne_pos[labels >= 0])
 				nearest = nn.kneighbors(tsne_pos[labels == -1], n_neighbors=1, return_distance=False)
-				labels[labels == -1] = labels[labels >= 0][nearest]
+				labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
 		elif self.method == "multilev" and passed_import:
 			logging.info("comunity-multilevel clustering on unweighted KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
