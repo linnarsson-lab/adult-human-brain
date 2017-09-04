@@ -10,7 +10,7 @@ import loompy
 class CellTag:
 	def __init__(self, category: str, file: str) -> None:
 		self.category = category
-		with open(file, "r") as f:
+		with open(file, "r", encoding="utf-8") as f:
 			for line in f:
 				if line.startswith("name:"):
 					self.name = line[5:].strip()

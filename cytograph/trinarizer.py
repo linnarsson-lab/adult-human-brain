@@ -7,6 +7,7 @@ from scipy.special import beta, betainc, betaln
 import numpy as np
 import cytograph as cg
 import pandas as pd
+from sklearn.preprocessing import binarize
 
 
 def load_trinaries(in_file: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -14,7 +15,28 @@ def load_trinaries(in_file: str) -> Tuple[np.ndarray, np.ndarray]:
 	genes = d.index.values
 	return (genes, d.values[:, :-1])
 
-	
+
+def credible_discordance(X: np.ndarray, pep: float = 0.05) -> np.ndarray:
+	"""
+	Compute the pairwise credible discordance between column vectors containing trinarization scores
+
+	Args:
+		X		(m, n) matrix of m observations having n features
+		pep		The desired posterior error probability (bayesian FDR)
+
+	Returns:
+		N x N matrix of credible discordance scores pairwise for the N columns in X
+
+	Remarks:
+		The credible discordance score between two trinarization scores a and b is defined as
+
+			c = 1 iff (a > 1 - pep) and (b < pep) or (a < pep) and (b > 1 - pep)
+				0 otherwise
+		
+		The score between two vectors is the sum of elementwise scores
+	"""
+	return np.dot(binarize(X, 1 - pep), (1 - binarize(X, pep)).T)
+
 class Trinarizer:
 	def __init__(self, f: float = 0.2) -> None:
 		self.f = f

@@ -22,9 +22,7 @@ class AggregateL2(luigi.Task):
 	n_auto_genes = luigi.IntParameter(default=6)
 
 	def requires(self) -> List[luigi.Task]:
-		return [
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class)
-		]
+		return cg.FilterL2(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".agg.loom"))
@@ -32,9 +30,11 @@ class AggregateL2(luigi.Task):
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
 			logging.info("Aggregating loom file")
-			ds = loompy.connect(self.input()[0].fn)
+			ds = loompy.connect(self.input().fn)
+			logging.info(set(ds.Clusters))
 			cg.Aggregator(self.n_markers).aggregate(ds, out_file)
 			dsagg = loompy.connect(out_file)
+			logging.info(set(dsagg.Clusters))
 
 			logging.info("Computing auto-annotation")
 			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)

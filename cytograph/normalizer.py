@@ -6,7 +6,7 @@ import luigi
 
 
 class normalizer(luigi.Config):
-	level = luigi.IntParameter(default=10000)
+	level = luigi.IntParameter(default=5000)
 
 
 class Normalizer:

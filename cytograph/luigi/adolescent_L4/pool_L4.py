@@ -29,6 +29,8 @@ class PoolL4(luigi.Task):
 		
 	def run(self) -> None:
 		samples = [x.fn for x in self.input()]
+		max_cluster_id = 0
+		cluster_ids: List[int] = []
 		with self.output().temporary_path() as out_file:
 			dsout: loompy.LoomConnection = None
 			accessions = None  # type: np.ndarray
@@ -37,10 +39,17 @@ class PoolL4(luigi.Task):
 				if accessions is None:
 					accessions = ds.row_attrs["Accession"]
 				logging.info(f"Adding {ds.shape[1]} cells from {sample}")
-				for (ix, selection, view) in ds.scan(axis=1, key={"Accession": accessions}):
+				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+				for (ix, selection, vals) in ds.batch_scan(axis=1, batch_size=cg.memory().axis1):
+					ca = {}
+					for key in ds.col_attrs:
+						ca[key] = ds.col_attrs[key][selection]
+					cluster_ids += list(ca["Clusters"] + max_cluster_id)
 					if dsout is None:
-						dsout = loompy.create(out_file, view[:, :], view.row_attrs, view.col_attrs)
+						dsout = loompy.create(out_file, vals[ordering, :], ds.row_attrs, ca)
 					else:
-						dsout.add_columns(view[:, :], view.col_attrs)
+						dsout.add_columns(vals[ordering, :], ca)
+				max_cluster_id = max(cluster_ids) + 1
 				ds.close()
+			dsout.set_attr("Clusters", np.array(cluster_ids), axis=1)
 			dsout.close()

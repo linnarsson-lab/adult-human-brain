@@ -501,3 +501,9 @@ def plot_markers_file(markers_file_path: str,
 	intensities = calculate_intensities(df_markers)
 	logging.debug("Preparing the plot")
 	super_heatmap(intensities, cols_annot, rows_annot, col_attrs, row_attrs)
+
+	
+def replace(it1, it2):
+    if len(it1) != len(it2):
+        raise ValueError("Lengths of iterables are different")
+    return zip(it1, it2)

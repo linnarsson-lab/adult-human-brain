@@ -31,3 +31,18 @@ class ExportL4(luigi.Task):
 			dsagg.export(os.path.join(out_dir, "L4_All_enrichment.tab"), layer="enrichment")
 			dsagg.export(os.path.join(out_dir, "L4_All_enrichment_q.tab"), layer="enrichment_q")
 			dsagg.export(os.path.join(out_dir, "L4_All_trinaries.tab"), layer="trinaries")
+
+			logging.info("Computing discordance distances")
+			pep = 0.05
+			n_labels = dsagg.shape[1]
+
+			def discordance_distance(a: np.ndarray, b: np.ndarray) -> float:
+				"""
+				Number of genes that are discordant with given PEP, divided by number of clusters
+				"""
+				return np.sum((1 - a) * b + a * (1 - b) > 1 - pep) / n_labels
+
+			data = dsagg.layer["trinaries"][:n_labels * 10, :].T
+			D = squareform(pdist(data, discordance_distance))
+			with open(os.path.join(out_dir, "L4_All_distances.txt"), "w") as f:
+				f.write(str(np.diag(D, k=1)))

@@ -134,6 +134,7 @@ class PrepareTissuePool(luigi.Task):
 					"Satellite-glia": "PeripheralGlia",
 					"Satellite-glia,Cycling": "PeripheralGlia",
 					"Schwann": "PeripheralGlia",
+					"Schwann,Cycling": "PeripheralGlia",
 					"Satellite-glia,Schwann": None,
 					"Ttr": "AstroEpendymal",
 					"Vascular": "Vascular",

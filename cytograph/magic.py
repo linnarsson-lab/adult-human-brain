@@ -24,9 +24,9 @@ class magic(luigi.Config):
 	n_genes = luigi.IntParameter(default=2000)
 	standardize = luigi.BoolParameter(default=False)
 	n_components = luigi.IntParameter(default=50)
-	k = luigi.IntParameter(default=30)
-	kth = luigi.IntParameter(default=1)
-	t = luigi.IntParameter(default=1)
+	k = luigi.IntParameter(default=20)
+	kth = luigi.IntParameter(default=2)
+	t = luigi.IntParameter(default=2)
 
 
 def magic_imputation(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -56,7 +56,7 @@ def magic_imputation(ds: loompy.LoomConnection, out_file: str) -> None:
 	knn = sparse.coo_matrix((data, (knn.row, knn.col)), shape=(n_cells, n_cells))
 
 	logging.info("Determining adaptive kernel size for MAGIC")
-	(dists, _) = nn.kneighbors(n_neighbors=5)
+	(dists, _) = nn.kneighbors(n_neighbors=magic().kth)
 	sigma = dists[:, -1]
 	sigma = sigma / sigma.max()
 

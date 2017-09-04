@@ -3,6 +3,7 @@ import os
 import logging
 import loompy
 from scipy import sparse
+from scipy.spatial.distance import pdist, squareform
 import numpy as np
 import networkx as nx
 import cytograph as cg
@@ -48,3 +49,18 @@ class ExportL3(luigi.Task):
 
 			logging.info("Plotting marker heatmap")
 			cg.plot_markerheatmap(ds, dsagg, n_markers_per_cluster=self.n_markers, out_file=os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_heatmap.pdf"))
+
+			logging.info("Computing discordance distances")
+			pep = 0.05
+			n_labels = dsagg.shape[1]
+
+			def discordance_distance(a: np.ndarray, b: np.ndarray) -> float:
+				"""
+				Number of genes that are discordant with given PEP, divided by number of clusters
+				"""
+				return np.sum((1 - a) * b + a * (1 - b) > 1 - pep) / n_labels
+
+			data = dsagg.layer["trinaries"][:n_labels * 10, :].T
+			D = squareform(pdist(data, discordance_distance))
+			with open(os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_distances.txt"), "w") as f:
+				f.write(str(np.diag(D, k=1)))

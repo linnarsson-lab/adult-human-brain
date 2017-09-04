@@ -60,7 +60,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
-	(a, b, w) = ds.get_edges("MKNN", axis=1)
+	has_edges = False
+	if "MKNN" in ds.list_edges(axis=1):
+		(a, b, w) = ds.get_edges("MKNN", axis=1)
+		has_edges = True
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
 	labels = ds.col_attrs["Clusters"]
 	if "Outliers" in ds.col_attrs:
@@ -81,9 +84,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	ax = fig.add_subplot(111)
 
 	# Draw edges
-	logging.info("Drawing edges")
-	lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='grey', alpha=0.1)
-	ax.add_collection(lc)
+	if has_edges:
+		logging.info("Drawing edges")
+		lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='grey', alpha=0.1)
+		ax.add_collection(lc)
 
 	# Draw nodes
 	logging.info("Drawing nodes")
@@ -304,11 +308,12 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
 	n_probclasses = len(probclasses)
 
-	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc18a3", "Slc6a5", "Slc6a9", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	genes = [g for g in genes if g in ds.Gene]
 	n_genes = len(genes)
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1
+	# colormax = np.max(data, axis=1)
 	topmarkers = data / colormax[None].T
 	n_topmarkers = topmarkers.shape[0]
 

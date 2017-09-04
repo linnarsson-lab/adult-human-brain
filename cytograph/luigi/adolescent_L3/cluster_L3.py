@@ -1,5 +1,6 @@
 from typing import *
 import os
+from shutil import copyfile
 import csv
 import logging
 import pickle
@@ -9,6 +10,35 @@ import cytograph as cg
 import luigi
 import numpy_groupies.aggregate_numpy as npg
 import scipy.stats
+
+
+params = {	# eps_pct and min_pts
+	"L3_Neurons_Amygdala": [75, 20],
+	"L3_Neurons_Cerebellum": [80, 20],
+	"L3_Neurons_Cortex1": [70, 20],
+	"L3_Neurons_Cortex2": [50, 40],
+	"L3_Neurons_Cortex3": [60, 20],
+	"L3_Neurons_DRG": [75, 10],
+	"L3_Neurons_Enteric": [60, 10],
+	"L3_Neurons_Hippocampus": [90, 10],
+	"L3_Neurons_Hypothalamus": [75, 20],
+	"L3_Neurons_Medulla": [60, 20],
+	"L3_Neurons_MidbrainDorsal": [60, 20],
+	"L3_Neurons_MidbrainVentral": [60, 20],
+	"L3_Neurons_Olfactory": [70, 40],
+	"L3_Neurons_Pons": [60, 20],
+	"L3_Neurons_SpinalCord": [90, 10],
+	"L3_Neurons_StriatumDorsal": [80, 40],
+	"L3_Neurons_StriatumVentral": [80, 20],
+	"L3_Neurons_Sympathetic": [70, 10],
+	"L3_Neurons_Thalamus": [75, 20],
+	"L3_Oligos_All": [95, 500],
+	"L3_AstroEpendymal_All": [80, 70],
+	"L3_Blood_All": [70, 20],
+	"L3_Immune_All": [70, 70],
+	"L3_PeripheralGlia_All": [75, 40],
+	"L3_Vascular_All": [80, 100]
+}
 
 
 class ClusterL3(luigi.Task):
@@ -24,85 +54,15 @@ class ClusterL3(luigi.Task):
 	pep = luigi.FloatParameter(default=0.01)
 
 	def requires(self) -> luigi.Task:
-		return [
-			cg.ClusterL2(tissue=self.tissue, major_class=self.major_class),
-			cg.AggregateL2(tissue=self.tissue, major_class=self.major_class)
-		]
+		return cg.FilterL2(tissue=self.tissue, major_class=self.major_class)
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.major_class + "_" + self.tissue + ".loom"))
 		
 	def run(self) -> None:
 		with self.output().temporary_path() as out_file:
-			dsout = None  # type: loompy.LoomConnection
-			accessions = None  # type: np.ndarray
-			ds = loompy.connect(self.input()[0].fn)
-			logging.info("Extracting clusters from " + self.input()[0].fn)
-
-			# Remove clusters that express genes of the wrong major class
-			nix_genes = {
-				"Neurons": ["Stmn2"],
-				"Oligos": ['Mog', 'Mobp', 'Neu4', 'Bmp4', 'Enpp6', 'Gpr17'],
-				"Vascular": ['Cldn5', 'Fn1', 'Acta2'],
-				"Immune": ['C1qc', 'Ctss', 'Lyz2', 'Cx3cr1', 'Pf4'],
-				"AstroEpendymal": ['Aqp4', 'Gja1', 'Btbd17', 'Cldn10', "Foxj1", "Tmem212", "Ccdc153", "Ak7", "Stoml3", "Ttr", "Folr1", "Cldn2"],
-				"Blood": ['Hbb-bt', 'Hbb-bh1', 'Hbb-bh2', 'Hbb-y', 'Hbb-bs', 'Hba-a1', 'Hba-a2', 'Hba-x'],
-				"PeripheralGlia": ["Mpz", "Prx", 'Col20a1', 'Ifi27l2a', "Sfrp5"],
-			}
-			dsagg = loompy.connect(self.input()[1].fn)
-			nix_clusters = set()
-			for lbl in range(max(ds.col_attrs["Clusters"]) + 1):
-				# Small clusters
-				n_cells_in_cluster = (ds.Clusters == lbl).sum()
-				if n_cells_in_cluster < 10:
-					logging.info("Nixing cluster {} because less than 10 cells".format(lbl))
-					nix_clusters.add(lbl)
-				else:
-					# Clusters where the enriched markers are hardly expressed at all
-					# E.g. top ten enriched genes have average trinarization score less than 0.5
-					top_enriched = sorted(np.argsort(-dsagg.layer["enrichment"][:, lbl])[:10])
-					top_trinaries = dsagg.layer["trinaries"][top_enriched, :][:, lbl]
-					if (top_trinaries > 0.95).sum() < 3:
-						logging.info("Nixing cluster {} because less than three expressed enriched genes".format(lbl))
-						nix_clusters.add(lbl)
-					else:
-						# Clusters with markers of other major class
-						for cls in nix_genes.keys():
-							if cls == self.major_class:
-								continue
-							for gene in nix_genes[cls]:
-								if gene not in ds.Gene:
-									logging.warn("Couldn't use '" + gene + "' to nix clusters")
-								gix = np.where(ds.Gene == gene)[0][0]
-								if np.count_nonzero(ds[gix, :][ds.Clusters == lbl]) > 0.5 * n_cells_in_cluster:
-									# But let it slide if this marker is abundant in the whole tissue
-									if np.count_nonzero(ds[gix, :]) < 0.25 * ds.shape[1]:
-										logging.info("Nixing cluster {} because {} was detected".format(lbl, gene))
-										nix_clusters.add(lbl)
-			logging.info("Nixing " + str(len(nix_clusters)) + " clusters")
-			nix_attr = np.zeros(dsagg.shape[1], dtype='int')
-			nix_attr[np.array(list(nix_clusters), dtype='int')] = 1
-			nix_attr[dsagg.Outliers == 1] = 1
-			dsagg.set_attr("Nixed", nix_attr, axis=1)
-			nix_attr = np.zeros(ds.shape[1], dtype='int')
-			for lbl in nix_clusters:
-				nix_attr[ds.Clusters == lbl] = 1
-			nix_attr[ds.Outliers == 1] = 1
-			ds.set_attr("Nixed", nix_attr, axis=1)
-			cells = np.where(nix_attr == 0)[0]
-
-			logging.info("Keeping " + str(len(cells)) + " cells")
-			for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
-				ca = {}
-				for key in ds.col_attrs:
-					ca[key] = ds.col_attrs[key][selection]
-				if dsout is None:
-					dsout = loompy.create(out_file, vals, ds.row_attrs, ca)
-				else:
-					dsout.add_columns(vals, ca)
-			dsout.close()
-
 			logging.info("Learning the manifold")
+			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
@@ -112,9 +72,11 @@ class ClusterL3(luigi.Task):
 			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
 			logging.info("Clustering on the manifold")
+			fname = "L3_" + self.major_class + "_" + self.tissue
+			(eps_pct, min_pts) = params[fname]
+			cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
 			clusterer = cg.Clustering(method=self.method, outliers=False)
 			labels = clusterer.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
-			n_labels = np.max(labels) + 1
-
+			cg.Merger(min_distance=0.2).merge(ds)
 			ds.close()

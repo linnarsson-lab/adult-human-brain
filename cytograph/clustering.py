@@ -24,7 +24,7 @@ from sklearn.cluster import DBSCAN
 
 
 class Clustering:
-	def __init__(self, method: str, outliers: bool = True) -> None:
+	def __init__(self, method: str, outliers: bool = True, eps_pct: float = 65, min_pts: int = None) -> None:
 		"""
 		Args:
 			method		'hdbscan', 'dbscan', or 'lj'
@@ -32,6 +32,8 @@ class Clustering:
 		"""
 		self.method = method
 		self.outliers = outliers
+		self.eps_pct = eps_pct
+		self.min_pts = min_pts
 
 	def fit_predict(self, ds: loompy.LoomConnection) -> np.ndarray:
 		n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
@@ -48,18 +50,18 @@ class Clustering:
 			labels = clusterer.fit_predict(tsne_pos)
 		elif self.method == "dbscan":
 			logging.info("DBSCAN clustering in t-SNE space")
-			min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
-			eps_pct = 65
+			if self.min_pts is None:
+				self.min_pts = 10 if n_valid < 3000 else (20 if n_valid < 20000 else 100)
 			tsne_pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[cells, :]
 
 			# Determine a good epsilon
-			nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
+			nn = NearestNeighbors(n_neighbors=self.min_pts, algorithm="ball_tree", n_jobs=4)
 			nn.fit(tsne_pos)
 			knn = nn.kneighbors_graph(mode='distance')
 			k_radius = knn.max(axis=1).toarray()
-			epsilon = np.percentile(k_radius, eps_pct)
+			epsilon = np.percentile(k_radius, self.eps_pct)
 
-			clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
+			clusterer = DBSCAN(eps=epsilon, min_samples=self.min_pts)
 			labels = clusterer.fit_predict(tsne_pos)
 			if not self.outliers:
 				# Assign each outlier to the same cluster as the nearest non-outlier
@@ -84,4 +86,6 @@ class Clustering:
 		ds.set_attr("Clusters", labels_all, axis=1)
 		ds.set_attr("Outliers", outliers, axis=1)
 		logging.info("Found " + str(max(labels_all) + 1) + " clusters")
+		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
+			raise ValueError("There are holes in the cluster ID sequence!")
 		return labels_all

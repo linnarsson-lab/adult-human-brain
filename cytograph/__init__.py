@@ -10,7 +10,7 @@ from .analyses_parser import AnalysesParser, parse_analysis_requirements, parse_
 from .feature_selection import FeatureSelection
 from .classifier import Classifier
 from .enrichment import MarkerEnrichment
-from .trinarizer import Trinarizer, load_trinaries
+from .trinarizer import Trinarizer, load_trinaries, credible_discordance
 from .pool_spec import PoolSpec
 from .cluster_layout import cluster_layout
 from .plots import plot_cv_mean, plot_graph, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap
@@ -26,3 +26,5 @@ from .manifold_learning_2 import ManifoldLearning2
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF
+from .poisson_imputation import PoissonImputation
+from .merger import Merger
