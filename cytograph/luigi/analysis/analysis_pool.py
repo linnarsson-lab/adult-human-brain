@@ -55,10 +55,10 @@ class AnalysisPool(luigi.Task):  # Status: check the filter manager
 					# Add data to the loom file
 					if dsout is None:
 						# create using main layer
-						dsout = loompy.create(out_file, m["@DEFAULT"], ds.row_attrs, ca)
+						dsout = loompy.create(out_file, m[""], ds.row_attrs, ca)
 						# Add layers
 						for layer_name, chunk_of_matrix in m.items():
-							if layer_name == "@DEFAULT":
+							if layer_name == "":
 								continue
 							dsout.set_layer(layer_name, chunk_of_matrix, dtype=chunk_of_matrix.dtype)
 					else:
