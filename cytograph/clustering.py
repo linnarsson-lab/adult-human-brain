@@ -90,7 +90,7 @@ class Clustering:
 			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
 			# a, b = knn.nonzero()
 			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
-			VxCl = G.community_multilevel(return_levels=False, weight="weight")
+			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
