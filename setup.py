@@ -17,7 +17,8 @@ setup(
 		'luigi',
 		'hdbscan',
 		'pyyaml',
-		'polo'
+		'polo',
+		'numpy-groupies'
 	],
 	dependency_links=['http://github.com/linnarsson-lab/numpy-groupies/tarball/master#egg=numpy_groupies'],
 	

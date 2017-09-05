@@ -2,16 +2,18 @@ from typing import *
 from sklearn.neighbors import NearestNeighbors
 import scipy.sparse as sparse
 import numpy as np
+import igraph
 import logging
 import cytograph as cg
 import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_multilevel: bool = False) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
+		self.use_multilevel = use_multilevel
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
@@ -53,9 +55,17 @@ class ManifoldLearning:
 		knn = knn.tocoo()
 		mknn = knn.minimum(knn.transpose()).tocoo()
 
-		logging.info("Louvain-Jaccard clustering")
-		lj = cg.LouvainJaccard(resolution=1)
-		labels = lj.fit_predict(knn)
+		if self.use_multilevel:
+			logging.info("Community-multilevel clustering on the multiscale KNN graph")
+			(a, b, w) = (knn.row, knn.col, knn.data)
+			G = igraph.Graph(list(zip(a, b)), directed=False)
+			VxCl = G.community_multilevel(return_levels=False)
+			labels = np.array(VxCl.membership)
+		else:
+			logging.info("Louvain-Jaccard clustering")
+			lj = cg.LouvainJaccard(resolution=1)
+			labels = lj.fit_predict(knn)
+
 		# Make labels for excluded cells == -1
 		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
 		labels_all[cells] = labels

@@ -74,7 +74,7 @@ class ClusterL3(luigi.Task):
 			logging.info("Clustering on the manifold")
 			fname = "L3_" + self.major_class + "_" + self.tissue
 			(eps_pct, min_pts) = params[fname]
-			cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
+			cls = cg.Clustering(method="wmultilev", eps_pct=eps_pct, min_pts=min_pts)
 			clusterer = cg.Clustering(method=self.method, outliers=False)
 			labels = clusterer.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
