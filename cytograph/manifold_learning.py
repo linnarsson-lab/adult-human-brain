@@ -2,22 +2,23 @@ from typing import *
 from sklearn.neighbors import NearestNeighbors
 import scipy.sparse as sparse
 import numpy as np
-import igraph
 import logging
 import cytograph as cg
 import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_multilevel: bool = False) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_markers: bool = False) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
-		self.use_multilevel = use_multilevel
+		self.use_markers = use_markers
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
 		Discover the manifold
+		Args:
+			use_markers		Use predefined markers genes, which must be the top n_genes in the loom file
 
 		Returns:
 			knn		The multiscale knn graph as a sparse matrix, with k = 100
@@ -34,47 +35,44 @@ class ManifoldLearning:
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 
-		logging.info("Selecting up to %d genes", self.n_genes)
-		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-		temp = np.zeros(ds.shape[0])
-		temp[genes] = 1
-		ds.set_attr("_Selected", temp, axis=0)
-		logging.info("%d genes selected", temp.sum())
+		if not self.use_markers:
+			logging.info("Selecting up to %d genes", self.n_genes)
+			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			temp = np.zeros(ds.shape[0])
+			temp[genes] = 1
+			ds.set_attr("_Selected", temp, axis=0)
+			logging.info("%d genes selected", temp.sum())
 
-		n_components = min(50, n_valid)
-		logging.info("PCA projection to %d components", n_components)
-		pca = cg.PCAProjection(genes, max_n_components=n_components)
-		pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
-		transformed = pca_transformed
+			n_components = min(50, n_valid)
+			logging.info("PCA projection to %d components", n_components)
+			pca = cg.PCAProjection(genes, max_n_components=n_components)
+			pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
+			transformed = pca_transformed
 
-		logging.info("Generating KNN graph")
-		k = min(10, n_valid - 1)
-		nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
-		nn.fit(transformed)
-		knn = nn.kneighbors_graph(mode='connectivity')
-		knn = knn.tocoo()
-		mknn = knn.minimum(knn.transpose()).tocoo()
+			logging.info("Generating KNN graph")
+			k = min(10, n_valid - 1)
+			nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
+			nn.fit(transformed)
+			knn = nn.kneighbors_graph(mode='connectivity')
+			knn = knn.tocoo()
+			mknn = knn.minimum(knn.transpose()).tocoo()
 
-		if self.use_multilevel:
-			logging.info("Community-multilevel clustering on the multiscale KNN graph")
-			(a, b, w) = (knn.row, knn.col, knn.data)
-			G = igraph.Graph(list(zip(a, b)), directed=False)
-			VxCl = G.community_multilevel(return_levels=False)
-			labels = np.array(VxCl.membership)
-		else:
 			logging.info("Louvain-Jaccard clustering")
 			lj = cg.LouvainJaccard(resolution=1)
 			labels = lj.fit_predict(knn)
 
-		# Make labels for excluded cells == -1
-		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-		labels_all[cells] = labels
-		ds.set_attr("Clusters", labels_all, axis=1)
-		n_labels = np.max(labels) + 1
-		logging.info("Found " + str(n_labels) + " LJ clusters")
+			# Make labels for excluded cells == -1
+			labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+			labels_all[cells] = labels
+			ds.set_attr("Clusters", labels_all, axis=1)
+			n_labels = np.max(labels) + 1
+			logging.info("Found " + str(n_labels) + " LJ clusters")
 
-		logging.info("Marker selection")
-		(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
+			logging.info("Marker selection")
+			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
+		else:
+			genes = np.arange(self.n_genes)
+			labels = ds.col_attrs["Clusters"][cells]
 
 		# Select cells across clusters more uniformly, preventing a single cluster from dominating the PCA
 		cells_adjusted = cg.cap_select(labels, cells, int(n_valid * 0.2))
@@ -102,6 +100,8 @@ class ManifoldLearning:
 		perplexity = min(k, (n_valid - 1) / 3 - 1)
 		if self.gtsne:
 			logging.info("gt-SNE layout")
+			# Note that perplexity argument is ignored in this case, but must still be given
+			# because bhtsne will check that it has a valid value
 			tsne_pos = cg.TSNE(perplexity=perplexity).layout(transformed, knn=knn.tocsr())
 		else:
 			logging.info("t-SNE layout")
