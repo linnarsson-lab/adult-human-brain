@@ -83,6 +83,13 @@ class Aggregator:
 		gene_order = np.argsort(gene_order)
 		ds.permute(gene_order, axis=0)
 		dsout.permute(gene_order, axis=0)
+
+		data = trinaries[:, ordering][:self.n_markers * n_labels, :].T
+		cluster_scores = []
+		for ix in range(n_labels):
+			cluster_scores.append(data[ix, ix * 10:(ix + 1) * 10].sum())
+		dsout.set_attr("ClusterScore", np.array(cluster_scores), axis=1)
+		
 		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
 			raise ValueError("There are holes in the cluster ID sequence!")
 
