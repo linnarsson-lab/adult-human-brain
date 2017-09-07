@@ -48,10 +48,6 @@ class ClusterL3(luigi.Task):
 	major_class = luigi.Parameter()
 	tissue = luigi.Parameter(default="All")
 	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
-	n_genes = luigi.IntParameter(default=1000)
-	gtsne = luigi.BoolParameter(default=True)
-	alpha = luigi.FloatParameter(default=1)
-	pep = luigi.FloatParameter(default=0.01)
 
 	def requires(self) -> luigi.Task:
 		return cg.FilterL2(tissue=self.tissue, major_class=self.major_class)
@@ -64,19 +60,20 @@ class ClusterL3(luigi.Task):
 			logging.info("Learning the manifold")
 			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
-			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+			n_labels = len(set(ds.col_attrs["Clusters"]))
+			ml = cg.ManifoldLearning(n_genes=(10 * n_labels), gtsne=True, alpha=1, use_markers=True)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
 			ds.set_attr("_X", tsne[:, 0], axis=1)
 			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
-			logging.info("Clustering on the manifold")
-			fname = "L3_" + self.major_class + "_" + self.tissue
-			(eps_pct, min_pts) = params[fname]
-			cls = cg.Clustering(method="wmultilev", eps_pct=eps_pct, min_pts=min_pts)
-			clusterer = cg.Clustering(method=self.method, outliers=False)
-			labels = clusterer.fit_predict(ds)
-			ds.set_attr("Clusters", labels, axis=1)
-			cg.Merger(min_distance=0.2).merge(ds)
-			ds.close()
+			# logging.info("Clustering on the manifold")
+			# fname = "L3_" + self.major_class + "_" + self.tissue
+			# (eps_pct, min_pts) = params[fname]
+			# cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
+			# clusterer = cg.Clustering(method=self.method, outliers=False)
+			# labels = clusterer.fit_predict(ds)
+			# ds.set_attr("Clusters", labels, axis=1)
+			# cg.Merger(min_distance=0.2).merge(ds)
+			# ds.close()

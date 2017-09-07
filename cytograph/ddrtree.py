@@ -24,3 +24,4 @@ class DDRTree:
         R = xy_dists / xy_dists.sum(axis=1)[:, None]  # (n_samples, n_samples)
         gamma = np.diag(R.sum(axis=1))
         
+        raise NotImplementedError("DDRTree implementation is unfinished")

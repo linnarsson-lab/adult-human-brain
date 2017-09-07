@@ -33,22 +33,22 @@ class ExportL3(luigi.Task):
 			if not os.path.exists(out_dir):
 				os.mkdir(out_dir)
 			dsagg = loompy.connect(self.input()[0].fn)
-			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_expression.tab"))
-			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_enrichment.tab"), layer="enrichment")
-			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_enrichment_q.tab"), layer="enrichment_q")
-			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_trinaries.tab"), layer="trinaries")
+			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_expression.tab"))
+			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_enrichment.tab"), layer="enrichment")
+			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_enrichment_q.tab"), layer="enrichment_q")
+			dsagg.export(os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_trinaries.tab"), layer="trinaries")
 
 			logging.info("Plotting manifold graph with auto-annotation")
 			tags = list(dsagg.col_attrs["AutoAnnotation"][np.argsort(dsagg.col_attrs["Clusters"])])
 			ds = loompy.connect(self.input()[1].fn)
-			cg.plot_graph(ds, os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_manifold.aa.png"), tags)
+			cg.plot_graph(ds, os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_manifold.aa.png"), tags)
 
 			logging.info("Plotting manifold graph with auto-auto-annotation")
 			tags = list(dsagg.col_attrs["MarkerGenes"][np.argsort(dsagg.col_attrs["Clusters"])])
-			cg.plot_graph(ds, os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_manifold.aaa.png"), tags)
+			cg.plot_graph(ds, os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_manifold.aaa.png"), tags)
 
 			logging.info("Plotting marker heatmap")
-			cg.plot_markerheatmap(ds, dsagg, n_markers_per_cluster=self.n_markers, out_file=os.path.join(out_dir, "L3_" + self.major_class + self.tissue + "_heatmap.pdf"))
+			cg.plot_markerheatmap(ds, dsagg, n_markers_per_cluster=self.n_markers, out_file=os.path.join(out_dir, "L3_" + self.major_class + "_" + self.tissue + "_heatmap.pdf"))
 
 			logging.info("Computing discordance distances")
 			pep = 0.05
