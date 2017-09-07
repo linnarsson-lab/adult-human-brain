@@ -61,7 +61,7 @@ class ClusterL3(luigi.Task):
 			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			n_labels = len(set(ds.col_attrs["Clusters"]))
-			ml = cg.ManifoldLearning(n_genes=(10 * n_labels), gtsne=True, alpha=1, use_markers=True)
+			ml = cg.ManifoldLearning(n_genes=(10 * n_labels), gtsne=False, alpha=1, use_markers=True)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
