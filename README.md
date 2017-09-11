@@ -21,7 +21,7 @@ python setup.py install
 ```
 git clone https://github.com/linnarsson-lab/cytograph.git
 cd cytograph/bhtsne
-g++ sptree.cpp tsne.cpp -o bhtsne -O2
+g++ sptree.cpp tsne.cpp -o bh_tsne -O2
 cd ..
 python setup.py install
 ```
