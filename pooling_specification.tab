@@ -286,6 +286,13 @@ C1_all	C1_All	none	OK	C1_all
 10X_17_013	hgForebrain	none	OK	HumanEmbryo
 10X_17_014	hgForebrain	none	OK	HumanEmbryo
 10X_17_015	hgForebrain	none	OK	HumanEmbryo
+10X_17_012	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_013	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_014	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_015	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_016	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_028	hgForebrainExtended	none	OK	HumanEmbryoExtended
+10X_17_029	hgForebrainExtended	none	OK	HumanEmbryoExtended
 L0_DentateGyrus_subset	S1DentateGyrus	none	OK	DGSubset
 rosenberg	BrainSpinal	none	OK	SplitSeq
 classified	Classified	none	OK	Debug
