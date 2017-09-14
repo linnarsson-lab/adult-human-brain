@@ -65,7 +65,7 @@ class ClusterL1(luigi.Task):
             dsout.close()
 
             dsout = loompy.connect(out_file)
-            ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha, self.use_multilevel)
+            ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
             (knn, mknn, tsne) = ml.fit(dsout)
 
             dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
