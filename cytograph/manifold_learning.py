@@ -8,12 +8,13 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_markers: bool = False, filter_cellcycle: str = None) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_markers: bool = False, filter_cellcycle: str = None, layer: str=None) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
 		self.use_markers = use_markers
 		self.filter_cellcycle = filter_cellcycle
+		self.layer = layer
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
@@ -52,7 +53,7 @@ class ManifoldLearning:
 
 			n_components = min(50, n_valid)
 			logging.info("PCA projection to %d components", n_components)
-			pca = cg.PCAProjection(genes, max_n_components=n_components)
+			pca = cg.PCAProjection(genes, max_n_components=n_components, layer=self.layer)
 			pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
 			transformed = pca_transformed
 

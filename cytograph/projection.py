@@ -14,16 +14,17 @@ class PCAProjection:
 	to one dataset then used to project another. To work properly, both datasets must be normalized in the same 
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str=None) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
 			max_n_components: 	Tha maximum number of projected components
 
 		"""
+		self.genes = genes
 		self.n_components = max_n_components
+		self.layer = layer
 		self.cells = None  # type: np.ndarray
-		self.genes = genes  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
 		self.accessions = None  # type: np.ndarray
@@ -39,8 +40,8 @@ class PCAProjection:
 			self.accessions = ds.row_attrs["Accession"]
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1):
-			vals = normalizer.transform(vals, selection)
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
+			vals = normalizer.transform(vals, selection)  # NOTE: maybe a layer parameter should be passed but it might make small difference
 			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> np.ndarray:
@@ -55,7 +56,7 @@ class PCAProjection:
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1):
+		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
 			if self.accessions is not None:
 				vals = vals[ordering, :]
 			vals = normalizer.transform(vals, selection)
