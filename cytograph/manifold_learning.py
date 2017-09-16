@@ -8,11 +8,13 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_markers: bool = False) -> None:
+	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1,
+				 use_markers: bool = False, filter_cellcycle: str = None) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
 		self.use_markers = use_markers
+		self.filter_cellcycle = filter_cellcycle
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
@@ -35,9 +37,15 @@ class ManifoldLearning:
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 
+		if self.filter_cellcycle is not None:
+			cell_cycle_genes = np.array(open(self.filter_cellcycle).read().split())
+			mask = np.in1d(ds.Gene, cell_cycle_genes)
+			if np.sum(mask) == 0:
+				logging.warn("None cell cycle genes where filtered, check your gene list")
+
 		if not self.use_markers:
 			logging.info("Selecting up to %d genes", self.n_genes)
-			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
 			temp = np.zeros(ds.shape[0])
 			temp[genes] = 1
 			ds.set_attr("_Selected", temp, axis=0)
@@ -69,7 +77,7 @@ class ManifoldLearning:
 			logging.info("Found " + str(n_labels) + " LJ clusters")
 
 			logging.info("Marker selection")
-			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
+			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels), mask=mask).fit(ds)
 		else:
 			genes = np.arange(self.n_genes)
 			labels = ds.col_attrs["Clusters"][cells]

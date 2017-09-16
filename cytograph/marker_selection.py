@@ -8,10 +8,11 @@ import cytograph as cg
 
 
 class MarkerSelection:
-	def __init__(self, n_markers: int, labels_attr: str = "Clusters") -> None:
+	def __init__(self, n_markers: int, labels_attr: str = "Clusters", mask: np.ndarray=None) -> None:
 		self.n_markers = n_markers
 		self.labels_attr = labels_attr
 		self.alpha = 0.1
+		self.mask = mask
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 		"""
@@ -87,7 +88,10 @@ class MarkerSelection:
 
 		# Select best markers
 		included = []  # type: List[int]
-		excluded = set(np.where(ds.row_attrs["_Valid"] == 0)[0])  # type: Set[int]
+		if self.mask is not None:
+			excluded = set(np.where(ds.row_attrs["_Valid"] == 0)[0])  # type: Set[int]
+		else:
+			excluded = set(np.where(np.logical_and(ds.row_attrs["_Valid"] == 0, self.mask))[0])
 		for ix in range(max(labels) + 1):
 			enriched = np.argsort(enrichment[:, ix])[::-1]
 			n = 0

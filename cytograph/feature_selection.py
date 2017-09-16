@@ -13,7 +13,7 @@ class FeatureSelection:
 		self.sd = None  # type: np.ndarray
 		self.totals = None  # type: np.ndarray
 
-	def fit(self, ds: loompy.LoomConnection, cells: np.ndarray = None, mu: np.ndarray = None, sd: np.ndarray = None) -> np.ndarray:
+	def fit(self, ds: loompy.LoomConnection, cells: np.ndarray = None, mu: np.ndarray = None, sd: np.ndarray = None, mask: np.ndarray=None) -> np.ndarray:
 		"""
 		Fits a noise model (CV vs mean)
 
@@ -29,13 +29,12 @@ class FeatureSelection:
 		if mu is None or sd is None:
 			(mu, sd) = ds.map((np.mean, np.std), axis=0, selection=cells)
 
-		valid = np.logical_and(
-			np.logical_and(
-				ds.row_attrs["_Valid"] == 1,
-				ds.row_attrs["Gene"] != "Xist"
-			),
-			ds.row_attrs["Gene"] != "Tsix"
-		).astype('int')
+		valid = ds.row_attrs["_Valid"] == 1
+		if mask is not None:
+			valid = np.logical_and(valid, np.logical_not(mask))
+		valid = np.logical_and(valid, ds.row_attrs["Gene"] != "Xist")
+		valid = np.logical_and(valid, ds.row_attrs["Gene"] != "Tsix")
+		valid = valid.astype('int')
 
 		ok = np.logical_and(mu > 0, sd > 0)
 		cv = sd[ok] / mu[ok]
