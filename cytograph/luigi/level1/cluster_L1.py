@@ -32,7 +32,7 @@ class ClusterL1(luigi.Task):
     gtsne = luigi.BoolParameter(default=True)
     alpha = luigi.FloatParameter(default=1)
     filter_cellcycle = luigi.Parameter(default=None)
-    layer = luigi.Parameter(dafault=None)
+    layer = luigi.Parameter(default=None)
 
     def requires(self) -> luigi.Task:
         return cg.PrepareTissuePool(tissue=self.tissue)
