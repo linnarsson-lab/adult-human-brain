@@ -42,6 +42,8 @@ class ManifoldLearning:
 			mask = np.in1d(ds.Gene, cell_cycle_genes)
 			if np.sum(mask) == 0:
 				logging.warn("None cell cycle genes where filtered, check your gene list")
+		else:
+			mask = None
 
 		if not self.use_markers:
 			logging.info("Selecting up to %d genes", self.n_genes)
