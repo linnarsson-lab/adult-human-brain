@@ -93,7 +93,7 @@ class ManifoldLearning:
 
 		n_components = min(50, n_valid)
 		logging.info("PCA projection to %d components", n_components)
-		pca = cg.PCAProjection(genes, max_n_components=n_components)
+		pca = cg.PCAProjection(genes, max_n_components=n_components, layer=self.layer)
 		pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
 		transformed = pca_transformed
 
