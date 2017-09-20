@@ -139,7 +139,6 @@ def biPCA(data: np.ndarray, n_splits: int = 10, n_components: int=20, cell_limit
 	-------
 
 	'''
-	logging.basicConfig(format='%(message)s', level=[logging.ERROR,logging.WARNING,logging.INFO,logging.DEBUG][verbose])
 	n_genes, n_cells = data.shape
 	cell_labels_by_depth = np.zeros((n_splits+1, n_cells))
 

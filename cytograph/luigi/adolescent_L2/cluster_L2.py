@@ -1,7 +1,7 @@
 from typing import *
 import os
 import csv
-import logging
+#import logging
 import pickle
 import loompy
 import numpy as np
@@ -12,32 +12,88 @@ import scipy.stats
 import tempfile
 
 
+# params = {  # eps_pct and min_pts
+# 	"L2_Neurons_Amygdala": [60, 40],
+# 	"L2_Neurons_Cerebellum": [80, 20],
+# 	"L2_Neurons_Cortex1": [70, 20],
+# 	"L2_Neurons_Cortex2": [50, 40],
+# 	"L2_Neurons_Cortex3": [60, 20],
+# 	"L2_Neurons_DRG": [75, 10],
+# 	"L2_Neurons_Enteric": [60, 10],
+# 	"L2_Neurons_Hippocampus": [90, 10],
+# 	"L2_Neurons_Hypothalamus": [75, 20],
+# 	"L2_Neurons_Medulla": [60, 20],
+# 	"L2_Neurons_MidbrainDorsal": [60, 20],
+# 	"L2_Neurons_MidbrainVentral": [60, 20],
+# 	"L2_Neurons_Olfactory": [70, 40],
+# 	"L2_Neurons_Pons": [60, 20],
+# 	"L2_Neurons_SpinalCord": [90, 10],
+# 	"L2_Neurons_StriatumDorsal": [80, 40],
+# 	"L2_Neurons_StriatumVentral": [80, 20],
+# 	"L2_Neurons_Sympathetic": [60, 10],
+# 	"L2_Neurons_Thalamus": [75, 20],
+# 	"L2_Oligos_All": [95, 500],
+# 	"L2_AstroEpendymal_All": [80, 40],
+# 	"L2_Blood_All": [70, 20],
+# 	"L2_Immune_All": [70, 70],
+# 	"L2_PeripheralGlia_All": [80, 20],
+# 	"L2_Vascular_All": [80, 100]
+# }
+
+# params = {  # eps_pct and min_pts
+# 	"L2_Neurons_Amygdala": [85, 10],
+# 	"L2_Neurons_Cerebellum": [90, 10],
+# 	"L2_Neurons_Cortex1": [80, 10],
+# 	"L2_Neurons_Cortex2": [75, 10],
+# 	"L2_Neurons_Cortex3": [85, 10],
+# 	"L2_Neurons_DRG": [70, 10],
+# 	"L2_Neurons_Enteric": [60, 10],
+# 	"L2_Neurons_Hippocampus": [90, 10],
+# 	"L2_Neurons_Hypothalamus": [80, 10],
+# 	"L2_Neurons_Medulla": [70, 10],
+# 	"L2_Neurons_MidbrainDorsal": [90, 10],
+# 	"L2_Neurons_MidbrainVentral": [80, 10],
+# 	"L2_Neurons_Olfactory": [80, 10],
+# 	"L2_Neurons_Pons": [75, 10],
+# 	"L2_Neurons_SpinalCord": [90, 10],
+# 	"L2_Neurons_StriatumDorsal": [90, 10],
+# 	"L2_Neurons_StriatumVentral": [85, 10],
+# 	"L2_Neurons_Sympathetic": [60, 10],
+# 	"L2_Neurons_Thalamus": [90, 10],
+# 	"L2_Oligos_All": [95, 500],
+# 	"L2_AstroEpendymal_All": [80, 40],
+# 	"L2_Blood_All": [70, 20],
+# 	"L2_Immune_All": [70, 70],
+# 	"L2_PeripheralGlia_All": [80, 20],
+# 	"L2_Vascular_All": [90, 10]
+# }
+
 params = {  # eps_pct and min_pts
-	"L2_Neurons_Amygdala": [60, 40],
-	"L2_Neurons_Cerebellum": [80, 20],
-	"L2_Neurons_Cortex1": [70, 20],
-	"L2_Neurons_Cortex2": [50, 40],
-	"L2_Neurons_Cortex3": [60, 20],
-	"L2_Neurons_DRG": [75, 10],
-	"L2_Neurons_Enteric": [60, 10],
-	"L2_Neurons_Hippocampus": [90, 10],
-	"L2_Neurons_Hypothalamus": [75, 20],
-	"L2_Neurons_Medulla": [60, 20],
-	"L2_Neurons_MidbrainDorsal": [60, 20],
-	"L2_Neurons_MidbrainVentral": [60, 20],
-	"L2_Neurons_Olfactory": [70, 40],
-	"L2_Neurons_Pons": [60, 20],
-	"L2_Neurons_SpinalCord": [90, 10],
-	"L2_Neurons_StriatumDorsal": [80, 40],
-	"L2_Neurons_StriatumVentral": [80, 20],
-	"L2_Neurons_Sympathetic": [60, 10],
-	"L2_Neurons_Thalamus": [75, 20],
-	"L2_Oligos_All": [95, 500],
-	"L2_AstroEpendymal_All": [80, 70],
-	"L2_Blood_All": [70, 20],
-	"L2_Immune_All": [70, 70],
-	"L2_PeripheralGlia_All": [75, 40],
-	"L2_Vascular_All": [80, 100]
+    "L2_Neurons_Amygdala": [80, 10],
+    "L2_Neurons_Cerebellum": [90, 10],
+    "L2_Neurons_Cortex1": [75, 10],
+    "L2_Neurons_Cortex2": [75, 10],
+    "L2_Neurons_Cortex3": [80, 10],
+    "L2_Neurons_DRG": [70, 10],
+    "L2_Neurons_Enteric": [60, 10],
+    "L2_Neurons_Hippocampus": [90, 10],
+    "L2_Neurons_Hypothalamus": [75, 10],
+    "L2_Neurons_Medulla": [70, 10],
+    "L2_Neurons_MidbrainDorsal": [80, 10],
+    "L2_Neurons_MidbrainVentral": [75, 10],
+    "L2_Neurons_Olfactory": [75, 10],
+    "L2_Neurons_Pons": [75, 10],
+    "L2_Neurons_SpinalCord": [90, 10],
+    "L2_Neurons_StriatumDorsal": [80, 10],
+    "L2_Neurons_StriatumVentral": [75, 10],
+    "L2_Neurons_Sympathetic": [60, 10],
+    "L2_Neurons_Thalamus": [75, 10],
+    "L2_Oligos_All": [95, 500],
+    "L2_AstroEpendymal_All": [70, 40],
+    "L2_Blood_All": [70, 20],
+    "L2_Immune_All": [80, 40],
+    "L2_PeripheralGlia_All": [80, 20],
+    "L2_Vascular_All": [90, 10]
 }
 
 
@@ -65,6 +121,7 @@ class ClusterL2(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".loom"))
 		
 	def run(self) -> None:
+		logging = cg.logging(self)
 		dsout = None  # type: loompy.LoomConnection
 		accessions = None  # type: np.ndarray
 		with self.output().temporary_path() as out_file:
@@ -107,7 +164,7 @@ class ClusterL2(luigi.Task):
 
 			logging.info("Learning the manifold")
 			ds = loompy.connect(out_file)
-			ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+			ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)

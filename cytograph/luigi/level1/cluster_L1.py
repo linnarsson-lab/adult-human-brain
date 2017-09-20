@@ -2,7 +2,7 @@ from typing import *
 import os
 from shutil import copyfile
 import numpy as np
-import logging
+#import logging
 import luigi
 import cytograph as cg
 import loompy
@@ -40,6 +40,7 @@ class ClusterL1(luigi.Task):
         return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".loom"))
 
     def run(self) -> None:
+		logging = cg.logging(self)
         with self.output().temporary_path() as out_file:
             ds = loompy.connect(self.input().fn)
             dsout: loompy.LoomConnection = None
@@ -65,7 +66,7 @@ class ClusterL1(luigi.Task):
             dsout.close()
 
             dsout = loompy.connect(out_file)
-            ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha, self.use_multilevel)
+            ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
             (knn, mknn, tsne) = ml.fit(dsout)
 
             dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
@@ -73,7 +74,12 @@ class ClusterL1(luigi.Task):
             dsout.set_attr("_X", tsne[:, 0], axis=1)
             dsout.set_attr("_Y", tsne[:, 1], axis=1)
 
-            cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers)
+            min_pts = 10
+            eps_pct = 90
+            if self.tissue == "Sympathetic":
+                min_pts = 10
+                eps_pct = 80
+            cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers, min_pts=min_pts, eps_pct=eps_pct)
             labels = cls.fit_predict(dsout)
             dsout.set_attr("Clusters", labels, axis=1)
             n_labels = np.max(labels) + 1

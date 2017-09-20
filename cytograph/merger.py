@@ -58,8 +58,13 @@ class Merger:
 				merged[outliers] = -1
 				merged += 1
 
+		# Fix the merged vector in case there's a hole left by the outliers
+		d = dict(zip(sorted(list(set(merged))), np.arange(n_labels)))
+		merged = np.array([d[x] for x in merged])
+		
 		# Renumber the clusters
 		d = dict(zip(np.arange(n_labels), merged))
+		logging.info(d)
 		new_clusters = np.array([d[x] if x in d else -1 for x in ds.Clusters])
 		ds.set_attr("Clusters", new_clusters, axis=1)
 		logging.info(f"Merged {n_labels} -> {len(set(new_clusters))} clusters")

@@ -8,17 +8,20 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, use_markers: bool = False) -> None:
+	def __init__(self, *, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, genes: np.ndarray = None) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
-		self.use_markers = use_markers
+		self.genes = genes
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
 		Discover the manifold
 		Args:
-			use_markers		Use predefined markers genes, which must be the top n_genes in the loom file
+			n_genes		Number of genes to use for manifold learning (ignored if genes is not None)
+			gtsnse		Use graph t-SNE for layout (default: standard tSNE)
+			alpha		The scale parameter for multiscale KNN
+			genes		List of genes to use for manifold learning
 
 		Returns:
 			knn		The multiscale knn graph as a sparse matrix, with k = 100
@@ -35,44 +38,44 @@ class ManifoldLearning:
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 
-		if not self.use_markers:
+		if self.genes is None:
 			logging.info("Selecting up to %d genes", self.n_genes)
 			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-			temp = np.zeros(ds.shape[0])
-			temp[genes] = 1
-			ds.set_attr("_Selected", temp, axis=0)
-			logging.info("%d genes selected", temp.sum())
-
-			n_components = min(50, n_valid)
-			logging.info("PCA projection to %d components", n_components)
-			pca = cg.PCAProjection(genes, max_n_components=n_components)
-			pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
-			transformed = pca_transformed
-
-			logging.info("Generating KNN graph")
-			k = min(10, n_valid - 1)
-			nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
-			nn.fit(transformed)
-			knn = nn.kneighbors_graph(mode='connectivity')
-			knn = knn.tocoo()
-			mknn = knn.minimum(knn.transpose()).tocoo()
-
-			logging.info("Louvain-Jaccard clustering")
-			lj = cg.LouvainJaccard(resolution=1)
-			labels = lj.fit_predict(knn)
-
-			# Make labels for excluded cells == -1
-			labels_all = np.zeros(ds.shape[1], dtype='int') + -1
-			labels_all[cells] = labels
-			ds.set_attr("Clusters", labels_all, axis=1)
-			n_labels = np.max(labels) + 1
-			logging.info("Found " + str(n_labels) + " LJ clusters")
-
-			logging.info("Marker selection")
-			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
 		else:
-			genes = np.arange(self.n_genes)
-			labels = ds.col_attrs["Clusters"][cells]
+			genes = self.genes
+
+		temp = np.zeros(ds.shape[0])
+		temp[genes] = 1
+		ds.set_attr("_Selected", temp, axis=0)
+		logging.info("%d genes selected", temp.sum())
+
+		n_components = min(50, n_valid)
+		logging.info("PCA projection to %d components", n_components)
+		pca = cg.PCAProjection(genes, max_n_components=n_components)
+		pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
+		transformed = pca_transformed
+
+		logging.info("Generating KNN graph")
+		k = min(10, n_valid - 1)
+		nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
+		nn.fit(transformed)
+		knn = nn.kneighbors_graph(mode='connectivity')
+		knn = knn.tocoo()
+		mknn = knn.minimum(knn.transpose()).tocoo()
+
+		logging.info("Louvain-Jaccard clustering")
+		lj = cg.LouvainJaccard(resolution=1)
+		labels = lj.fit_predict(knn)
+
+		# Make labels for excluded cells == -1
+		labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+		labels_all[cells] = labels
+		ds.set_attr("Clusters", labels_all, axis=1)
+		n_labels = np.max(labels) + 1
+		logging.info("Found " + str(n_labels) + " LJ clusters")
+
+		logging.info("Marker selection")
+		(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels)).fit(ds)
 
 		# Select cells across clusters more uniformly, preventing a single cluster from dominating the PCA
 		cells_adjusted = cg.cap_select(labels, cells, int(n_valid * 0.2))

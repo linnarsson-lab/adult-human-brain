@@ -1,6 +1,6 @@
 from typing import *
 import os
-import logging
+#import logging
 import loompy
 from scipy import sparse
 from scipy.spatial.distance import pdist, squareform
@@ -28,11 +28,18 @@ class ExportL2(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + "_exported"))
 
 	def run(self) -> None:
+		logging = cg.logging(self)
 		with self.output().temporary_path() as out_dir:
 			logging.info("Exporting cluster data")
 			if not os.path.exists(out_dir):
 				os.mkdir(out_dir)
+
 			dsagg = loompy.connect(self.input()[0].fn)
+			logging.info("Computing auto-annotation")
+			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
+			aa.annotate_loom(dsagg)
+			aa.save_in_loom(dsagg)
+
 			dsagg.export(os.path.join(out_dir, "L2_" + self.major_class + "_" + self.tissue + "_expression.tab"))
 			dsagg.export(os.path.join(out_dir, "L2_" + self.major_class + "_" + self.tissue + "_enrichment.tab"), layer="enrichment")
 			dsagg.export(os.path.join(out_dir, "L2_" + self.major_class + "_" + self.tissue + "_enrichment_q.tab"), layer="enrichment_q")

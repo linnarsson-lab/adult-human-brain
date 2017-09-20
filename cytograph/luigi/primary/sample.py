@@ -4,8 +4,6 @@ import logging
 import luigi
 import cytograph as cg
 
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
-
 
 class Sample(luigi.ExternalTask):
     """

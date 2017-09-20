@@ -1,0 +1,40 @@
+
+Home  |  Tutorial  |  Cell type  |  Classes  |  Tissues  |  Genes  |  Annotation  |  Data
+
+Home: 
+
+	1. Welcome, link to Tutorial
+	2. Visually stunning plot of all cell types
+	3. 
+		Search gene (plot on cell types)
+		Click to show neurotransmitter, tissue, class
+		Link to browse in Loom
+
+Tutorial:
+
+	A narrative explanation of the main features of the web site
+	Interactive plots and links to Loom
+	Point out highlights of the data
+
+Cell types (Taxonomy):
+
+	A table of contents, hierarchical, organized according to our proposed taxonomy
+	A narrative of each taxnomic class
+	At the level of taxonomic class, download heatmap, manifold, and raw data
+
+Classes: 
+
+	A narrative page for each major class (Neurons, Oligos, ...)
+	Downloads
+
+Tissues:
+
+	A narrative page for each tissue
+	Downloads
+	Links to classes, cell types
+
+Annotation;
+
+	Auto-generated brief description of each auto-annotation tag
+	List of cell types that carry the tag
+	List of tissues that carry the tag

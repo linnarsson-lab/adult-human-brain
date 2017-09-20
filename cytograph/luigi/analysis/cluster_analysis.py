@@ -64,7 +64,7 @@ class ClusterAnalysis(luigi.Task):  # Status: OK
             dsout.close()
 
             dsout = loompy.connect(out_file)
-            ml = cg.ManifoldLearning(self.n_genes, self.gtsne, self.alpha)
+            ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
             (knn, mknn, tsne) = ml.fit(dsout)
 
             dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)

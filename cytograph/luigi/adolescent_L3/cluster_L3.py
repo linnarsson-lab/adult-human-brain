@@ -2,7 +2,7 @@ from typing import *
 import os
 from shutil import copyfile
 import csv
-import logging
+#import logging
 import pickle
 import loompy
 import numpy as np
@@ -12,32 +12,20 @@ import numpy_groupies.aggregate_numpy as npg
 import scipy.stats
 
 
-params = {	# eps_pct and min_pts
-	"L3_Neurons_Amygdala": [75, 20],
-	"L3_Neurons_Cerebellum": [80, 20],
-	"L3_Neurons_Cortex1": [70, 20],
-	"L3_Neurons_Cortex2": [50, 40],
-	"L3_Neurons_Cortex3": [60, 20],
-	"L3_Neurons_DRG": [75, 10],
-	"L3_Neurons_Enteric": [60, 10],
-	"L3_Neurons_Hippocampus": [90, 10],
-	"L3_Neurons_Hypothalamus": [75, 20],
-	"L3_Neurons_Medulla": [60, 20],
-	"L3_Neurons_MidbrainDorsal": [60, 20],
-	"L3_Neurons_MidbrainVentral": [60, 20],
-	"L3_Neurons_Olfactory": [70, 40],
-	"L3_Neurons_Pons": [60, 20],
-	"L3_Neurons_SpinalCord": [90, 10],
-	"L3_Neurons_StriatumDorsal": [80, 40],
-	"L3_Neurons_StriatumVentral": [80, 20],
-	"L3_Neurons_Sympathetic": [70, 10],
-	"L3_Neurons_Thalamus": [75, 20],
-	"L3_Oligos_All": [95, 500],
-	"L3_AstroEpendymal_All": [80, 70],
-	"L3_Blood_All": [70, 20],
-	"L3_Immune_All": [70, 70],
-	"L3_PeripheralGlia_All": [75, 40],
-	"L3_Vascular_All": [80, 100]
+params = {  # eps_pct and min_pts
+	"L3_SpinalCord_Inhibitory": [50, 10],
+	"L3_SpinalCord_Excitatory": [60, 10],
+	"L3_Peripheral_Neurons": [60, 10],
+	"L3_Hypothalamus_Peptidergic": [60, 10],
+	"L3_Hindbrain_Inhibitory": [60, 10],
+	"L3_Hindbrain_Excitatory": [60, 10],
+	"L3_Brain_Neuroblasts": [70, 20],
+	"L3_Forebrain_Inhibitory": [75, 10],
+	"L3_Forebrain_Excitatory": [75, 10],
+	"L3_DiMesencephalon_Inhibitory": [70, 10],
+	"L3_DiMesencephalon_Excitatory": [70, 10],
+	"L3_Brain_Granule": [80, 70],
+	"L3_Brain_CholinergicMonoaminergic": [60, 10]
 }
 
 
@@ -45,35 +33,366 @@ class ClusterL3(luigi.Task):
 	"""
 	Level 3 clustering of the adolescent dataset
 	"""
-	major_class = luigi.Parameter()
-	tissue = luigi.Parameter(default="All")
-	method = luigi.Parameter(default='dbscan')  # or 'hdbscan'
-
-	def requires(self) -> luigi.Task:
-		return cg.FilterL2(tissue=self.tissue, major_class=self.major_class)
+	target = luigi.Parameter()  # e.g. Forebrain_Excitatory
+	n_enriched = luigi.Parameter(default=500)  # Number of enriched genes per cluster to use for manifold learning
+	
+	def requires(self) -> Iterator[luigi.Task]:
+		tissues: List[str] = []
+		for tissue, schedule in pooling_schedule_L3.items():
+			for aa, sendto in schedule:
+				if sendto == self.target:
+					if tissue in tissues:
+						continue
+					yield [cg.FilterL2(tissue=tissue, major_class="Neurons"), cg.AggregateL2(tissue=tissue, major_class="Neurons")]
+					tissues.append(tissue)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.major_class + "_" + self.tissue + ".loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.target + ".loom"))
 		
 	def run(self) -> None:
+		logging = cg.logging(self)
+		dsout: loompy.LoomConnection = None
+		accessions: loompy.LoomConnection = None
 		with self.output().temporary_path() as out_file:
+			logging.info("Gathering cells for " + self.target)
+			enriched_markers: List[np.ndarray] = []  # The enrichment vector for each selected cluster
+			cells_found = False
+			for in_file, agg_file in self.input():
+				tissue = os.path.basename(in_file.fn).split("_")[2].split(".")[0]
+				ds = loompy.connect(in_file.fn)
+				dsagg = loompy.connect(agg_file.fn)
+				enrichment = dsagg.layer["enrichment"][:, :]
+				labels = ds.col_attrs["Clusters"]
+				ordering: np.ndarray = None
+				logging.info(tissue)
+
+				# Figure out which cells should be collected
+				cells: List[int] = []
+				# clusters_seen: List[int] = []  # Clusters for which there was some schedule
+				clusters_seen: Dict[int, str] = {}
+				for from_tissue, schedule in pooling_schedule_L3.items():
+					if from_tissue != tissue:
+						continue
+
+					# Where to send clusters when no rules match
+					_default_schedule: str = None
+					for aa_tag, sendto in schedule:
+						if aa_tag == "*":
+							_default_schedule = sendto
+
+					# For each cluster in the tissue
+					for ix, agg_aa in enumerate(dsagg.col_attrs["AutoAnnotation"]):
+						# For each rule in the schedule
+						for aa_tag, sendto in schedule:
+							if aa_tag in agg_aa.split(","):
+								if ix in clusters_seen:
+									logging.info(f"{tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto} (overruled by '{clusters_seen[ix]}')")
+								else:
+									clusters_seen[ix] = f"{aa_tag} -> {sendto}"
+									if sendto == self.target:
+										logging.info(f"## {tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
+										# Keep track of the gene order in the first file
+										if accessions is None:
+											accessions = ds.row_attrs["Accession"]
+										if ordering is None:
+											ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+										cells += list(np.where(labels == ix)[0])
+										enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
+									else:
+										logging.info(f"{tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
+						if ix not in clusters_seen:
+							if _default_schedule is None:
+								logging.info(f"{tissue}/{ix}/{agg_aa}: No matching rule")
+							else:
+								clusters_seen[ix] = f"{aa_tag} -> {sendto}"
+								logging.info(f"## {tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
+								# Keep track of the gene order in the first file
+								if accessions is None:
+									accessions = ds.row_attrs["Accession"]
+								if ordering is None:
+									ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+								cells += list(np.where(labels == ix)[0])
+								enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
+
+
+
+				# 	for aa_tag, sendto in schedule:
+				# 		for ix, agg_aa in enumerate(dsagg.col_attrs["AutoAnnotation"]):
+				# 			if aa_tag in agg_aa.split(","):
+				# 				if ix in clusters_seen:
+				# 					if sendto == self.target:
+				# 						logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto} (but cluster already taken by '{clusters_seen[ix]}')")
+				# 					continue
+				# 				# clusters_seen.append(ix)
+				# 				clusters_seen[ix] = f"{aa_tag} -> {sendto}"
+				# 				if sendto == self.target:
+				# 					logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto}")
+				# 					# Keep track of the gene order in the first file
+				# 					if accessions is None:
+				# 						accessions = ds.row_attrs["Accession"]
+				# 					if ordering is None:
+				# 						ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+				# 					cells += list(np.where(labels == ix)[0])
+				# 					enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
+				# 		if aa_tag == "*" and sendto == self.target:
+				# 			# Pick up all the remaining clusters
+				# 			for ix in range(dsagg.shape[1]):
+				# 				if ix not in clusters_seen:
+				# 					clusters_seen[ix] = f"{aa_tag} -> {sendto}"
+				# 					# Keep track of the gene order in the first file
+				# 					if accessions is None:
+				# 						accessions = ds.row_attrs["Accession"]
+				# 					if ordering is None:
+				# 						ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+				# 					logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto}")
+				# 					cells += list(np.where(labels == ix)[0])
+				# 					enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
+
+				# for ix, agg_aa in enumerate(dsagg.col_attrs["AutoAnnotation"]):
+				# 	if ix not in clusters_seen:
+				# 		logging.info(f"{tissue}/{ix}: {agg_aa} did not match any rule")
+
+				if len(cells) > 0:
+					cells = np.sort(np.array(cells))
+					cells_found = True
+					for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=cg.memory().axis1):
+						ca = {}
+						for key in ds.col_attrs:
+							ca[key] = ds.col_attrs[key][selection]
+						if dsout is None:
+							dsout = loompy.create(out_file, vals[ordering, :], ds.row_attrs, ca)
+						else:
+							dsout.add_columns(vals[ordering, :], ca)
+
+			if not cells_found:
+				raise ValueError(f"No cells matched any schedule for {self.target}")
+
+			# Figure out which enriched markers to use
+			ix = 0
+			temp: List[int] = []
+			while len(temp) < self.n_enriched:
+				for j in range(len(enriched_markers)):
+					if enriched_markers[j][ix] not in temp:
+						temp.append(enriched_markers[j][ix])
+				ix += 1
+			genes = np.sort(np.array(temp))
+
 			logging.info("Learning the manifold")
-			copyfile(self.input().fn, out_file)
 			ds = loompy.connect(out_file)
 			n_labels = len(set(ds.col_attrs["Clusters"]))
-			ml = cg.ManifoldLearning(n_genes=(10 * n_labels), gtsne=False, alpha=1, use_markers=True)
+			ml = cg.ManifoldLearning(gtsne=True, alpha=1, genes=genes)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
 			ds.set_attr("_X", tsne[:, 0], axis=1)
 			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
-			# logging.info("Clustering on the manifold")
-			# fname = "L3_" + self.major_class + "_" + self.tissue
-			# (eps_pct, min_pts) = params[fname]
-			# cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
-			# clusterer = cg.Clustering(method=self.method, outliers=False)
-			# labels = clusterer.fit_predict(ds)
-			# ds.set_attr("Clusters", labels, axis=1)
-			# cg.Merger(min_distance=0.2).merge(ds)
-			# ds.close()
+			logging.info("Clustering on the manifold")
+			(eps_pct, min_pts) = (65, 20)
+			cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
+			labels = cls.fit_predict(ds)
+			ds.set_attr("Clusters", labels, axis=1)
+			cg.Merger(min_distance=0.2).merge(ds)
+			ds.close()
+
+
+pooling_schedule_L3 = {
+	"Cortex1": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"Cortex2": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"Cortex3": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"Hippocampus": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("@NBL", "Brain_Neuroblasts"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+	],
+	"StriatumDorsal": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"StriatumVentral": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"Amygdala": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "Forebrain_Inhibitory"),
+		("DG-GC", "Brain_Granule"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
+	],
+	"Olfactory": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@VGLUT1", "Forebrain_Excitatory"),
+		("@VGLUT2", "Forebrain_Excitatory"),
+		("@VGLUT3", "Forebrain_Excitatory"),
+		("@NBL", "Forebrain_Neuroblasts"),
+		("*", "Forebrain_Inhibitory")
+	],
+	"Hypothalamus": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@OXT", "Hypothalamus_Peptidergic"),
+		("@AVP", "Hypothalamus_Peptidergic"),
+		("@GNRH", "Hypothalamus_Peptidergic"),
+		("@AGRP", "Hypothalamus_Peptidergic"),
+		("@HCRT", "Hypothalamus_Peptidergic"),
+		("@PMCH", "Hypothalamus_Peptidergic"),
+		("@POMC", "Hypothalamus_Peptidergic"),
+		("@TRH", "Hypothalamus_Peptidergic"),
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@VGLUT1", "DiMesencephalon_Excitatory"),
+		("@VGLUT2", "DiMesencephalon_Excitatory"),
+		("@VGLUT3", "DiMesencephalon_Excitatory"),
+		("@GABA", "DiMesencephalon_Inhibitory")
+	],
+	"MidbrainDorsal": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@SER", "Brain_CholinergicMonoaminergic"),
+		("@DA", "Brain_CholinergicMonoaminergic"),
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "DiMesencephalon_Inhibitory"),
+		("@VGLUT1", "DiMesencephalon_Excitatory"),
+		("@VGLUT2", "DiMesencephalon_Excitatory"),
+		("@VGLUT3", "DiMesencephalon_Excitatory")
+	],
+	"MidbrainVentral": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@SER", "Brain_CholinergicMonoaminergic"),
+		("@DA", "Brain_CholinergicMonoaminergic"),
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "DiMesencephalon_Inhibitory"),
+		("@VGLUT1", "DiMesencephalon_Excitatory"),
+		("@VGLUT2", "DiMesencephalon_Excitatory"),
+		("@VGLUT3", "DiMesencephalon_Excitatory")
+	],
+	"Thalamus": [
+		("MSN-D1", "Striatum_MSN"),
+		("MSN-D2", "Striatum_MSN"),
+		("@SER", "Brain_CholinergicMonoaminergic"),
+		("@DA", "Brain_CholinergicMonoaminergic"),
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GABA", "DiMesencephalon_Inhibitory"),
+		("@VGLUT1", "DiMesencephalon_Excitatory"),
+		("@VGLUT2", "DiMesencephalon_Excitatory"),
+		("@VGLUT3", "DiMesencephalon_Excitatory")
+	],
+	"Cerebellum": [
+		("@NIPC", "Brain_Neuroblasts"),
+		("CB-GC", "Brain_Granule"),
+		("CB-PC", "Hindbrain_Inhibitory"),
+		("@GLY", "Hindbrain_Inhibitory"),
+		("@GABA", "Hindbrain_Inhibitory"),
+		("@VGLUT1", "Hindbrain_Excitatory"),
+		("@VGLUT2", "Hindbrain_Excitatory"),
+		("@VGLUT3", "Hindbrain_Excitatory")
+	],
+	"Pons": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@SER", "Brain_CholinergicMonoaminergic"),
+		("@DA", "Brain_CholinergicMonoaminergic"),
+		("@NOR", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@GLY", "Hindbrain_Inhibitory"),
+		("@VGLUT1", "Hindbrain_Excitatory"),
+		("@VGLUT2", "Hindbrain_Excitatory"),
+		("@VGLUT3", "Hindbrain_Excitatory")
+	],
+	"Medulla": [
+		("@CHOL", "Brain_CholinergicMonoaminergic"),
+		("@SER", "Brain_CholinergicMonoaminergic"),
+		("@DA", "Brain_CholinergicMonoaminergic"),
+		("@NIPC", "Brain_Neuroblasts"),
+		("@VGLUT1", "Hindbrain_Excitatory"),
+		("@VGLUT2", "Hindbrain_Excitatory"),
+		("@VGLUT3", "Hindbrain_Excitatory"),
+		("@GLY", "Hindbrain_Inhibitory")
+	],
+	"SpinalCord": [
+		("@NIPC", "Brain_Neuroblasts"),
+		("@VGLUT1", "SpinalCord_Excitatory"),
+		("@VGLUT2", "SpinalCord_Excitatory"),
+		("@VGLUT3", "SpinalCord_Excitatory"),
+		("@GLY", "SpinalCord_Inhibitory"),
+		("@GABA", "SpinalCord_Inhibitory"),
+		("PSN", "Peripheral_Neurons"),
+		("*", "SpinalCord_Excitatory"),
+	],
+	"DRG": [
+		("*", "Peripheral_Neurons")
+	],
+	"Sympathetic": [
+		("*", "Peripheral_Neurons")
+	],
+	"Enteric": [
+		("*", "Peripheral_Neurons")
+	],
+}

@@ -1,5 +1,11 @@
 from typing import *
 import cytograph as cg
+import logging as lg
+import luigi
+import random
+import string
+
+lg.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=lg.DEBUG)
 
 
 def EP2int(timepoint: str) -> int:
@@ -19,6 +25,23 @@ def time_check(tissue_name: str, time_par: str) -> bool:
     earlytime, latertime = EP2int(earlytime_s), EP2int(latertime_s)
     tissue_earlytime, tissue_latertime = EP2int(tissue_earlytime_s), EP2int(tissue_latertime_s)
     return (earlytime <= tissue_earlytime) and (latertime >= tissue_latertime)
+
+
+def logging(task: luigi.Task) -> lg.Logger:
+    logger_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    log_file = task.output().path + ".log"
+    logger = lg.getLogger(logger_name)
+    formatter = lg.Formatter('%(asctime)s %(levelname)s: %(message)s')
+    fileHandler = lg.FileHandler(log_file, mode='w')
+    fileHandler.setFormatter(formatter)
+    streamHandler = lg.StreamHandler()
+    streamHandler.setFormatter(formatter)
+
+    logger.setLevel(lg.INFO)
+    logger.addHandler(fileHandler)
+    logger.addHandler(streamHandler)    
+
+    return logger
 
 
 targets_map = {

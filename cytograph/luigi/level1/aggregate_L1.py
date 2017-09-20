@@ -1,7 +1,7 @@
 from typing import *
 import os
 import csv
-import logging
+#import logging
 import pickle
 import loompy
 import numpy as np
@@ -27,6 +27,7 @@ class AggregateL1(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".agg.loom"))
 
 	def run(self) -> None:
+		logging = cg.logging(self)
 		with self.output().temporary_path() as out_file:
 			ds = loompy.connect(self.input().fn)
 			cg.Aggregator(self.n_markers).aggregate(ds, out_file)

@@ -1,7 +1,6 @@
 from typing import *
 import os
 import csv
-import logging
 import pickle
 import loompy
 import numpy as np
@@ -26,6 +25,7 @@ class FilterL2(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + ".filtered.loom"))
 
 	def run(self) -> None:
+		logging = cg.logging(self)
 		logging.info("Filtering bad clusters")
 		dsout = None  # type: loompy.LoomConnection
 		accessions = None  # type: np.ndarray
@@ -51,9 +51,9 @@ class FilterL2(luigi.Task):
 			data = trinaries[markers, :].T
 			for ix in range(n_labels):
 				total_score = data[ix, ix * 10:(ix + 1) * 10].sum()
-				if total_score < 1:
+				if total_score < 2:
 					remove.append(ix)
-					logging.info(f"Cluster {ix} score: {total_score} < 1 (removing).")
+					logging.info(f"Cluster {ix} score: {total_score} < 2 (removing).")
 				else:
 					logging.info(f"Cluster {ix} score: {total_score}")
 

@@ -1,7 +1,7 @@
 from typing import *
 import os
 import csv
-import logging
+#import logging
 import pickle
 import loompy
 import numpy as np
@@ -16,18 +16,18 @@ class AggregateL3(luigi.Task):
 	"""
 	Aggregate all clusters in a new Loom file
 	"""
-	major_class = luigi.Parameter()
-	tissue = luigi.Parameter(default="All")
+	target = luigi.Parameter()  # e.g. Forebrain_Excitatory
 	n_markers = luigi.IntParameter(default=10)
 	n_auto_genes = luigi.IntParameter(default=6)
 
 	def requires(self) -> List[luigi.Task]:
-		return cg.ClusterL3(tissue=self.tissue, major_class=self.major_class)
+		return cg.ClusterL3(target=self.target)
 
 	def output(self) -> luigi.Target:
-		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.major_class + "_" + self.tissue + ".agg.loom"))
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.target + ".agg.loom"))
 
 	def run(self) -> None:
+		logging = cg.logging(self)
 		with self.output().temporary_path() as out_file:
 			logging.info("Aggregating loom file")
 			ds = loompy.connect(self.input().fn)
