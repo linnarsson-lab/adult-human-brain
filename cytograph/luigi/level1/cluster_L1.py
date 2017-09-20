@@ -24,65 +24,61 @@ from sklearn.cluster import DBSCAN
 
 
 class ClusterL1(luigi.Task):
-    """
-    Level 1 clustering
-    """
-    tissue = luigi.Parameter()
-    n_genes = luigi.IntParameter(default=1000)
-    gtsne = luigi.BoolParameter(default=True)
-    alpha = luigi.FloatParameter(default=1)
-    filter_cellcycle = luigi.Parameter(default=None)
-    layer = luigi.Parameter(default=None)
+	"""
+	Level 1 clustering
+	"""
+	tissue = luigi.Parameter()
+	n_genes = luigi.IntParameter(default=1000)
+	gtsne = luigi.BoolParameter(default=True)
+	alpha = luigi.FloatParameter(default=1)
+	filter_cellcycle = luigi.Parameter(default=None)
+	layer = luigi.Parameter(default=None)
 
-    def requires(self) -> luigi.Task:
-        return cg.PrepareTissuePool(tissue=self.tissue)
+	def requires(self) -> luigi.Task:
+		return cg.PrepareTissuePool(tissue=self.tissue)
 
-    def output(self) -> luigi.Target:
-        return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".loom"))
+	def output(self) -> luigi.Target:
+		return luigi.LocalTarget(os.path.join(cg.paths().build, "L1_" + self.tissue + ".loom"))
 
-    def run(self) -> None:
+	def run(self) -> None:
 		logging = cg.logging(self)
-        with self.output().temporary_path() as out_file:
-            ds = loompy.connect(self.input().fn)
-            dsout: loompy.LoomConnection = None
-            logging.info("Removing invalid cells")
-            for (ix, selection, vals) in ds.batch_scan_layers(cells=np.where(ds.col_attrs["_Valid"] == 1)[0],
-                                                              layers=ds.layer.keys(),
-                                                              batch_size=cg.memory().axis1,
-                                                              axis=1):
-                ca = {key: val[selection] for key, val in ds.col_attrs.items()}
-                if dsout is None:
-                    # NOTE Loompy Create should support multilayer !!!!
-                    if type(vals) is dict:
-                        dsout = loompy.create(out_file, vals[""], row_attrs=ds.row_attrs, col_attrs=ca, dtype=vals[""].dtype)
-                        for layername, layervalues in vals.items():
-                            if layername != "":
-                                dsout.set_layer(layername, layervalues, dtype=layervalues.dtype)
-                        dsout = loompy.connect(out_file)
-                    else:
-                        loompy.create(out_file, vals, row_attrs=ds.row_attrs, col_attrs=ca)
-                        dsout = loompy.connect(out_file)
-                else:
-                    dsout.add_columns(vals, ca)
-            dsout.close()
+		with self.output().temporary_path() as out_file:
+			ds = loompy.connect(self.input().fn)
+			dsout: loompy.LoomConnection = None
+			logging.info("Removing invalid cells")
+			for (ix, selection, vals) in ds.batch_scan_layers(cells=np.where(ds.col_attrs["_Valid"] == 1)[0], layers=ds.layer.keys(), batch_size=cg.memory().axis1, axis=1):
+				ca = {key: val[selection] for key, val in ds.col_attrs.items()}
+				if dsout is None:
+					# NOTE Loompy Create should support multilayer !!!!
+					if type(vals) is dict:
+						dsout = loompy.create(out_file, vals[""], row_attrs=ds.row_attrs, col_attrs=ca, dtype=vals[""].dtype)
+						for layername, layervalues in vals.items():
+							if layername != "":
+								dsout.set_layer(layername, layervalues, dtype=layervalues.dtype)
+						dsout = loompy.connect(out_file)
+					else:
+						loompy.create(out_file, vals, row_attrs=ds.row_attrs, col_attrs=ca)
+						dsout = loompy.connect(out_file)
+				else:
+					dsout.add_columns(vals, ca)
+			dsout.close()
 
-            dsout = loompy.connect(out_file)
-            ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne,
-                                     alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
-            (knn, mknn, tsne) = ml.fit(dsout)
+			dsout = loompy.connect(out_file)
+			ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
+			(knn, mknn, tsne) = ml.fit(dsout)
 
-            dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
-            dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
-            dsout.set_attr("_X", tsne[:, 0], axis=1)
-            dsout.set_attr("_Y", tsne[:, 1], axis=1)
+			dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			dsout.set_attr("_X", tsne[:, 0], axis=1)
+			dsout.set_attr("_Y", tsne[:, 1], axis=1)
 
-            min_pts = 10
-            eps_pct = 90
-            if self.tissue == "Sympathetic":
-                min_pts = 10
-                eps_pct = 80
-            cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers, min_pts=min_pts, eps_pct=eps_pct)
-            labels = cls.fit_predict(dsout)
-            dsout.set_attr("Clusters", labels, axis=1)
-            n_labels = np.max(labels) + 1
-            dsout.close()
+			min_pts = 10
+			eps_pct = 90
+			if self.tissue == "Sympathetic":
+				min_pts = 10
+				eps_pct = 80
+			cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers, min_pts=min_pts, eps_pct=eps_pct)
+			labels = cls.fit_predict(dsout)
+			dsout.set_attr("Clusters", labels, axis=1)
+			n_labels = np.max(labels) + 1
+			dsout.close()
