@@ -31,7 +31,8 @@ class ClusterL1(luigi.Task):
     n_genes = luigi.IntParameter(default=1000)
     gtsne = luigi.BoolParameter(default=True)
     alpha = luigi.FloatParameter(default=1)
-    use_multilevel = luigi.BoolParameter(default=False)
+    filter_cellcycle = luigi.Parameter(default=None)
+    layer = luigi.Parameter(default=None)
 
     def requires(self) -> luigi.Task:
         return cg.PrepareTissuePool(tissue=self.tissue)
@@ -66,7 +67,8 @@ class ClusterL1(luigi.Task):
             dsout.close()
 
             dsout = loompy.connect(out_file)
-            ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
+            ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne,
+                                     alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
             (knn, mknn, tsne) = ml.fit(dsout)
 
             dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)

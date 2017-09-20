@@ -8,11 +8,13 @@ import loompy
 
 
 class ManifoldLearning:
-	def __init__(self, *, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, genes: np.ndarray = None) -> None:
+	def __init__(self, *, n_genes: int = 1000, gtsne: bool = True, alpha: float = 1, genes: np.ndarray = None, filter_cellcycle: str = None, layer: str=None) -> None:
 		self.n_genes = n_genes
 		self.gtsne = gtsne
 		self.alpha = alpha
 		self.genes = genes
+		self.filter_cellcycle = filter_cellcycle
+		self.layer = layer
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[sparse.coo_matrix, sparse.coo_matrix, np.ndarray]:
 		"""
@@ -38,9 +40,49 @@ class ManifoldLearning:
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 
+		if self.filter_cellcycle is not None:
+			cell_cycle_genes = np.array(open(self.filter_cellcycle).read().split())
+			mask = np.in1d(ds.Gene, cell_cycle_genes)
+			if np.sum(mask) == 0:
+				logging.warn("None cell cycle genes where filtered, check your gene list")
+		else:
+			mask = None
+
 		if self.genes is None:
 			logging.info("Selecting up to %d genes", self.n_genes)
-			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
+			temp = np.zeros(ds.shape[0])
+			temp[genes] = 1
+			ds.set_attr("_Selected", temp, axis=0)
+			logging.info("%d genes selected", temp.sum())
+
+			n_components = min(50, n_valid)
+			logging.info("PCA projection to %d components", n_components)
+			pca = cg.PCAProjection(genes, max_n_components=n_components, layer=self.layer)
+			pca_transformed = pca.fit_transform(ds, normalizer, cells=cells)
+			transformed = pca_transformed
+
+			logging.info("Generating KNN graph")
+			k = min(10, n_valid - 1)
+			nn = NearestNeighbors(n_neighbors=k, algorithm="ball_tree", n_jobs=4)
+			nn.fit(transformed)
+			knn = nn.kneighbors_graph(mode='connectivity')
+			knn = knn.tocoo()
+			mknn = knn.minimum(knn.transpose()).tocoo()
+
+			logging.info("Louvain-Jaccard clustering")
+			lj = cg.LouvainJaccard(resolution=1)
+			labels = lj.fit_predict(knn)
+
+			# Make labels for excluded cells == -1
+			labels_all = np.zeros(ds.shape[1], dtype='int') + -1
+			labels_all[cells] = labels
+			ds.set_attr("Clusters", labels_all, axis=1)
+			n_labels = np.max(labels) + 1
+			logging.info("Found " + str(n_labels) + " LJ clusters")
+
+			logging.info("Marker selection")
+			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels), mask=mask).fit(ds)
 		else:
 			genes = self.genes
 

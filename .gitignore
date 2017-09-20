@@ -8,6 +8,8 @@ bhtsne/bh_tsne
 test/
 bhtsne/bh_tsne
 
+.vscode/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
