@@ -47,8 +47,8 @@ class MarkerEnrichment:
 				scores1[row, :] = score1
 				scores2[row, :] = score2
 		self.enrichment = scores1 * np.power(scores2, self.power)
-		self.genes = ds.Gene
-		self.valid = ds.row_attrs["_Valid"]
+		self.genes = np.copy(ds.Gene)
+		self.valid = np.copy(ds.row_attrs["_Valid"])
 
 	def save(self, fname: str) -> None:
 		with open(fname, "w") as f:
