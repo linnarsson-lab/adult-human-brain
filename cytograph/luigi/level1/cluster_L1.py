@@ -4,6 +4,7 @@ from shutil import copyfile
 import numpy as np
 #import logging
 import luigi
+import gc
 import cytograph as cg
 import loompy
 import logging
@@ -61,8 +62,10 @@ class ClusterL1(luigi.Task):
 						dsout = loompy.connect(out_file)
 				else:
 					dsout.add_columns(vals, ca)
+			# dsout.close() causes an exception; disabling gc fixes it. See https://github.com/h5py/h5py/issues/888
+			gc.disable()
 			dsout.close()
-
+			gc.enable()
 			dsout = loompy.connect(out_file)
 			ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
 			(knn, mknn, tsne) = ml.fit(dsout)
