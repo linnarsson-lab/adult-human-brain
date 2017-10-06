@@ -40,7 +40,7 @@ class PCAProjection:
 			self.accessions = ds.row_attrs["Accession"]
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=ds.layer):
 			vals = normalizer.transform(vals, selection)  # NOTE: maybe a layer parameter should be passed but it might make small difference
 			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
@@ -56,7 +56,7 @@ class PCAProjection:
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
+		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=ds.layer):
 			if self.accessions is not None:
 				vals = vals[ordering, :]
 			vals = normalizer.transform(vals, selection)
