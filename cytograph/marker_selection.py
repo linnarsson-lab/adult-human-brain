@@ -88,7 +88,7 @@ class MarkerSelection:
 
 		# Select best markers
 		included = []  # type: List[int]
-		if self.mask is not None:
+		if self.mask is None:
 			excluded = set(np.where(ds.row_attrs["_Valid"] == 0)[0])  # type: Set[int]
 		else:
 			excluded = set(np.where(np.logical_and(ds.row_attrs["_Valid"] == 0, self.mask))[0])

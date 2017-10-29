@@ -39,8 +39,13 @@ class PCAProjection:
 		if "Accession" in ds.row_attrs:
 			self.accessions = ds.row_attrs["Accession"]
 
+		# NOTE TO AVOID a BUG with layer of pickled objects
+		try:
+			layer = self.layer
+		except AttributeError:
+			layer = None
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=layer):
 			vals = normalizer.transform(vals, selection)  # NOTE: maybe a layer parameter should be passed but it might make small difference
 			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
@@ -56,9 +61,12 @@ class PCAProjection:
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
-		layer = None
-		if hasattr(self, "layer"):
+
+		# NOTE TO AVOID a BUG with layer of pickled objects
+		try:
 			layer = self.layer
+		except AttributeError:
+			layer = None
 		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=layer):
 			if self.accessions is not None:
 				vals = vals[ordering, :]

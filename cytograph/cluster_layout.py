@@ -40,8 +40,8 @@ class clustering(luigi.Config):
 def cluster_layout(ds: loompy.LoomConnection, use_hdbscan: bool = False, gtsne: bool = False) -> None:
 	n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 	n_total = ds.shape[1]
-	logging.info("%d of %d cells were valid", n_valid, n_total)
-	logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
+	logging.info(f"{n_valid} of {n_total} cells were valid")
+	logging.info(f"{np.sum(ds.row_attrs['_Valid'] == 1)} of {ds.shape[0]} genes were valid")
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
 
 	logging.info("Normalization")
