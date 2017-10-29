@@ -28,7 +28,7 @@ class ExportL2(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L2_" + self.major_class + "_" + self.tissue + "_exported"))
 
 	def run(self) -> None:
-		logging = cg.logging(self)
+		logging = cg.logging(self, True)
 		with self.output().temporary_path() as out_dir:
 			logging.info("Exporting cluster data")
 			if not os.path.exists(out_dir):

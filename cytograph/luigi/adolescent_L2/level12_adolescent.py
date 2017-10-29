@@ -15,7 +15,7 @@ class Level12Adolescent(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "AstroEpendymal", "Vascular", "Immune", "Blood", "PeripheralGlia"]  # "Excluded"]
+		classes = ["Oligos", "Ependymal", "Astrocytes", "Vascular", "Immune", "PeripheralGlia"]  # "Excluded"]
 		for tissue in tissues:
 			yield cg.ExportL1(tissue=tissue)
 			yield cg.ExportL2(tissue=tissue, major_class="Neurons")

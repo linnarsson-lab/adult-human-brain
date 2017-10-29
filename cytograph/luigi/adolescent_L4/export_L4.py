@@ -7,6 +7,7 @@ import numpy as np
 import networkx as nx
 import cytograph as cg
 import luigi
+from scipy.spatial.distance import squareform, pdist
 
 
 class ExportL4(luigi.Task):
@@ -22,6 +23,7 @@ class ExportL4(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L4_All_exported"))
 
 	def run(self) -> None:
+		logging = cg.logging(self, True)
 		with self.output().temporary_path() as out_dir:
 			logging.info("Exporting cluster data")
 			if not os.path.exists(out_dir):

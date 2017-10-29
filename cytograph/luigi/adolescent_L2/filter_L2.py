@@ -43,7 +43,7 @@ class FilterL2(luigi.Task):
 				logging.info("Removing outliers")
 
 			# Remove clusters that lack enriched genes
-			logging.info("Removing clusters with no enriched genes")
+			logging.info("Checking for clusters with no enriched genes")
 			logging.info("Trinarizing")
 			trinaries = cg.Trinarizer().fit(ds)
 			logging.info("Computing cluster gene enrichment scores")
@@ -53,18 +53,19 @@ class FilterL2(luigi.Task):
 				total_score = data[ix, ix * 10:(ix + 1) * 10].sum()
 				if total_score < 2:
 					remove.append(ix)
-					logging.info(f"Cluster {ix} score: {total_score} < 2 (removing).")
+					logging.info(f"Cluster {ix} score: {total_score:.1f} < 2 (removing).")
 				else:
-					logging.info(f"Cluster {ix} score: {total_score}")
+					logging.info(f"Cluster {ix} score: {total_score:.1f}")
 
 			# Remove clusters that express genes of the wrong major class
-			logging.info("Removing clusters with markers of wrong major class")
+			logging.info("Checking for clusters with markers of wrong major class")
 			nix_genes = {
 				"Neurons": ["Stmn2"],
 				"Oligos": ['Mog', 'Mobp', 'Neu4'],
 				"Vascular": ['Cldn5', 'Fn1', 'Acta2'],
 				"Immune": ['Ctss', 'Lyz2', 'Cx3cr1', 'Pf4'],
-				"AstroEpendymal": ['Aqp4', "Foxj1", "Ttr"],
+				"Astrocytes": ['Aqp4'],
+				"Ependymal": ["Foxj1", "Ttr"],
 				"Blood": ['Hbb-bt', 'Hbb-bh1', 'Hbb-bh2', 'Hbb-y', 'Hbb-bs', 'Hba-a1', 'Hba-a2', 'Hba-x'],
 				"PeripheralGlia": ["Mpz", "Prx", 'Col20a1', 'Ifi27l2a'],
 			}
@@ -89,6 +90,7 @@ class FilterL2(luigi.Task):
 			for i in retain:
 				temp += list(np.where(ds.Clusters == i)[0])
 			cells = np.sort(np.array(temp))
+
 			# Renumber the clusters
 			d = dict(zip(retain, np.arange(len(set(retain)) + 1)))
 			new_clusters = np.array([d[x] if x in d else -1 for x in ds.Clusters])
@@ -101,7 +103,25 @@ class FilterL2(luigi.Task):
 				else:
 					dsout.add_columns(vals, ca)
 
-			if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
-				raise ValueError("There are holes in the cluster ID sequence!")
+			# Filter the KNN and MKNN edges
+			(a, b, w) = ds.get_edges("KNN", axis=1)
+			mask = np.logical_and(np.in1d(a, cells), np.in1d(b, cells))
+			a = a[mask]
+			b = b[mask]
+			w = w[mask]
+			d = dict(zip(np.sort(cells), np.arange(cells.shape[0])))
+			a = np.array([d[x] for x in a])
+			b = np.array([d[x] for x in b])
+			dsout.set_edges("KNN", a, b, w, axis=1)
 
-			logging.info(f"Filtering {n_labels} -> {len(set(ds.Clusters))} clusters")
+			(a, b, w) = ds.get_edges("MKNN", axis=1)
+			mask = np.logical_and(np.in1d(a, cells), np.in1d(b, cells))
+			a = a[mask]
+			b = b[mask]
+			w = w[mask]
+			d = dict(zip(np.sort(cells), np.arange(cells.shape[0])))
+			a = np.array([d[x] for x in a])
+			b = np.array([d[x] for x in b])
+			dsout.set_edges("MKNN", a, b, w, axis=1)
+
+			logging.info(f"Filtering {n_labels} -> {len(set(new_clusters[cells]))} clusters")

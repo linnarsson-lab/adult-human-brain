@@ -113,7 +113,7 @@ class Classifier:
 		dsagg = loompy.connect(out_file)
 
 		logging.info("Computing auto-annotation")
-		aa = cg.AutoAnnotator()
+		aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
 		aa.annotate_loom(dsagg)
 		aa.save_in_loom(dsagg)
 

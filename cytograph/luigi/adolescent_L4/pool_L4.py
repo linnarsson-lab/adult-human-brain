@@ -17,20 +17,39 @@ class PoolL4(luigi.Task):
 	"""
 
 	def requires(self) -> luigi.Task:
-		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "AstroEpendymal", "Vascular", "Immune", "PeripheralGlia"]
-		for tissue in tissues:
-			yield cg.ClusterL3(tissue=tissue, major_class="Neurons")
-		for cls in classes:
-			yield cg.ClusterL3(tissue="All", major_class=cls)
+		targets = [
+			"SpinalCord_Inhibitory",
+			"SpinalCord_Excitatory",
+			"Peripheral_Neurons",
+			"Hypothalamus_Peptidergic",
+			"Hindbrain_Inhibitory",
+			"Hindbrain_Excitatory",
+			"Brain_Neuroblasts",
+			"Forebrain_Inhibitory",
+			"Forebrain_Excitatory",
+			"DiMesencephalon_Inhibitory",
+			"DiMesencephalon_Excitatory",
+			"Brain_Granule",
+			"Brain_CholinergicMonoaminergic",
+			"Striatum_MSN"
+		]
+
+		classes = ["Oligos", "Astrocytes", "Ependymal", "Vascular", "Immune", "PeripheralGlia"]
+		for target in targets:
+			yield cg.ClusterL3(target=target)
+		for cl in classes:
+			yield cg.FilterL2(major_class=cl, tissue="All")
 
 	def output(self) -> luigi.Target:
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L4_All.loom"))
 		
 	def run(self) -> None:
+		logging = cg.logging(self)
 		samples = [x.fn for x in self.input()]
 		max_cluster_id = 0
 		cluster_ids: List[int] = []
+		original_ids: List[int] = []
+		samples_per_cell: List[int] = []
 		with self.output().temporary_path() as out_file:
 			dsout: loompy.LoomConnection = None
 			accessions = None  # type: np.ndarray
@@ -45,6 +64,8 @@ class PoolL4(luigi.Task):
 					for key in ds.col_attrs:
 						ca[key] = ds.col_attrs[key][selection]
 					cluster_ids += list(ca["Clusters"] + max_cluster_id)
+					original_ids += list(ca["Clusters"])
+					samples_per_cell += [sample] * selection.shape[0]
 					if dsout is None:
 						dsout = loompy.create(out_file, vals[ordering, :], ds.row_attrs, ca)
 					else:
@@ -52,4 +73,6 @@ class PoolL4(luigi.Task):
 				max_cluster_id = max(cluster_ids) + 1
 				ds.close()
 			dsout.set_attr("Clusters", np.array(cluster_ids), axis=1)
+			dsout.set_attr("OriginalClusters", np.array(original_ids), axis=1)
+			dsout.set_attr("MajorTarget", np.array(samples_per_cell), axis=1)
 			dsout.close()

@@ -89,7 +89,8 @@ params = {  # eps_pct and min_pts
     "L2_Neurons_Sympathetic": [60, 10],
     "L2_Neurons_Thalamus": [75, 10],
     "L2_Oligos_All": [95, 500],
-    "L2_AstroEpendymal_All": [70, 40],
+    "L2_Astrocytes_All": [70, 40],
+    "L2_Ependymal_All": [70, 40],
     "L2_Blood_All": [70, 20],
     "L2_Immune_All": [80, 40],
     "L2_PeripheralGlia_All": [80, 20],
@@ -107,7 +108,7 @@ class ClusterL2(luigi.Task):
 	n_components = luigi.IntParameter(default=30)
 	k = luigi.IntParameter(default=5)
 	N = luigi.IntParameter(default=5000)
-	gtsne = luigi.BoolParameter(default=False)
+	gtsne = luigi.BoolParameter(default=True)
 	alpha = luigi.FloatParameter(default=1)
 
 	def requires(self) -> luigi.Task:
@@ -130,10 +131,6 @@ class ClusterL2(luigi.Task):
 				logging.info("Split/pool from " + clustered.fn)
 				labels = ds.col_attrs["Class"]
 
-				# Keep track of the gene order in the first file
-				if accessions is None:
-					accessions = ds.row_attrs["Accession"]
-
 				# Mask out cells that do not have the majority label of its cluster
 				clusters = ds.col_attrs["Clusters"]
 
@@ -147,6 +144,13 @@ class ClusterL2(luigi.Task):
 					if labels[ix] == self.major_class and labels[ix] == majority_labels[clusters[ix]]:
 						cells.append(ix)
 				logging.info("Keeping " + str(len(cells)) + " cells with majority labels")
+				if len(cells) == 0:
+					continue
+
+				# Keep track of the gene order in the first file
+				if accessions is None:
+					accessions = ds.row_attrs["Accession"]
+				
 				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
 				for (ix, selection, vals) in ds.batch_scan(cells=np.array(cells), axis=1, batch_size=cg.memory().axis1):
 					ca = {}
@@ -164,7 +168,7 @@ class ClusterL2(luigi.Task):
 
 			logging.info("Learning the manifold")
 			ds = loompy.connect(out_file)
-			ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
+			ml = cg.ManifoldLearning2(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
@@ -174,9 +178,11 @@ class ClusterL2(luigi.Task):
 			logging.info("Clustering on the manifold")
 			fname = "L2_" + self.major_class + "_" + self.tissue
 			(eps_pct, min_pts) = params[fname]
-			cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
+			cls = cg.Clustering(method="mknn_louvain", eps_pct=eps_pct, min_pts=min_pts)
 			labels = cls.fit_predict(ds)
 			ds.set_attr("Clusters", labels, axis=1)
+			logging.info(f"Found {labels.max() + 1} clusters")
 			cg.Merger(min_distance=0.2).merge(ds)
+			logging.info(f"Merged to {ds.col_attrs['Clusters'].max() + 1} clusters")
 			ds.close()
 		dsout.close()

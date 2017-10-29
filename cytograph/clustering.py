@@ -92,6 +92,18 @@ class Clustering:
 			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
+		elif self.method == "mknn_louvain" and passed_import:
+			logging.info("comunity-multilevel clustering on the multiscale MKNN graph")
+			(a, b, w) = ds.get_edges("MKNN", axis=1)
+			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
+			VxCl = G.community_multilevel(return_levels=False, weights="weight")
+			labels = np.array(VxCl.membership)
+			if not self.outliers:
+				bigs = np.where(np.bincount(labels) >= 0)[0]
+			else:
+				bigs = np.where(np.bincount(labels) >= self.min_pts)[0]				
+			mapping = {k: v for v, k in enumerate(bigs)}
+			labels = np.array([mapping[x] if x in bigs else -1 for x in labels])			
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)

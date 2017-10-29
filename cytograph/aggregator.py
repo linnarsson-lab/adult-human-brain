@@ -84,7 +84,7 @@ class Aggregator:
 		ds.permute(gene_order, axis=0)
 		dsout.permute(gene_order, axis=0)
 
-		data = trinaries[:, ordering][:self.n_markers * n_labels, :].T
+		data = trinaries[:, ordering][gene_order, :][:self.n_markers * n_labels, :].T
 		cluster_scores = []
 		for ix in range(n_labels):
 			cluster_scores.append(data[ix, ix * 10:(ix + 1) * 10].sum())
@@ -130,7 +130,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			func = aggr_ca_by[key]
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
-					ca[key + "_" + val] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key][cols] == val, func="sum", fill_value=0)
+					ca[key + "_" + val] = npg.aggregate(zero_strt_sort_noholes_lbls, (ds.col_attrs[key][cols] == val).astype('int'), func="sum", fill_value=0)
 			elif func == "mode":
 				def mode(x):
 					return scipy.stats.mode(x)[0][0]

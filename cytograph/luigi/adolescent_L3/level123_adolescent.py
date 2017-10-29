@@ -15,7 +15,9 @@ class Level123Adolescent(luigi.WrapperTask):
 
 	def requires(self) -> Iterator[luigi.Task]:
 		targets = [
-			'Peripheral_Neurons',
+			'Sensory_Neurons',
+			'Sympathetic_Neurons',
+			'Enteric_Neurons',
 			'DiMesencephalon_Excitatory',
 			'Hindbrain_Inhibitory',
 			'SpinalCord_Inhibitory',
@@ -25,13 +27,14 @@ class Level123Adolescent(luigi.WrapperTask):
 			'Striatum_MSN',
 			'Hypothalamus_Peptidergic',
 			'Forebrain_Excitatory',
-			'Forebrain_Neuroblasts',
+			'Brain_Neuroblasts',
 			'Hindbrain_Excitatory',
 			'SpinalCord_Excitatory',
-			'Forebrain_Inhibitory'
+			'Forebrain_Inhibitory',
+			'Olfactory_Inhibitory'
 		]
 		tissues = cg.PoolSpec().tissues_for_project("Adolescent")
-		classes = ["Oligos", "AstroEpendymal", "Vascular", "Immune", "Blood", "PeripheralGlia"]
+		classes = ["Oligos", "Ependymal", "Astrocytes", "Vascular", "Immune", "PeripheralGlia"]
 		for tissue in tissues:
 			yield cg.ExportL1(tissue=tissue)
 			yield cg.ExportL2(tissue=tissue, major_class="Neurons")

@@ -21,7 +21,7 @@ class Merger:
 	"""
 	Merge clusters based on a cluster distance metric
 	"""
-	def __init__(self, n_markers: int = 10, min_distance: float = 3, pep: float = 0.1) -> None:
+	def __init__(self, n_markers: int = 10, min_distance: float = 0.2, pep: float = 0.1) -> None:
 		self.n_markers = n_markers
 		self.min_distance = min_distance
 		self.pep = pep
@@ -44,30 +44,33 @@ class Merger:
 			"""
 			return np.sum((1 - a) * b + a * (1 - b) > 1 - self.pep) / n_labels
 
-		data = trinaries[markers, :].T
+		# Figure out which cluster is the outliers (if any)
+		outlier_cluster: int = None
+		mask = np.ones(trinaries.shape[1], dtype='bool')
+		if "Outliers" in ds.col_attrs.keys() and np.any(ds.col_attrs["Outliers"] == 1):
+			outliers = ds.col_attrs["Clusters"][ds.col_attrs["Outliers"] == 1]
+			if outliers.max() != outliers.min():
+				raise ValueError("Two outlier clusters found, but code can handle only one!")
+			outlier_cluster = outliers[0]
+			mask[outlier_cluster] = False
+	
+		data = trinaries[markers, :][:, mask].T
 		Z = hc.linkage(data, 'complete', metric=discordance_distance)
 		D = pdist(data, discordance_distance)
 		optimal_Z = optimal_leaf_ordering(Z, D)
 		ordering = hc.leaves_list(optimal_Z)
 		merged = hc.fcluster(optimal_Z, self.min_distance, criterion='distance') - 1
 
-		# Keep the outliers separate
-		if "Outliers" in ds.col_attrs.keys() and np.any(ds.col_attrs["Outliers"] == 1):
-			outliers = ds.col_attrs["Clusters"][ds.col_attrs["Outliers"] == 1][0]
-			if (merged == outliers).sum() > 1:
-				merged[outliers] = -1
-				merged += 1
-
-		# Fix the merged vector in case there's a hole left by the outliers
-		d = dict(zip(sorted(list(set(merged))), np.arange(n_labels)))
-		merged = np.array([d[x] for x in merged])
-		
 		# Renumber the clusters
-		d = dict(zip(np.arange(n_labels), merged))
+		d: Dict[int, int] = {}
+		if outlier_cluster is not None:
+			d[outlier_cluster] = 0
+			for ix, m in enumerate(merged + 1):
+				d[ix if ix < outlier_cluster else ix + 1] = m
+		else:
+			for ix, m in enumerate(merged):
+				d[ix] = m
 		logging.info(d)
-		new_clusters = np.array([d[x] if x in d else -1 for x in ds.Clusters])
+		new_clusters = np.array([d[x] for x in ds.Clusters])
 		ds.set_attr("Clusters", new_clusters, axis=1)
 		logging.info(f"Merged {n_labels} -> {len(set(new_clusters))} clusters")
-
-		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
-			raise ValueError("There are holes in the cluster ID sequence!")

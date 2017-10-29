@@ -26,6 +26,7 @@ class AggregateL4(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L4_All.agg.loom"))
 
 	def run(self) -> None:
+		logging = cg.logging(self)
 		with self.output().temporary_path() as out_file:
 			logging.info("Aggregating loom file")
 			ds = loompy.connect(self.input().fn)
@@ -33,7 +34,7 @@ class AggregateL4(luigi.Task):
 			dsagg = loompy.connect(out_file)
 
 			logging.info("Computing auto-annotation")
-			aa = cg.AutoAnnotator()
+			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
 			aa.annotate_loom(dsagg)
 			aa.save_in_loom(dsagg)
 

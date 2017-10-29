@@ -56,7 +56,10 @@ class PCAProjection:
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=self.layer):
+		layer = None
+		if hasattr(self, "layer"):
+			layer = self.layer
+		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=layer):
 			if self.accessions is not None:
 				vals = vals[ordering, :]
 			vals = normalizer.transform(vals, selection)

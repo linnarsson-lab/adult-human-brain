@@ -15,7 +15,10 @@ import scipy.stats
 params = {  # eps_pct and min_pts
 	"L3_SpinalCord_Inhibitory": [50, 10],
 	"L3_SpinalCord_Excitatory": [60, 10],
-	"L3_Peripheral_Neurons": [60, 10],
+	"L3_Olfactory_Inhibitory": [75, 10],
+	"L3_Enteric_Neurons": [60, 10],
+	"L3_Sensory_Neurons": [60, 10],
+	"L3_Sympathetic_Neurons": [60, 10],	
 	"L3_Hypothalamus_Peptidergic": [60, 10],
 	"L3_Hindbrain_Inhibitory": [60, 10],
 	"L3_Hindbrain_Excitatory": [60, 10],
@@ -25,7 +28,8 @@ params = {  # eps_pct and min_pts
 	"L3_DiMesencephalon_Inhibitory": [70, 10],
 	"L3_DiMesencephalon_Excitatory": [70, 10],
 	"L3_Brain_Granule": [80, 70],
-	"L3_Brain_CholinergicMonoaminergic": [60, 10]
+	"L3_Brain_CholinergicMonoaminergic": [60, 10],
+	"L3_Striatum_MSN": [78, 60]
 }
 
 
@@ -50,7 +54,7 @@ class ClusterL3(luigi.Task):
 		return luigi.LocalTarget(os.path.join(cg.paths().build, "L3_" + self.target + ".loom"))
 		
 	def run(self) -> None:
-		logging = cg.logging(self)
+		logging = cg.logging(self, True)
 		dsout: loompy.LoomConnection = None
 		accessions: loompy.LoomConnection = None
 		with self.output().temporary_path() as out_file:
@@ -105,52 +109,17 @@ class ClusterL3(luigi.Task):
 								logging.info(f"{tissue}/{ix}/{agg_aa}: No matching rule")
 							else:
 								clusters_seen[ix] = f"{aa_tag} -> {sendto}"
-								logging.info(f"## {tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
-								# Keep track of the gene order in the first file
-								if accessions is None:
-									accessions = ds.row_attrs["Accession"]
-								if ordering is None:
-									ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-								cells += list(np.where(labels == ix)[0])
-								enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
-
-
-
-				# 	for aa_tag, sendto in schedule:
-				# 		for ix, agg_aa in enumerate(dsagg.col_attrs["AutoAnnotation"]):
-				# 			if aa_tag in agg_aa.split(","):
-				# 				if ix in clusters_seen:
-				# 					if sendto == self.target:
-				# 						logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto} (but cluster already taken by '{clusters_seen[ix]}')")
-				# 					continue
-				# 				# clusters_seen.append(ix)
-				# 				clusters_seen[ix] = f"{aa_tag} -> {sendto}"
-				# 				if sendto == self.target:
-				# 					logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto}")
-				# 					# Keep track of the gene order in the first file
-				# 					if accessions is None:
-				# 						accessions = ds.row_attrs["Accession"]
-				# 					if ordering is None:
-				# 						ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-				# 					cells += list(np.where(labels == ix)[0])
-				# 					enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
-				# 		if aa_tag == "*" and sendto == self.target:
-				# 			# Pick up all the remaining clusters
-				# 			for ix in range(dsagg.shape[1]):
-				# 				if ix not in clusters_seen:
-				# 					clusters_seen[ix] = f"{aa_tag} -> {sendto}"
-				# 					# Keep track of the gene order in the first file
-				# 					if accessions is None:
-				# 						accessions = ds.row_attrs["Accession"]
-				# 					if ordering is None:
-				# 						ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-				# 					logging.info(f"{tissue}/{ix}: {agg_aa} matches {aa_tag} -> {sendto}")
-				# 					cells += list(np.where(labels == ix)[0])
-				# 					enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
-
-				# for ix, agg_aa in enumerate(dsagg.col_attrs["AutoAnnotation"]):
-				# 	if ix not in clusters_seen:
-				# 		logging.info(f"{tissue}/{ix}: {agg_aa} did not match any rule")
+								if sendto == self.target:
+									logging.info(f"## {tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
+									# Keep track of the gene order in the first file
+									if accessions is None:
+										accessions = ds.row_attrs["Accession"]
+									if ordering is None:
+										ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
+									cells += list(np.where(labels == ix)[0])
+									enriched_markers.append(np.argsort(-enrichment[:, ix][ordering]))
+								else:
+									logging.info(f"{tissue}/{ix}/{agg_aa}: {aa_tag} -> {sendto}")
 
 				if len(cells) > 0:
 					cells = np.sort(np.array(cells))
@@ -179,8 +148,7 @@ class ClusterL3(luigi.Task):
 
 			logging.info("Learning the manifold")
 			ds = loompy.connect(out_file)
-			n_labels = len(set(ds.col_attrs["Clusters"]))
-			ml = cg.ManifoldLearning(gtsne=True, alpha=1, genes=genes)
+			ml = cg.ManifoldLearning2(gtsne=True, alpha=1, genes=genes)
 			(knn, mknn, tsne) = ml.fit(ds)
 			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
 			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
@@ -189,10 +157,23 @@ class ClusterL3(luigi.Task):
 
 			logging.info("Clustering on the manifold")
 			(eps_pct, min_pts) = (65, 20)
-			cls = cg.Clustering(method="dbscan", eps_pct=eps_pct, min_pts=min_pts)
+			if "L3_" + self.target in params:
+				(eps_pct, min_pts) = params["L3_" + self.target]
+			logging.info(f"MKNN-Louvain with eps_pct {eps_pct}, min_pts {min_pts}")
+			cls = cg.Clustering(method="mknn_louvain", eps_pct=eps_pct, min_pts=min_pts)
 			labels = cls.fit_predict(ds)
+			n_labels = len(set(labels))
 			ds.set_attr("Clusters", labels, axis=1)
-			cg.Merger(min_distance=0.2).merge(ds)
+			logging.info(f"Found {labels.max() + 1} clusters")
+			distance = 0.2
+			if self.target == "Striatum_MSN":
+				distance = 0.4
+			cg.Merger(min_distance=distance).merge(ds)
+			# Merge twice to deal with super-similar clusters like granule cells
+			cg.Merger(min_distance=distance).merge(ds)
+			n_labels = ds.col_attrs['Clusters'].max() + 1
+			logging.info(f"Merged to {n_labels} clusters")
+
 			ds.close()
 
 
@@ -239,8 +220,8 @@ pooling_schedule_L3 = {
 		("MSN-D2", "Striatum_MSN"),
 		("@NIPC", "Brain_Neuroblasts"),
 		("@GABA", "Forebrain_Inhibitory"),
-		("@NBL", "Brain_Neuroblasts"),
 		("DG-GC", "Brain_Granule"),
+		("@NBL", "Brain_Neuroblasts"),
 		("@VGLUT1", "Forebrain_Excitatory"),
 		("@VGLUT2", "Forebrain_Excitatory"),
 		("@VGLUT3", "Forebrain_Excitatory"),
@@ -270,6 +251,7 @@ pooling_schedule_L3 = {
 		("@NBL", "Brain_Neuroblasts")
 	],
 	"Amygdala": [
+		("@GABAGLUT1", "Amygdala_Other"),
 		("MSN-D1", "Striatum_MSN"),
 		("MSN-D2", "Striatum_MSN"),
 		("@CHOL", "Brain_CholinergicMonoaminergic"),
@@ -288,8 +270,8 @@ pooling_schedule_L3 = {
 		("@VGLUT1", "Forebrain_Excitatory"),
 		("@VGLUT2", "Forebrain_Excitatory"),
 		("@VGLUT3", "Forebrain_Excitatory"),
-		("@NBL", "Forebrain_Neuroblasts"),
-		("*", "Forebrain_Inhibitory")
+		("@NBL", "Brain_Neuroblasts"),
+		("*", "Olfactory_Inhibitory")
 	],
 	"Hypothalamus": [
 		("MSN-D1", "Striatum_MSN"),
@@ -347,13 +329,14 @@ pooling_schedule_L3 = {
 	],
 	"Cerebellum": [
 		("@NIPC", "Brain_Neuroblasts"),
-		("CB-GC", "Brain_Granule"),
 		("CB-PC", "Hindbrain_Inhibitory"),
+		("CB-GC", "Brain_Granule"),
 		("@GLY", "Hindbrain_Inhibitory"),
 		("@GABA", "Hindbrain_Inhibitory"),
 		("@VGLUT1", "Hindbrain_Excitatory"),
 		("@VGLUT2", "Hindbrain_Excitatory"),
-		("@VGLUT3", "Hindbrain_Excitatory")
+		("@VGLUT3", "Hindbrain_Excitatory"),
+		("@NBL", "Brain_Neuroblasts")
 	],
 	"Pons": [
 		("@CHOL", "Brain_CholinergicMonoaminergic"),
@@ -387,12 +370,12 @@ pooling_schedule_L3 = {
 		("*", "SpinalCord_Excitatory"),
 	],
 	"DRG": [
-		("*", "Peripheral_Neurons")
+		("*", "Sensory_Neurons")
 	],
 	"Sympathetic": [
-		("*", "Peripheral_Neurons")
+		("*", "Sympathetic_Neurons")
 	],
 	"Enteric": [
-		("*", "Peripheral_Neurons")
+		("*", "Enteric_Neurons")
 	],
 }

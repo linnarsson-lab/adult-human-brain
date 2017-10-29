@@ -66,22 +66,41 @@ class ClusterL1(luigi.Task):
 			gc.disable()
 			dsout.close()
 			gc.enable()
-			dsout = loompy.connect(out_file)
-			ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
-			(knn, mknn, tsne) = ml.fit(dsout)
 
-			dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
-			dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
-			dsout.set_attr("_X", tsne[:, 0], axis=1)
-			dsout.set_attr("_Y", tsne[:, 1], axis=1)
+			logging.info("Learning the manifold")
+			ds = loompy.connect(out_file)
+			ml = cg.ManifoldLearning2(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
+			(knn, mknn, tsne) = ml.fit(ds)
+			ds.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			ds.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			ds.set_attr("_X", tsne[:, 0], axis=1)
+			ds.set_attr("_Y", tsne[:, 1], axis=1)
 
-			min_pts = 10
-			eps_pct = 90
-			if self.tissue == "Sympathetic":
-				min_pts = 10
-				eps_pct = 80
-			cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers, min_pts=min_pts, eps_pct=eps_pct)
-			labels = cls.fit_predict(dsout)
-			dsout.set_attr("Clusters", labels, axis=1)
-			n_labels = np.max(labels) + 1
-			dsout.close()
+			logging.info("Clustering on the manifold")
+			cls = cg.Clustering(method="mknn_louvain", min_pts=10)
+			labels = cls.fit_predict(ds)
+			ds.set_attr("Clusters", labels, axis=1)
+			logging.info(f"Found {labels.max() + 1} clusters")
+			cg.Merger(min_distance=0.2).merge(ds)
+			logging.info(f"Merged to {ds.col_attrs['Clusters'].max() + 1} clusters")
+			ds.close()
+
+			# dsout = loompy.connect(out_file)
+			# ml = cg.ManifoldLearning(n_genes=self.n_genes, gtsne=self.gtsne, alpha=self.alpha, filter_cellcycle=self.filter_cellcycle, layer=self.layer)
+			# (knn, mknn, tsne) = ml.fit(dsout)
+
+			# dsout.set_edges("KNN", knn.row, knn.col, knn.data, axis=1)
+			# dsout.set_edges("MKNN", mknn.row, mknn.col, mknn.data, axis=1)
+			# dsout.set_attr("_X", tsne[:, 0], axis=1)
+			# dsout.set_attr("_Y", tsne[:, 1], axis=1)
+
+			# min_pts = 10
+			# eps_pct = 90
+			# if self.tissue == "Sympathetic":
+			# 	min_pts = 10
+			# 	eps_pct = 80
+			# cls = cg.Clustering(method=cg.cluster().method, outliers=not cg.cluster().no_outliers, min_pts=min_pts, eps_pct=eps_pct)
+			# labels = cls.fit_predict(dsout)
+			# dsout.set_attr("Clusters", labels, axis=1)
+			# n_labels = np.max(labels) + 1
+			# dsout.close()

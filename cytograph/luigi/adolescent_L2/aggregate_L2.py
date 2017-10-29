@@ -32,10 +32,10 @@ class AggregateL2(luigi.Task):
 		with self.output().temporary_path() as out_file:
 			logging.info("Aggregating loom file")
 			ds = loompy.connect(self.input().fn)
-			logging.info(set(ds.Clusters))
 			cg.Aggregator(self.n_markers).aggregate(ds, out_file)
 			dsagg = loompy.connect(out_file)
-			logging.info(set(dsagg.Clusters))
+			for ix, score in enumerate(dsagg.col_attrs["ClusterScore"]):
+				logging.info(f"Cluster {ix} score {score:.1f}")
 
 			logging.info("Computing auto-annotation")
 			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)

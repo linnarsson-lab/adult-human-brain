@@ -1,0 +1,44 @@
+
+Cell types currently not detected, but which can be rescued:
+
+    SCO-HYP - perhaps by analyzing ependymal cells separately
+    DA1 vs DA2 - (Aldh1a1) may need some post-processing or fine-tuning
+
+Cell types currently split too much:
+
+    Astrocytes, both main types
+        - seems to be due to some contamination by oligodendrocytes
+        - maybe by analyzing separately from ependymal and using large merge threshold
+
+
+Hi
+just for the documentation, if we decide to have it in the pipeline.
+for the big table with the data maybe you want to transform it to hd5/loom format.
+amit
+
+Spatial correlation of cell-types by allen brain ISH voxel dataset
+
+(1) Load /mnt/sanger-data2/10X_adol_mice/allen_brain_ish_data/gridAnnotation.raw
+ and reshape to 67x41x58 (rows x columns x depth). This file contain the voxels with the region ID.
+Load annotation key file from Gioele /mnt/sanger-data2/10X_adol_mice/allen_brain_ish_data/AllenBrainReference_forAmit.txt.
+Comments: the region annotation ID numbers are strange (not 1,2,3) so for me it make problems to plot it using normal colormap, so i first change them to some normal integers goes from 1 to number of regions.
+
+(2) Load the voxel energy dataset:
+/mnt/sanger-data2/10X_adol_mice/allen_brain_ish_data/AllenBrain_ISH_voxel_200um_67x41x58_13-Sep-2017.txt  (its a huge file).
+For coronal genes DON'T average; take only the left. Saggital genes have anyway only the left hemisphare. Define the voxels that are outside the domain as those that have annotation=0. Set the voxel energy in the outside voxels to -1. 
+
+(3) Define quality criteria for gene ISH as (¨invoxels¨ are the inside voxels):
+sum(voxel_energy(:,invoxels)>5,2)>100 & mean(voxel_energy(:,invoxels),2)>0.2; (greater than 100 pixels with energy>5 and total mean greater than 0.2  among the inside pixels. This is based on my inspection and some scatter plots that a checked mean vs cv or variance or percentage positive.
+
+(4) Normalized the energy voxel:
+For each gene transform the energy by (log2(voxel_energy(i,in)+1) - m)/s , where m = mean(log2(voxel_energy(i,in)+1));s = std(log2(voxel_energy(i,in)+1));
+and in = voxel_energy(i,:)>0;.
+
+(5) Calculate correlation with cell-types:
+load cell-types aggregates data, where each cell-types represented by the average expression. Finding enriched genes per cluster (similar to our normal procedure). Narrow down the features to the intersect of enriched genes and quality pass ISH.
+Calculate correlation between each cell type expression (log2+1) and voxel profile (after the normalization above). 
+
+(6) Calculate region fold enrichment: for each cell-types take the top 100 pixels and calculate the fold enrichment of the region ID that are among them by normalizing to frequency within the 100 to the overall frequency of each region ID.
+
+
+
