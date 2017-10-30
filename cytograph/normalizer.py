@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import luigi
 
-
+## TODO: this needs to be moved in the project specific repo
 class normalizer(luigi.Config):
 	level = luigi.IntParameter(default=5000)
 

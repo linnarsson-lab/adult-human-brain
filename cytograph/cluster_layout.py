@@ -23,6 +23,7 @@ import hdbscan
 
 
 # Config classes should be camel cased
+# TODO: this needs to be moved to project specific repo
 class clustering(luigi.Config):
 	method = luigi.Parameter(default="lj")  # or "hdbscan"
 	n_genes = luigi.IntParameter(default=2000)
@@ -37,6 +38,8 @@ class clustering(luigi.Config):
 	min_samples = luigi.IntParameter(default=10)
 
 
+# TODO: all the calls to the luigi.Config object clustering could be substituted to a call to a new keyword argument clustering 
+# but maybe better add explicitelly the parameters standardize, ngenes, n_components, k and pass them upstream 
 def cluster_layout(ds: loompy.LoomConnection, use_hdbscan: bool = False, gtsne: bool = False) -> None:
 	n_valid = np.sum(ds.col_attrs["_Valid"] == 1)
 	n_total = ds.shape[1]

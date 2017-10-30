@@ -20,6 +20,7 @@ import luigi
 
 
 # Config classes should be camel cased
+# TODO: This needs to be moved in the project-specific repo
 class magic(luigi.Config):
 	n_genes = luigi.IntParameter(default=2000)
 	standardize = luigi.BoolParameter(default=False)

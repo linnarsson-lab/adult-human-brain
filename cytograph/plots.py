@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import networkx as nx
 import cytograph as cg
-import luigi
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
