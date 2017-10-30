@@ -18,9 +18,9 @@ setup(
 		'hdbscan',
 		'pyyaml',
 		'polo',
-		'numpy-groupies'
+		'numpy-groupies',
+		'python-igraph'
 	],
-	dependency_links=['http://github.com/linnarsson-lab/numpy-groupies/tarball/master#egg=numpy_groupies'],
 	
 	# metadata
 	author="Linnarsson Lab",

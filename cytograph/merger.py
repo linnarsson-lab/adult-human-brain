@@ -40,7 +40,7 @@ class Merger:
 		
 		def discordance_distance(a: np.ndarray, b: np.ndarray) -> float:
 			"""
-			Number of genes that are discordant with given PEP, divided by number of clusters
+			Fraction of genes that are discordant with given PEP, divided by number of clusters
 			"""
 			return np.sum((1 - a) * b + a * (1 - b) > 1 - self.pep) / n_labels
 
