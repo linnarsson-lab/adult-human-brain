@@ -14,7 +14,6 @@ from .trinarizer import Trinarizer, load_trinaries, credible_discordance
 from .pool_spec import PoolSpec
 from .cluster_layout import cluster_layout
 from .plots import plot_cv_mean, plot_graph, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap
-from .luigi import *
 from .magic import magic_imputation
 from .averager import Averager
 from .marker_selection import MarkerSelection

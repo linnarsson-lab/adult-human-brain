@@ -3,8 +3,6 @@ import os
 import loompy
 import numpy as np
 import cytograph as cg
-import luigi
-
 
 class MarkerEnrichment:
 	"""

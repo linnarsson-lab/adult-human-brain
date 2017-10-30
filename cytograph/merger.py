@@ -6,7 +6,6 @@ import pickle
 import loompy
 import numpy as np
 import cytograph as cg
-import luigi
 import scipy.cluster.hierarchy as hierarchy
 import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc

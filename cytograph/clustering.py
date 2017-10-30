@@ -2,8 +2,7 @@ from typing import *
 import os
 from shutil import copyfile
 import numpy as np
-import logging
-import luigi
+import logging 
 import cytograph as cg
 import loompy
 import logging
