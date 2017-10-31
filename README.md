@@ -6,7 +6,7 @@
 The following instructions should work for Linux and Mac (unfortunately, we have no 
 experience with Windows).
 
-1. [Install Anaconda 4.3.0](https://www.continuum.io/downloads), Python 3.6 version
+1. [Install Anaconda](https://www.continuum.io/downloads), Python 3.6 version
 
 2. Install `loompy`:
 
@@ -26,23 +26,10 @@ cd ..
 python setup.py install
 ```
 
-## Preparations
+## Running the pipeline
 
-1. Download the raw data `http://.... link here`
-2. Unpack it to the folder `loom_samples`
-3. Create the build folder: `mkdir loom_builds`
+**Note:** pipelines are now separated out into their own repos:
 
-## Pipeline examples
+* [Adolescent mouse brain](https://github.com/linnarsson-lab/adolescent-mouse)
+* [Developing mouse brain](https://github.com/linnarsson-lab/development-mouse)
 
-* Level 2 analysis for specific class and tissue
-
-`luigi --local-scheduler --module cytograph PlotGraphL2 --major-class Oligos --tissue All`
-
-Replace `Oligos` with any major class (`Oligos`, `Astrocyte`, `Neurons`, `Ependymal`, `Immune`, 
-`Vascular`, `Cycling`, `Erythrocytes`).
-
-To split by tissue, replace `All` with the tissue name (e.g. `Hippocampus`)
-
-* Redo auto-annotation
-
-Delete the {major-class}.aa.tab and {major-class}.mknn.png files, then rerun the command above.
