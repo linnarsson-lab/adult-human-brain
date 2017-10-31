@@ -52,7 +52,7 @@ class Trinarizer:
 		self.genes = ds.Gene
 
 		j = 0
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=cg.memory().axis0):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			for j, row in enumerate(selection):
 				data = np.round(vals[j, :])
 				self.trinary_prob[row, :] = self._betabinomial_trinarize_array(data, labels, self.f, n_labels)

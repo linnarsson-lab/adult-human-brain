@@ -45,7 +45,7 @@ class PCAProjection:
 		except AttributeError:
 			layer = None
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=layer):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, layer=layer):
 			vals = normalizer.transform(vals, selection)  # NOTE: maybe a layer parameter should be passed but it might make small difference
 			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
@@ -67,7 +67,7 @@ class PCAProjection:
 			layer = self.layer
 		except AttributeError:
 			layer = None
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, batch_size=cg.memory().axis1, layer=layer):
+		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, layer=layer):
 			if self.accessions is not None:
 				vals = vals[ordering, :]
 			vals = normalizer.transform(vals, selection)

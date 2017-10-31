@@ -25,7 +25,7 @@ class MarkerEnrichment:
 		scores2 = np.empty((ds.shape[0], n_labels))
 
 		j = 0
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=cg.memory().axis0):
+		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			for j, row in enumerate(selection):
 				data = vals[j, :]
 				mu0 = np.mean(data)

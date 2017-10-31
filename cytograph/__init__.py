@@ -18,7 +18,7 @@ from .magic import magic_imputation
 from .averager import Averager
 from .marker_selection import MarkerSelection
 from .TFs import TFs
-from .utils import cap_select
+from .utils import cap_select, logging
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
 from .aggregator import Aggregator, aggregate_loom

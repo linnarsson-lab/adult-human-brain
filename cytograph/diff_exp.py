@@ -45,7 +45,7 @@ def expression_patterns(ds: loompy.LoomConnection, labels: np.ndarray, pep: floa
 	trinary_prob = np.empty((ds.shape[0], n_labels))
 
 	j = 0
-	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=cg.memory().axis0):
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 		# vals = normalizer.normalize(vals, selection)
 		for j, row in enumerate(selection):
 			data = vals[j, :]
@@ -153,7 +153,7 @@ def save_cluster_avg(input_file: str, output_file: str) -> None:
 	ca = {"Cluster": np.arange(Nclust), "OriginalFile": np.array([input_file] * Nclust)}
 	ra = {"Accession": ds.row_attrs["Accession"], "Gene": ds.row_attrs["Gene"]}
 	m = np.empty((ds.shape[0], Nclust))
-	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0, batch_size=cg.memory().axis0):
+	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 		vals_avg = npg.aggregate_numba.aggregate(labels, vals, func="mean", axis=1)
 		m[selection, :] = vals_avg
 	dsout = loompy.create(output_file, m, ra, ca)

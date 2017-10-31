@@ -80,7 +80,7 @@ class Classifier:
 				# put the cells in the training dataset
 				# This is magic sauce for making the order of one list be like another
 				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1, batch_size=cg.memory().axis1):
+				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
 					ca = {key: val[selection] for key, val in ds.col_attrs.items()}
 					if ds_training is None:
 						loompy.create(foutname, vals[ordering, :], row_attrs=ds.row_attrs, col_attrs=ca)
