@@ -8,6 +8,7 @@ local_sample_dir = "/data/proj/chromium/"
 gs_sample_dir = "gs://linnarsson-lab-chromium/"
 sqlite3_db_file = "/mnt/sanger-data/10X/DB/sqlite3_chromium.db"
 velocyto_ivl_dir = "/data/proj/chromium/intervals"
+ivl_path_pat = "/data/proj/chromium/intervals/*_gene_ivls.txt"
 
 class OutsProcessor:
 	def __init__(self, force_loom = False, never_overwrite_loom = False, use_velocyto = False):
@@ -22,9 +23,11 @@ class OutsProcessor:
 		if self.force_loom or not os.path.exists(loom_file):
 			loom_made = False
 			if use_velocyto:
-				print("Making loom file with velocyto")
-				cmd = ["velocyto", "run10x", d, ivlfile]
-				errcode = subprocess.run(cmd).returncode # Should return outputfile, or allow passing  it
+				tr = globalattrs_dict['transcriptome']
+				ivlfile = ivl_path_pat.replace('*', tr)
+				print("Making loom file with velocyto using " + ivlfile)
+				cmd = ["velocyto", "run10x", "--outputfolder", d, d, ivlfile]
+				errcode = run(cmd).returncode # Should return outputfile, or allow passing  it
 				if errcode == 0:
 					loom_made = True
 			if not loom_made:
