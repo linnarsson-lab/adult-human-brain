@@ -9,21 +9,30 @@ gs_sample_dir = "gs://linnarsson-lab-chromium/"
 sqlite3_db_file = "/mnt/sanger-data/10X/DB/sqlite3_chromium.db"
 velocyto_ivl_dir = "/data/proj/chromium/intervals"
 ivl_path_pat = "/data/proj/chromium/intervals/*_gene_ivls.txt"
+loom_server_upload_cmd = "gcloud compute copy-files %s loom:/home/peterl/loom-datasets-private/Other/ --zone us-central1-a"
+
+class OutsProcessorProps:
+	def __init__(self):
+		self.force_loom = False
+		self.never_overwrite_loom = False
+		self.overwrite_loom = True
+		self.use_velocyto = False
+		self.upload_to_loom_server = False
 
 class OutsProcessor:
-	def __init__(self, force_loom = False, never_overwrite_loom = False, use_velocyto = False):
-		self.force_loom = force_loom
-		self.never_overwrite_loom = never_overwrite_loom
-		self.use_velocyto = use_velocyto
+	def __init__(self, props = None):
+		if props is None:
+			props = OutsProcessorProps()
+		self.props = props
 
-	def process_dir(self, d, sampleid, globalattrs_dict = None):
+	def process_dir(self, d, sampleid, globalattrs = None):
 		outsprefix = os.path.join(d, "outs") + os.sep
 		gsprefix = gs_sample_dir + sampleid + "/"
 		loom_file = os.path.join(d, sampleid + ".loom")
-		if self.force_loom or not os.path.exists(loom_file):
+		if self.props.force_loom or not os.path.exists(loom_file):
 			loom_made = False
-			if use_velocyto:
-				tr = globalattrs_dict['transcriptome']
+			if self.props.use_velocyto:
+				tr = globalattrs['transcriptome']
 				ivlfile = ivl_path_pat.replace('*', tr)
 				print("Making loom file with velocyto using " + ivlfile)
 				cmd = ["velocyto", "run10x", "--outputfolder", d, d, ivlfile]
@@ -33,12 +42,19 @@ class OutsProcessor:
 			if not loom_made:
 				print("Making loom file with loompy")
 				loompy.create_from_cellranger(d)
-			if globalattrs_dict == None:
-				globalattrs_dict = {}
-			if "title" not in globalattrs_dict:
-				globalattrs_dict["title"] = sampleid
+			if globalattrs == None:
+				globalattrs = {}
+			xa = []
+			for attr in ("species", "sex", "tissue", "age"):
+				if attr in globalattrs: xa.append( globalattrs[attr] )
+			xa = " (" + ",".join(xa) + ")" if len(xa) > 0 else ""
+			if "title" not in globalattrs:
+				globalattrs["title"] = sampleid + xa
+			if "description" not in globalattrs:
+				globalattrs["description"] = sampleid + xa
+			globalattrs["url"] = "https://storage.googleapis.com/linnarsson-lab-chromium/%s/%s.html" % (sampleid, sampleid)
 			loom = loompy.connect(loom_file)
-			for key, value in globalattrs_dict.items():
+			for key, value in globalattrs.items():
 				key8 = key.encode('ascii', 'replace')
 				value8 = str(value).encode('ascii', 'replace')
 				loom.attrs[key8] = value8
@@ -52,7 +68,7 @@ class OutsProcessor:
 					  (outsprefix + "possorted_genome_bam.bam.bai", gsprefix + sampleid + ".bai") , \
 					  (os.path.join(d, sampleid + ".zip"), gsprefix + sampleid + ".zip") , \
 					  (outsprefix + "web_summary.html", gsprefix + sampleid + ".html")]:
-			if self.never_overwrite_loom and gspath.endswith(".loom"):
+			if self.props.never_overwrite_loom and gspath.endswith(".loom"):
 				continue
 			if not os.path.exists(localpath):
 				print("WARNING: " + localpath + " is missing.")
@@ -65,13 +81,18 @@ class OutsProcessor:
 					gssize = int(m.group(1))
 					if gssize >= localsize:
 						op = "==" if gssize == localsize else ">"
-						print ("Skipping " + os.path.basename(localpath) + ". Already on gstorage with " + op + " size.")
+						print("Skipping " + os.path.basename(localpath) + ". Already on gstorage with " + op + " size.")
 						continue
 					gsexists = "(overwrite, %dk)" % (gssize/1024)
 				print("%s (%dk) -> %s %s" % (localpath, localsize/1024, gspath, gsexists))
 				errcode = run(["gsutil", "cp", localpath, gspath], stdout=DEVNULL, stderr=DEVNULL).returncode
 				if errcode != 0:
-					print ("  ERROR: Transfer error code: %s" % errcode)
+					print("  ERROR: Transfer error code: %s" % errcode)
+		if self.props.upload_to_loom_server and os.path.exists(loom_file):
+			upload_cmd = loom_server_upload_cmd % loom_file
+			errcode = os.system(upload_cmd)
+			if errcode != 0:
+				print("  ERROR: '%s',  error code: %s" % (upload_cmd, errcode))
 
 class MetadataDB:
 	def __init__(self, sqlite3_db_file):
@@ -96,29 +117,34 @@ if __name__ == "__main__":
 		print ("Usage:\n./make_loom.py [OPTIONS] [CELLRANGER_OUTDIR...]")
 		print ("--force-loom               Make new .loom file even if it already exists locally.")
 		print ("--never-overwrite-loom     Never overwrite a .loom file on gstorage, even if it is smaller than local/new file.")
+		print ("--overwrite-loom           Always overwrite .loom file on gstorage.")
+		print ("--upload-to-loom-server    Upload .loom file also to loom-server (requires gcloud compute access to loom-server) .")
 		print ("                           Default is to overwrite if local/new .loom file is larger.")
 		print ("--use-velocyto             Make .loom file using velocyto instead of loompy.")
 		print ("Without CELLRANGER_OUTDIR(s), all sample folders matching '10X*' under " + local_sample_dir + " will be processed.")
 		sys.exit(0)
 	skipped = []
-	force_loom = False
-	never_overwrite_loom = False
-	use_velocyto = False
+	props = OutsProcessorProps()
 	argidx = 1
 	while len(sys.argv) > argidx and sys.argv[argidx].startswith('-'):
 		if sys.argv[argidx] == "--force-loom":
-			force_loom = True
+			props.force_loom = True
 		elif sys.argv[argidx] == "--never-overwrite-loom":
-			never_overwrite_loom = True
+			props.never_overwrite_loom = True
+		elif sys.argv[argidx] == "--overwrite-loom":
+			props.overwrite_loom = True
+		elif sys.argv[argidx] == "--upload-to-loom-server":
+			props.upload_to_loom_server = True
 		elif sys.argv[argidx] == "--use-velocyto":
-			use_velocyto = True
+			props.use_velocyto = True
 		else:
 			print ("Unknown option: " + sys.argv[argidx])
 			sys.exit(1)
 		argidx += 1
-	if never_overwrite_loom:
-		force_loom = False
-	outsprocessor = OutsProcessor(force_loom, never_overwrite_loom)
+	if props.never_overwrite_loom:
+		props.force_loom = False
+		props.overwrite_loom = False
+	outsprocessor = OutsProcessor(props)
 	metadatadb = MetadataDB(sqlite3_db_file)
 	dirs = sys.argv[argidx:] if len(sys.argv) > argidx else glob.glob(local_sample_dir + "10X*")
 	for d in dirs:
