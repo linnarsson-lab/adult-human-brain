@@ -23,18 +23,21 @@ class Aggregator:
 		self.pep = pep
 		self.merge = merge
 
-	def aggregate(self, ds: loompy.LoomConnection, out_file: str) -> None:
-		ca_aggr = {
-			"Age": "tally",
-			"Clusters": "first",
-			"Class": "mode",
-			"_Total": "mean",
-			"Sex": "tally",
-			"Tissue": "tally",
-			"SampleID": "tally",
-			"TissuePool": "first",
-			"Outliers": "mean"
-		}
+	def aggregate(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
+		if agg_spec is None:
+			ca_aggr = {
+				"Age": "tally",
+				"Clusters": "first",
+				"Class": "mode",
+				"_Total": "mean",
+				"Sex": "tally",
+				"Tissue": "tally",
+				"SampleID": "tally",
+				"TissuePool": "first",
+				"Outliers": "mean"
+			}
+		else:
+			ca_aggr = agg_spec
 		cells = ds.col_attrs["Clusters"] >= 0
 		labels = ds.col_attrs["Clusters"][cells]
 		n_labels = len(set(labels))
