@@ -21,6 +21,7 @@ from .TFs import TFs
 from .utils import cap_select, logging
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
+from .manifold_learning_3 import ManifoldLearning3
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF

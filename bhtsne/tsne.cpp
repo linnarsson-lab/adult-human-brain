@@ -55,8 +55,8 @@ void TSNE::run(double* X, int N, int D, double* Y, bool precomputed, unsigned in
           printf("Using random seed: %d\n", rand_seed);
           srand((unsigned int) rand_seed);
       } else {
-          printf("Using current time as random seed...\n");
-          srand(time(NULL));
+          printf("Using 13 as random seed...\n");
+          srand((unsigned int) 13);
       }
     }
 
