@@ -9,7 +9,9 @@ gs_sample_dir = "gs://linnarsson-lab-chromium/"
 sqlite3_db_file = "/mnt/sanger-data/10X/DB/sqlite3_chromium.db"
 velocyto_ivl_dir = "/data/proj/chromium/intervals"
 ivl_path_pat = "/data/proj/chromium/intervals/*_gene_ivls.txt"
-loom_server_upload_cmd = "gcloud compute copy-files %s loom:/home/peterl/loom-datasets-private/Other/ --zone us-central1-a"
+loom_server_upload_dir = "/home/peterl/loom-datasets-private/Other/"
+loom_server_upload_cmd = "gcloud compute copy-files %s loom:" + loom_server_upload_dir + " --zone us-central1-a"
+loom_server_cmd_pat = "gcloud compute ssh loom --zone us-central1-a --command '/home/ubuntu/anaconda3/bin/python /home/ubuntu/anaconda3/bin/loom %s >> loom_tile_expand.log 2>&1'"
 
 class OutsProcessorProps:
 	def __init__(self):
@@ -63,7 +65,7 @@ class OutsProcessor:
     			zipfile = os.path.join(d, sampleid + ".zip")
     			run(["zip", "-x", "*.bam", "-r", zipfile, outsprefix], stdout=DEVNULL)
 
-		for localpath, gspath in [(os.path.join(d, sampleid + ".loom"), gsprefix + sampleid + ".loom"), \
+		for localpath, gspath in [(loom_file, gsprefix + sampleid + ".loom"), \
 					  (outsprefix + "possorted_genome_bam.bam", gsprefix + sampleid + ".bam") , \
 					  (outsprefix + "possorted_genome_bam.bam.bai", gsprefix + sampleid + ".bai") , \
 					  (os.path.join(d, sampleid + ".zip"), gsprefix + sampleid + ".zip") , \
@@ -89,10 +91,18 @@ class OutsProcessor:
 				if errcode != 0:
 					print("  ERROR: Transfer error code: %s" % errcode)
 		if self.props.upload_to_loom_server and os.path.exists(loom_file):
-			upload_cmd = loom_server_upload_cmd % loom_file
-			errcode = os.system(upload_cmd)
-			if errcode != 0:
-				print("  ERROR: '%s',  error code: %s" % (upload_cmd, errcode))
+			print("Uploading, tiling and expanding om loom-server...")
+			cmd = loom_server_upload_cmd % loom_file
+			errcode = os.system(cmd)
+			if errcode == 0:
+				uploaded_path = loom_server_upload_dir + "/" + os.path.basename(loom_file)
+				cmd = loom_server_cmd_pat % ("tile " + uploaded_path)
+				errcode = os.system(cmd)
+				if errcode == 0:
+					cmd = loom_server_cmd_pat % ("expand -m -a -r -c " + uploaded_path)
+					errcode = os.system(cmd)
+			else:
+				print("  ERROR: '%s',  error code: %s" % (cmd, errcode))
 
 class MetadataDB:
 	def __init__(self, sqlite3_db_file):
@@ -114,13 +124,13 @@ class MetadataDB:
 if __name__ == "__main__":
 	if len(sys.argv) >= 2 and sys.argv[1] in ("-h", "--help"):
 		print ("Construct .loom file (with loompy or velocyto) and upload together with 10X output to " + gs_sample_dir + "/<sampleid>")
-		print ("Usage:\n./make_loom.py [OPTIONS] [CELLRANGER_OUTDIR...]")
+		print ("Usage:\npython3 make_loom_and_upload.py [OPTIONS] [CELLRANGER_OUTDIR...]")
+		print ("--use-velocyto             Make .loom file using velocyto instead of loompy.")
 		print ("--force-loom               Make new .loom file even if it already exists locally.")
 		print ("--never-overwrite-loom     Never overwrite a .loom file on gstorage, even if it is smaller than local/new file.")
 		print ("--overwrite-loom           Always overwrite .loom file on gstorage.")
-		print ("--upload-to-loom-server    Upload .loom file also to loom-server (requires gcloud compute access to loom-server) .")
 		print ("                           Default is to overwrite if local/new .loom file is larger.")
-		print ("--use-velocyto             Make .loom file using velocyto instead of loompy.")
+		print ("--upload-to-loom-server    Upload .loom file also to loom-server (requires gcloud compute access to loom-server) .")
 		print ("Without CELLRANGER_OUTDIR(s), all sample folders matching '10X*' under " + local_sample_dir + " will be processed.")
 		sys.exit(0)
 	skipped = []
@@ -159,4 +169,5 @@ if __name__ == "__main__":
 			outsprocessor.process_dir(d, sampleid, sample)
 		print("")
 
-print("Dirs missing /outs were skipped: " + ", ".join(skipped))
+if len(skipped) > 0:
+	print("Dirs missing /outs subdir were skipped: " + ", ".join(skipped))
