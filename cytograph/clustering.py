@@ -2,7 +2,8 @@ from typing import *
 import os
 from shutil import copyfile
 import numpy as np
-import logging 
+import random
+import logging
 import cytograph as cg
 import loompy
 import logging
@@ -94,6 +95,8 @@ class Clustering:
 		elif self.method == "mknn_louvain" and passed_import:
 			logging.info("comunity-multilevel clustering on the multiscale MKNN graph")
 			(a, b, w) = ds.get_edges("MKNN", axis=1)
+			random.seed(13)
+			igraph._igraph.set_random_number_generator(random)
 			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)

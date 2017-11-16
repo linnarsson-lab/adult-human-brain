@@ -2,14 +2,13 @@ from typing import *
 from sklearn.neighbors import NearestNeighbors
 import scipy.sparse as sparse
 import numpy as np
-import random
 import logging
 import cytograph as cg
 import loompy
 import igraph
 
 
-class ManifoldLearning2:
+class ManifoldLearning3:
 	def __init__(self, *, n_genes: int = 1000, k: int = 100, gtsne: bool = True, alpha: float = 1, genes: np.ndarray = None, filter_cellcycle: str = None, layer: str=None) -> None:
 		self.n_genes = n_genes
 		self.k = k
@@ -60,7 +59,6 @@ class ManifoldLearning2:
 			transformed = pca_transformed
 
 			logging.info("Generating balanced KNN graph")
-			np.random.seed(0)
 			k = min(self.k, n_cells - 1)
 			bnn = cg.BalancedKNN(k=k, maxl=2 * k)
 			bnn.fit(transformed)
@@ -70,8 +68,6 @@ class ManifoldLearning2:
 
 			logging.info("MKNN-Louvain clustering with outliers")
 			(a, b, w) = (mknn.row, mknn.col, mknn.data)
-			random.seed(13)
-			igraph._igraph.set_random_number_generator(random)
 			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
