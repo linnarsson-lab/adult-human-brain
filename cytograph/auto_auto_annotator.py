@@ -26,7 +26,7 @@ class AutoAutoAnnotator:
 							relative to the second likeliest cluster), shape (n_genes, n_clusters)
 			robustness		The cumulative robustness (probability of identifying the cluster), shape (n_genes, n_clusters)
 		"""
-		blocked = np.in1d(dsagg.Gene, ['Xist', 'Tsix', 'Junb', 'Fos', 'Egr1', 'Jun']).nonzero()[0]
+		blocked = np.in1d(dsagg.ra.Gene, ['Xist', 'Tsix', 'Junb', 'Fos', 'Egr1', 'Jun']).nonzero()[0]
 
 		trinaries = dsagg.layer["trinaries"][:, :]
 		enrichment = dsagg.layer["enrichment"][:, :]

@@ -123,6 +123,6 @@ class Clustering:
 		ds.set_attr("Clusters", labels_all, axis=1)
 		ds.set_attr("Outliers", outliers, axis=1)
 		logging.info("Found " + str(max(labels_all) + 1) + " clusters")
-		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
+		if not len(set(ds.ca.Clusters)) == ds.ca.Clusters.max() + 1:
 			raise ValueError("There are holes in the cluster ID sequence!")
 		return labels_all

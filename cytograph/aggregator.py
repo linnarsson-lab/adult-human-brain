@@ -70,7 +70,7 @@ class Aggregator:
 
 		# Renumber the original file, and permute
 		d = dict(zip(ordering, np.arange(n_labels)))
-		new_clusters = np.array([d[x] if x in d else -1 for x in ds.Clusters])
+		new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
 		ds.set_attr("Clusters", new_clusters, axis=1)
 		ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
 
@@ -92,7 +92,7 @@ class Aggregator:
 			cluster_scores.append(data[ix, ix * 10:(ix + 1) * 10].sum())
 		dsout.set_attr("ClusterScore", np.array(cluster_scores), axis=1)
 		
-		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
+		if not len(set(ds.ca.Clusters)) == ds.ca.Clusters.max() + 1:
 			raise ValueError("There are holes in the cluster ID sequence!")
 
 

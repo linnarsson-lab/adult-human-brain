@@ -156,6 +156,7 @@ class BalancedKNN:
         if sight_k is not None:
             self.sight_k = sight_k
         logging.debug(f"First search the {self.sight_k} nearest neighbours for {self.n_samples}")
+        np.random.seed(13)
         if self.metric == "correlation":
             self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, n_jobs=self.n_jobs, algorithm="brute")
         else:
@@ -286,6 +287,7 @@ def knn_distance_matrix(data: np.ndarray, metric: str=None, k: int=40, mode: str
     Notice that k is meant as the actual number of neighbors NOT INCLUDING itself
     To achieve that we call kneighbors_graph with X = None
     """
+    np.random.seed(13)
     if metric == "correlation":
         nn = NearestNeighbors(n_neighbors=k, metric="correlation", algorithm="brute", n_jobs=n_jobs)
         nn.fit(data)

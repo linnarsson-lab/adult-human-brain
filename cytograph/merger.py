@@ -70,6 +70,6 @@ class Merger:
 			for ix, m in enumerate(merged):
 				d[ix] = m
 		logging.info(d)
-		new_clusters = np.array([d[x] for x in ds.Clusters])
+		new_clusters = np.array([d[x] for x in ds.ca.Clusters])
 		ds.set_attr("Clusters", new_clusters, axis=1)
 		logging.info(f"Merged {n_labels} -> {len(set(new_clusters))} clusters")

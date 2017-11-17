@@ -54,7 +54,7 @@ class Classifier:
 						for line in f.readlines():
 							items = line[:-1].split("\t")
 							d[int(items[0])] = items[1]
-					sa = np.array(list(map(lambda x: d[x] if d[x] != "Outliers" else "Unknown", ds.Clusters)))
+					sa = np.array(list(map(lambda x: d[x] if d[x] != "Outliers" else "Unknown", ds.ca.Clusters)))
 					ds.set_attr("SubclassAssigned", sa, axis=1)
 				if accessions is None:
 					# Keep track of the gene order in the first file

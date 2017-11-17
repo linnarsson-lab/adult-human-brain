@@ -308,7 +308,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	n_probclasses = len(probclasses)
 
 	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
-	genes = [g for g in genes if g in ds.Gene]
+	genes = [g for g in genes if g in ds.ra.Gene]
 	n_genes = len(genes)
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1
@@ -364,7 +364,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, g in enumerate(genes):
 		ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_probclasses + ix])
-		gix = np.where(ds.Gene == g)[0][0]
+		gix = np.where(ds.ra.Gene == g)[0][0]
 		vals = ds[gix, :][cells]
 		vals = vals / (np.percentile(vals, 99) + 0.1)
 		ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1)
@@ -385,7 +385,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		xpos = gene_pos[ix]
 		if xpos == clusterborders[-1]:
 			xpos = clusterborders[-3]
-		text = plt.text(0.001 + xpos, ix - 0.5, ds.Gene[:n_markers][ix], horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
+		text = plt.text(0.001 + xpos, ix - 0.5, ds.ra.Gene[:n_markers][ix], horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
 
 	# Cluster IDs
 	for ix in range(1, clusterborders.shape[0]):
