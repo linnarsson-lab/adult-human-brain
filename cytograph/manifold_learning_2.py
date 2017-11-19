@@ -120,7 +120,7 @@ class ManifoldLearning2:
 		b = np.reshape(knn.T, (n_cells * k,))
 		w = np.repeat(1 / np.power(np.arange(1, k + 1), self.alpha), n_cells)
 		knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
-		threshold = w > 0.05
+		threshold = w > 0.025
 		mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
 		mknn = mknn.minimum(mknn.transpose()).tocoo()
 
