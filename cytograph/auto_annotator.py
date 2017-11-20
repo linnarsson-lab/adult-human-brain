@@ -80,7 +80,7 @@ class AutoAnnotator(object):
 		self.genes = None  # type: List[str]
 		self.annotations = None  # type: np.ndarray
 	
-	def _load_defs(self, from_yaml=False) -> None:
+	def _load_defs(self, from_yaml: bool = False) -> None:
 		fileext = ".yaml" if from_yaml else ".md"
 		if from_yaml:
 			import yaml
@@ -150,7 +150,7 @@ class AutoAnnotator(object):
 		else:
 			return aa
 
-	def yaml_dump_annotations(self, root_path):
+	def yaml_dump_annotations(self, root_path: str) -> None:
 		import yaml
 		for tag in self.tags:
 			try:
