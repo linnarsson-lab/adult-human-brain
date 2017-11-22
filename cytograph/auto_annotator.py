@@ -95,11 +95,11 @@ class AutoAnnotator(object):
 						else:
 							tag = CellTag(cur[root_len:], os.path.join(cur, file))
 						for pos in tag.positives:
-							if self.genes and pos not in self.genes:
+							if (self.genes is not None) and (pos not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", pos)
 								errors = True
 						for neg in tag.negatives:
-							if self.genes and neg not in self.genes:
+							if (self.genes is not None) nand (neg not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
 						self.tags.append(tag)
