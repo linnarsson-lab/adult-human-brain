@@ -52,6 +52,11 @@ class ManifoldLearning3:
 		logging.info("Selecting up to %d genes", self.n_genes)
 		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
 
+		temp = np.zeros(ds.shape[0])
+		temp[genes] = 1
+		ds.set_attr("_Selected", temp, axis=0)
+		logging.info("%d genes selected", temp.sum())
+
 		n_components = min(100, n_cells)
 		logging.info("Hierarchical Poisson factorization to %d components", n_components)
 		genes = cg.FeatureSelection(1000).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
