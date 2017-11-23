@@ -99,7 +99,7 @@ class AutoAnnotator(object):
 								logging.error(file + ": gene '%s' not found in file", pos)
 								errors = True
 						for neg in tag.negatives:
-							if (self.genes is not None) nand (neg not in self.genes):
+							if (self.genes is not None) and (neg not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
 						self.tags.append(tag)
