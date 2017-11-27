@@ -16,6 +16,7 @@ import matplotlib.colors as mcolors
 from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
+import community
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -37,7 +38,7 @@ def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.close()
 
 
-def plot_knn(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> None:
+def plot_knn(ds: loompy.LoomConnection, out_file: str) -> None:
 	n_cells = ds.shape[1]
 	valid = ds.col_attrs["_Valid"].astype('bool')
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
@@ -48,7 +49,7 @@ def plot_knn(ds: loompy.LoomConnection, out_file: str, tags: List[str]) -> None:
 	g = nx.from_scipy_sparse_matrix(mknn)
 	ax = fig.add_subplot(111)
 
-	nx.draw_networkx_edges(g, pos=xy, alpha=0.1, width=0.1, edge_color='gray')
+	nx.draw_networkx_edges(g, pos=xy, alpha=0.25, width=0.2, edge_color='gray')
 	ax.axis('off')
 	plt.tight_layout()
 	fig.savefig(out_file, format="png", dpi=300)
@@ -95,16 +96,17 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	names = []
 	for i in range(max(labels) + 1):
 		cluster = labels == i
+		n_cells = cluster.sum()
 		if np.all(outliers[labels == i] == 1):
 			edgecolor = colorConverter.to_rgba('red', alpha=.1)
 			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors=edgecolor, alpha=0.1, s=epsilon))
-			names.append(str(i) + " (outliers)")
+			names.append(f"{i}/n={n_cells}  (outliers)")
 		else:
-			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=colors20[np.mod(i, 20)], marker='.', lw=0, s=epsilon, alpha=0.75))
+			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors100[np.mod(i, 100)], marker='.', lw=0, s=epsilon, alpha=0.75))
 			if tags is not None:
-				names.append(str(i) + " " + tags[i].replace("\n", " "))
+				names.append(f"{i}/n={n_cells} " + tags[i].replace("\n", " "))
 			else:
-				names.append(str(i))
+				names.append(f"{i}/n={n_cells}")
 	logging.info("Drawing legend")
 	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
 
@@ -226,62 +228,91 @@ def plot_classification(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.close()
 
 
+def plot_louvain(ds: loompy.LoomConnection, out_file: str) -> None:
+	plt.figure(figsize=(20, 20))
+	for ix, res in enumerate([0.1, 1, 10, 100]):
+		plt.subplot(2,2,ix+1)
+		g = nx.from_scipy_sparse_matrix(ds.col_graphs.MKNN)
+		partitions = community.best_partition(g, resolution=res)
+		labels = np.array([partitions[key] for key in range(ds.shape[1])])
+		plt.scatter(ds.ca._X, ds.ca._Y, c=labels, cmap="prism", marker='.',alpha=0.5)
+		plt.title(f"res={res}")	
+	plt.savefig(out_file, format="png", dpi=300)
+	plt.close()
+
+
 def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
+	class_colors = {
+		"Neurons": "blue",
+		"Oligos": "orange",
+		"Astrocytes": "green",
+		"Ependymal": "cyan",
+		"Immune": "brown",
+		"Vascular": "red",
+		"PeripheralGlia": "violet",
+		"Blood": "pink",
+		"Excluded": "black"
+	}
 	n_cells = ds.shape[1]
-	valid = ds.col_attrs["_Valid"].astype('bool')
-	(a, b, w) = ds.get_edges("MKNN", axis=1)
-	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
-	sfdp = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
-	labels = ds.col_attrs["Clusters"][valid]
+	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+	has_edges = False
+	if "MKNN" in ds.col_graphs:
+		g = ds.col_graphs.MKNN
+		(a, b, w) = (g.row, g.col, g.data)
+		has_edges = True
+	pos = np.vstack((ds.ca._X, ds.ca._Y)).transpose()
+	labels = ds.col_attrs["Clusters"]
+	if "Outliers" in ds.col_attrs:
+		outliers = ds.col_attrs["Outliers"]
+	else:
+		outliers = np.zeros(ds.shape[1])
+	# Compute a good size for the markers, based on local density
+	logging.info("Computing node size")
+	min_pts = 50
+	eps_pct = 60
+	nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
+	nn.fit(pos)
+	knn = nn.kneighbors_graph(mode='distance')
+	k_radius = knn.max(axis=1).toarray()
+	epsilon = 24 * np.percentile(k_radius, eps_pct)
 
-	fig = plt.figure(figsize=(24, 18))
-	g = nx.from_scipy_sparse_matrix(mknn)
-	classes = ["Neurons", "Astrocyte", "Ependymal", "OEC", "Oligos", "Schwann", "Cycling", "Vascular", "Immune"]
-	colors = [plt.cm.get_cmap('Vega20')((ix + 0.5) / 20) for ix in range(20)]
+	fig = plt.figure(figsize=(10, 10))
+	ax = fig.add_subplot(111)
 
-	combined_colors = np.zeros((ds.shape[1], 4)) + np.array((0.5, 0.5, 0.5, 0))
-	
-	for ix, cls in enumerate(classes):
-		ax = fig.add_subplot(3, 4, ix + 1)
-		cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix]])
-		ax.set_title("P(" + classes[ix] + ")")
-		nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-		nx.draw_networkx_nodes(g, pos=sfdp, node_color=ds.col_attrs["Class_" + classes[ix]][valid], node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
-		ax.axis('off')
-		cells = ds.col_attrs["Class0"] == classes[ix]
-		if np.sum(cells) > 0:
-			combined_colors[cells] = [cmap(x) for x in ds.col_attrs["Class_" + classes[ix]][cells]]
+	# Draw edges
+	if has_edges:
+		logging.info("Drawing edges")
+		lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='grey', alpha=0.1)
+		ax.add_collection(lc)
 
-	ax = fig.add_subplot(3, 4, ix + 2)
-	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 1]])
-	ax.set_title("Erythrocytes")
-	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	ery_color = np.array([[1, 1, 1, 0], [0.9, 0.71, 0.76, 0]])[(ds.col_attrs["Class"][valid] == "Erythrocyte").astype('int')]
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=ery_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
-	ax.axis('off')
-	cells = ds.col_attrs["Class0"] == "Erythrocyte"
-	if np.sum(cells) > 0:
-		combined_colors[cells] = np.array([1, 0.71, 0.76, 0])
+	# Draw nodes
+	logging.info("Drawing nodes")
+	colors20 = np.vstack((plt.cm.Vega20b(np.linspace(0., 1, 20))[::2], plt.cm.Vega20c(np.linspace(0, 1, 20))[1::2]))
+	plots = []
+	names = []
+	classes = list(set(ds.ca.Class))
+	for ix in range(len(classes)):
+		cls = ds.ca.Class == classes[ix]
+		if cls.sum() == 0:
+			continue
+		c = class_colors[ds.ca.Class[cls][0]]
+		plots.append(plt.scatter(x=pos[cls, 0], y=pos[cls, 1], c=c, marker='.', lw=0, s=epsilon, alpha=0.75))
+		names.append(str(classes[ix]))
+	logging.info("Drawing legend")
+	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
 
-	ax = fig.add_subplot(3, 4, ix + 3)
-	cmap = LinearSegmentedColormap.from_list('custom cmap', [(1, 1, 1, 0), colors[ix + 2]])
-	ax.set_title("Excluded")
-	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	exc_color = np.array([[1, 1, 1, 0], [0.5, 0.5, 0.5, 0]])[(ds.col_attrs["Class0"][valid] == "Excluded").astype('int')]
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=exc_color, node_size=10, alpha=0.6, linewidths=0, cmap=cmap)
-	ax.axis('off')
-	cells = ds.col_attrs["Class0"] == "Excluded"
-	if np.sum(cells) > 0:
-		combined_colors[cells] = np.array([0.5, 0.5, 0.5, 0])
-
-	ax = fig.add_subplot(3, 4, 12)
-	ax.set_title("Class")
-	nx.draw_networkx_edges(g, pos=sfdp, alpha=0.2, width=0.1, edge_color='gray')
-	nx.draw_networkx_nodes(g, pos=sfdp, node_color=combined_colors[valid], node_size=10, alpha=0.6, linewidths=0)
-	ax.axis('off')
-
-	plt.tight_layout()
-	fig.savefig(out_file, format="png", dpi=300)
+	logging.info("Drawing cluster IDs")
+	mg_pos = []
+	for lbl in range(0, max(labels) + 1):
+		if np.all(outliers[labels == lbl] == 1):
+			continue
+		if np.sum(labels == lbl) == 0:
+			continue
+		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
+		mg_pos.append((x, y))
+		ax.text(x, y, str(lbl), fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
+	logging.info("Saving to file")
+	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
 	plt.close()
 
 

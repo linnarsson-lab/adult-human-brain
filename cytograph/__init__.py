@@ -13,18 +13,18 @@ from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer, load_trinaries, credible_discordance
 from .pool_spec import PoolSpec
 from .cluster_layout import cluster_layout
-from .plots import plot_cv_mean, plot_graph, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap
+from .plots import plot_cv_mean, plot_knn, plot_graph, plot_louvain, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap
 from .magic import magic_imputation
 from .averager import Averager
 from .marker_selection import MarkerSelection
 from .TFs import TFs
-from .utils import cap_select, logging
+from .utils import cap_select, logging, colorize, colors100
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
-from .manifold_learning_3 import ManifoldLearning3
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF
 from .poisson_imputation import PoissonImputation
 from .merger import Merger
 from .balanced_knn import BalancedKNN
+from .polished_louvain import PolishedLouvain
