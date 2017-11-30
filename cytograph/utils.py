@@ -660,6 +660,6 @@ colors100 = [
 def colorize(x, bgval = None):
 	d = {}
 	for ix, val in enumerate(np.unique(x)):
-		d[val] = _colors100[np.mod(ix, 100)]
+		d[val] = colors100[np.mod(ix, 100)]
 	d[bgval] = [0.8, 0.8, 0.8]
 	return np.array([d[j] for j in x])
