@@ -8,21 +8,53 @@ import loompy
 
 
 class CellTag:
+	unknown_tags: set = set()
+
 	def __init__(self, category: str, file: str) -> None:
-		self.category = category
+		self.category: str = category
+		self.name: str = ""
+		self.description: str = ""
+		self.abbreviation: str = None
+		at_descr = False
+		in_synonyms = False
 		with open(file, "r", encoding="utf-8") as f:
 			for line in f:
-				if line.startswith("name:"):
-					self.name = line[5:].strip()
-				if line.startswith("abbreviation:"):
-					self.abbreviation = line[14:].strip()
+				if line.startswith("---"):
+					at_descr = True
+					continue
+				if at_descr:
+					self.description += line
+					continue
+				if line.startswith("synonyms:"):
+					self.synonyms: list = []
+					in_synonyms = True
+					continue
+				if line.startswith("- ") and in_synonyms:
+					self.synonyms.append(line[2:].strip())
+					continue
+				in_synonyms = False
+				m = re.search("version: *([0-9])+", line)
+				if m:
+					self.version = m.group(1)
+					line = line[ :m.start()]
+				# if line.startswith("name:"):
+				# 	self.name = line[5:].strip()
+				# if line.startswith("abbreviation:"):
+				# 	self.abbreviation = line[14:].strip()
 				if line.startswith("definition:"):
 					genes = line[12:].strip().split()
 					self.positives = [x[1:] for x in genes if x.startswith("+")]
 					self.negatives = [x[1:] for x in genes if x.startswith("-")]
+					continue
 				if line.startswith("categories:"):
 					str_categories = line[11:].strip()
 					self.categories = re.split(r"\W+",str_categories)
+					continue
+				if ":" in line:
+					tagid, value = line.strip().split(":", 1)
+					self.__setattr__(tagid.strip(), value.strip())
+				elif len(line.strip()) > 0:
+					print(self.name + " Unknown data in " + line)
 		if not hasattr(self, "name"):
 			raise ValueError("'name' was missing")
 		if not hasattr(self, "abbreviation"):
@@ -33,6 +65,7 @@ class CellTag:
 			raise ValueError("categories were missing")
 		if not hasattr(self, "negatives"):
 			self.negatives = []
+		self.description = self.description.strip()
 
 	def __str__(self) -> str:
 		temp = self.name + " (" + self.abbreviation + "; " + " ".join(["+" + x for x in self.positives])
@@ -50,20 +83,26 @@ class AutoAnnotator(object):
 		self.genes = None  # type: List[str]
 		self.annotations = None  # type: np.ndarray
 	
-	def _load_defs(self) -> None:
+	def _load_defs(self, from_yaml: bool = False) -> None:
+		fileext = ".yaml" if from_yaml else ".md"
+		if from_yaml:
+			import yaml
 		errors = False
 		root_len = len(self.root)
 		for cur, dirs, files in os.walk(self.root):
 			for file in files:
-				if file[-3:] == ".md" and file[-9:] != "README.md":
+				if file.endswith(fileext) and file[-9:] != "README.md":
 					try:
-						tag = CellTag(cur[root_len:], os.path.join(cur, file))
+						if from_yaml:
+							tag = yaml.load(open(os.path.join(cur, file)))
+						else:
+							tag = CellTag(cur[root_len:], os.path.join(cur, file))
 						for pos in tag.positives:
-							if pos not in self.genes:
+							if (self.genes is not None) and (pos not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", pos)
 								errors = True
 						for neg in tag.negatives:
-							if neg not in self.genes:
+							if (self.genes is not None) and (neg not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
 						self.tags.append(tag)
@@ -103,6 +142,7 @@ class AutoAnnotator(object):
 			for file in files:
 				if file[-3:] == ".md" and file[-9:] != "README.md":
 					try:
+						print(file)
 						tag = CellTag(cur[root_len:], os.path.join(cur, file))
 						aa.tags.append(tag)
 					except ValueError as e:
@@ -112,6 +152,21 @@ class AutoAnnotator(object):
 			raise ValueError("Error loading cell tag definitions")
 		else:
 			return aa
+
+	def yaml_dump_annotations(self, root_path: str) -> None:
+		import yaml
+		for tag in self.tags:
+			try:
+				sub_path = tag.category
+				while sub_path.startswith("/"):
+					sub_path = sub_path[1:]
+				tag_path = os.path.join(root_path, sub_path)
+			except:
+				tag_path = root_path
+			tag_yaml = yaml.dump(tag)
+			os.makedirs(tag_path, exist_ok=True)
+			with open(os.path.join(tag_path, tag.abbreviation + ".yaml"), 'w') as f:
+				f.write(tag_yaml)
 
 	def annotate_loom(self, ds: loompy.LoomConnection) -> np.ndarray:
 		"""
