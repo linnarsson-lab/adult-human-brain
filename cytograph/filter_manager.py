@@ -14,15 +14,16 @@ def EP2int(timepoint: str) -> int:
 
 
 class FilterManager(object):
-    def __init__(self, process_obj: Dict, ds: loompy.LoomConnection, aa_file_name: str=None) -> None:
-        self.process_obj = process_obj
+    def __init__(self, punchcard_obj: Dict, ds: loompy.LoomConnection, aa_file_name: str=None) -> None:
+        self.punchcard_obj = punchcard_obj
         self.ds = ds
         self.aa_file_name = aa_file_name
         # Read the autoannotation.aa.tab file and extract tags
         self.tags_per_cluster = cg.read_autoannotation(self.aa_file_name)
 
     def _make_filter_aa(self, include_aa: List, exclude_aa: List) -> Tuple[np.ndarray, np.ndarray]:
-        # Add and then remove cluster on the basis of the autoannotation
+        """Add and then remove clusters on the basis of the autoannotation
+        """
         selected_clusters = set()  # type: set
         deselected_clusters = set()  # type: set
         for cluster_ix, tags in enumerate(self.tags_per_cluster):
@@ -38,7 +39,7 @@ class FilterManager(object):
                         if include_entry in tags:
                             selected_clusters |= {cluster_ix}
                     else:
-                        logging.warning("Processes: include aa are not correctly fomratted")
+                        logging.warning("Punchcards: include aa are not correctly fomratted")
             # Deal with the exclusions
             if exclude_aa == "none":
                 deselected_clusters = set()
@@ -51,22 +52,23 @@ class FilterManager(object):
                         if include_entry in tags:
                             deselected_clusters |= {cluster_ix}
                     else:
-                        logging.warning("Processes: exclude aa are not correctly fomratted")
+                        logging.warning("Punchcards: exclude aa are not correctly formatted")
         in_aa = np.in1d(self.ds.col_attrs["Clusters"], list(selected_clusters))
         ex_aa = np.in1d(self.ds.col_attrs["Clusters"], list(deselected_clusters))
         return in_aa, ex_aa
     
     def make_filter_aa(self) -> Tuple[np.ndarray, np.ndarray]:
-        # Read the process dictionary
-        include_aa = self.process_obj["include"]["auto-annotations"]
-        exclude_aa = self.process_obj["exclude"]["auto-annotations"]
+        """Read the punchcard dictionary
+        """
+        include_aa = self.punchcard_obj["include"]["auto-annotations"]
+        exclude_aa = self.punchcard_obj["exclude"]["auto-annotations"]
         in_aa, ex_aa = self._make_filter_aa(include_aa, exclude_aa)
         logging.debug("Filter Manager - autoannotation, include: %d  exclude:  %d" % (np.sum(in_aa), np.sum(ex_aa)))
         return in_aa, ex_aa
         
     def make_filter_classifier(self) -> Tuple[np.ndarray, np.ndarray]:
-        include_class = self.process_obj["include"]["classes"]
-        exclude_class = self.process_obj["exclude"]["classes"]
+        include_class = self.punchcard_obj["include"]["classes"]
+        exclude_class = self.punchcard_obj["exclude"]["classes"]
         in_cla = np.zeros(self.ds.shape[1], dtype=bool)
         ex_cla = np.zeros(self.ds.shape[1], dtype=bool)
         # Deals with inclusions
@@ -85,8 +87,8 @@ class FilterManager(object):
         return in_cla, ex_cla
 
     def make_filter_cluster(self) -> Tuple[np.ndarray, np.ndarray]:
-        include_clust = self.process_obj["include"]["clusters"]
-        exclude_clust = self.process_obj["exclude"]["clusters"]
+        include_clust = self.punchcard_obj["include"]["clusters"]
+        exclude_clust = self.punchcard_obj["exclude"]["clusters"]
         # Deals with inclusions
         if include_clust == "all":
             in_clu = np.ones(self.ds.shape[1], dtype=bool)
@@ -106,8 +108,8 @@ class FilterManager(object):
         for t in aa.tags:
             for c in t.categories:
                 categories_dict[c].append(t.abbreviation)
-        include_cat = self.process_obj["include"]["categories"]
-        exclude_cat = self.process_obj["exclude"]["categories"]
+        include_cat = self.punchcard_obj["include"]["categories"]
+        exclude_cat = self.punchcard_obj["exclude"]["categories"]
 
         if include_cat == "all":
             include_aa = "all"  # type: Any
@@ -143,23 +145,23 @@ class FilterManager(object):
         return in_cat, ex_cat
 
     def make_filter_time(self) -> np.ndarray:
-        if self.process_obj["timepoints"] == "all":
+        if self.punchcard_obj["timepoints"] == "all":
             return np.ones(self.ds.shape[1], dtype=bool)
         else:
-            time_selected_int = [EP2int(i) for i in self.process_obj["timepoints"]]
+            time_selected_int = [EP2int(i) for i in self.punchcard_obj["timepoints"]]
             in_time = np.in1d([EP2int(i) for i in self.ds.col_attrs["Age"]], time_selected_int)
             logging.debug("Filter Manager - time, include: %d " % (np.sum(in_time),))
             return in_time
 
     def make_filter_tissue(self) -> Tuple[np.ndarray, np.ndarray]:
-        if self.process_obj["include"]["tissues"] == "all":
+        if self.punchcard_obj["include"]["tissues"] == "all":
             in_tis = np.ones(self.ds.shape[1], dtype=bool)
         else:
-            in_tis = np.in1d(self.ds.col_attrs["Tissue"], self.process_obj["include"]["tissues"])
-        if self.process_obj["exclude"]["tissues"] == "none":
+            in_tis = np.in1d(self.ds.col_attrs["Tissue"], self.punchcard_obj["include"]["tissues"])
+        if self.punchcard_obj["exclude"]["tissues"] == "none":
             ex_tis = np.zeros(self.ds.shape[1], dtype=bool)
         else:
-            ex_tis = np.in1d(self.ds.col_attrs["Tissue"], self.process_obj["exclude"]["tissues"])
+            ex_tis = np.in1d(self.ds.col_attrs["Tissue"], self.punchcard_obj["exclude"]["tissues"])
         logging.debug("Filter Manager - tissue, include: %d  exclude:  %d" % (np.sum(in_tis), np.sum(ex_tis)))
         return in_tis, ex_tis
 
