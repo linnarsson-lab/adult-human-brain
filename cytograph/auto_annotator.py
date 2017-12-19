@@ -8,9 +8,13 @@ import loompy
 
 
 class CellTag:
+	unknown_tags: set = set()
+
 	def __init__(self, category: str, file: str) -> None:
-		self.category = category
-		self.description = ""
+		self.category: str = category
+		self.name: str = ""
+		self.description: str = ""
+		self.abbreviation: str = None
 		at_descr = False
 		in_synonyms = False
 		with open(file, "r", encoding="utf-8") as f:
@@ -22,7 +26,7 @@ class CellTag:
 					self.description += line
 					continue
 				if line.startswith("synonyms:"):
-					self.synonyms = []
+					self.synonyms: list = []
 					in_synonyms = True
 					continue
 				if line.startswith("- ") and in_synonyms:
@@ -33,10 +37,10 @@ class CellTag:
 				if m:
 					self.version = m.group(1)
 					line = line[ :m.start()]
-				#if line.startswith("name:"):
-				#	self.name = line[5:].strip()
-				#if line.startswith("abbreviation:"):
-				#	self.abbreviation = line[14:].strip()
+				# if line.startswith("name:"):
+				# 	self.name = line[5:].strip()
+				# if line.startswith("abbreviation:"):
+				# 	self.abbreviation = line[14:].strip()
 				if line.startswith("definition:"):
 					genes = line[12:].strip().split()
 					self.positives = [x[1:] for x in genes if x.startswith("+")]
@@ -50,7 +54,7 @@ class CellTag:
 					tagid, value = line.strip().split(":", 1)
 					self.__setattr__(tagid.strip(), value.strip())
 				elif len(line.strip()) > 0:
-					print (self.name + " Unknown data in " + line)
+					print(self.name + " Unknown data in " + line)
 		if not hasattr(self, "name"):
 			raise ValueError("'name' was missing")
 		if not hasattr(self, "abbreviation"):
@@ -71,7 +75,6 @@ class CellTag:
 			temp = temp + ")"
 		return temp
 
-CellTag.unknown_tags = set()
 
 class AutoAnnotator(object):
 	def __init__(self, root: str = "../auto-annotation") -> None:
@@ -139,7 +142,7 @@ class AutoAnnotator(object):
 			for file in files:
 				if file[-3:] == ".md" and file[-9:] != "README.md":
 					try:
-						print (file)
+						print(file)
 						tag = CellTag(cur[root_len:], os.path.join(cur, file))
 						aa.tags.append(tag)
 					except ValueError as e:
