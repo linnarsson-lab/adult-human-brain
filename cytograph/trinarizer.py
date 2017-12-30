@@ -49,7 +49,7 @@ class Trinarizer:
 		n_labels = np.max(labels) + 1
 		logging.info("n_labels %d", n_labels)
 		self.trinary_prob = np.empty((ds.shape[0], n_labels))
-		self.genes = ds.col_attrs["Gene"]
+		self.genes = ds.row_attrs["Gene"]
 
 		j = 0
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
