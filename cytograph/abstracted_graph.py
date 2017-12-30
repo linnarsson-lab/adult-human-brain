@@ -104,11 +104,23 @@ class GraphAbstraction:
         clusters = np.unique(ds.col_attrs["Clusters"], return_inverse=True)[1]
         self.confidence = adjacency_confidence(knn, clusters)
 
-    def abstract(self, ds: loompy.LoomConnection, thresh_confid: float=0.5) -> np.ndarray:
+    def abstract(self, ds: loompy.LoomConnection, thresh_confid: float=0.5, unidirectional: bool=False) -> sparse.coo_matrix:
+        """Return a sparse matrix representation of the absracted graph
+
+        Arguments
+        ---------
+
+
+        Returns
+        -------
+        sparse.coo_matrix
+        """
         self._compute_confidence(ds)
-        thrsh_confidence = np.copy(self.confidence)
-        thrsh_confidence[thrsh_confidence < thresh_confid] = 0
-        return thrsh_confidence
+        confidence = np.copy(self.confidence)
+        confidence[confidence < thresh_confid] = 0
+        if unidirectional:
+            confidence = np.triu(confidence)
+        return sparse.coo_matrix(confidence)
 
 
 # Incomplete code
