@@ -1,4 +1,5 @@
 import numpy as np
+import loompy
 from scipy import stats, sparse
 
 
@@ -31,8 +32,8 @@ def _partition_edges_count(rows: np.ndarray, cols: np.ndarray, clusters: np.ndar
     K = np.zeros((n_clusters, n_clusters))
     N = len(rows)
 
-    np.add.at(K, (clusters[rows], clusters[cols]), 1) 
-    # the one above is a not buffered oberation: it is different from K[clusters[rows], clusters[cols]) += 1
+    np.add.at(K, (clusters[rows], clusters[cols]), 1)
+    # the one above is a not buffered operation: it is different from K[clusters[rows], clusters[cols]) += 1
     # and it is equivalent of the following:
     # for i in range(N):
     #     K[clusters[rows[i]], clusters[cols[i]]] += 1
@@ -41,12 +42,12 @@ def _partition_edges_count(rows: np.ndarray, cols: np.ndarray, clusters: np.ndar
 
 
 def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.ndarray:
-    """Retrun adjacency confidence for the abstracted graph Gx confidenge
+    """Return adjacency confidence for the abstracted graph Gx
 
     Arguments
     ---------
     knn: sparse.coo_matrix shape (cells, cells)
-        sparse KNN matrix representation of Gx
+        sparse KNN matrix representation of G
     clusters: np.ndarray, int64[:]
         cluster indexes as they would be provided by the function np.unique(x, return_inverse=True)[1]
         (e.g. dtype int, no holes)
@@ -84,7 +85,7 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     sigma = np.sqrt(p * (1 - p) / n_edges)  # variance from linear combination of n bernoulli variables
 
     confidence = np.zeros(M.shape, dtype="double")
-    confidence[M > 0] = 1  # Not sure about this
+    confidence[M > 0] = 1  # NOTE: Not sure about this
     confidence[q < 1e-12] = 0
     confidence[M <= 0] = 2 * stats.norm.cdf(M, 0, sigma)
 
@@ -93,6 +94,24 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     return confidence
 
 
+class GraphAbstraction:
+    def __init__(self, kind: str="simple") -> None:
+        self.kind = kind
+
+    def _compute_confidence(self, ds: loompy.LoomConnection) -> None:
+        a, b, w = ds.get_edges("KNN", axis=1)  # consider using MKNN
+        knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1]))
+        clusters = np.unique(ds.col_attrs["Clusters"], return_inverse=True)[1]
+        self.confidence = adjacency_confidence(knn, clusters)
+
+    def abstract(self, ds: loompy.LoomConnection, thresh_confid: float=0.5) -> np.ndarray:
+        self._compute_confidence(ds)
+        thrsh_confidence = np.copy(self.confidence)
+        thrsh_confidence[thrsh_confidence < thresh_confid] = 0
+        return thrsh_confidence
+
+
+# Incomplete code
 def distance_based_confidence(knn: sparse.coo_matrix, clusters: np.ndarray, thrsh: float) -> np.ndarray:
     """
     - Random-walk based measure for connectivity
