@@ -42,7 +42,7 @@ class ManifoldLearning3:
 
 		if self.filter_cellcycle is not None:
 			cell_cycle_genes = np.array(open(self.filter_cellcycle).read().split())
-			mask = np.in1d(ds.col_attrs["Gene"], cell_cycle_genes)
+			mask = np.in1d(ds.row_attrs["Gene"], cell_cycle_genes)
 			if np.sum(mask) == 0:
 				logging.warn("None cell cycle genes where filtered, check your gene list")
 		else:
