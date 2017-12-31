@@ -109,7 +109,12 @@ class GraphAbstraction:
 
         Arguments
         ---------
-
+        ds: LoomConnection
+            Dataset
+        thresh_confid: float
+            Edges with conficedence below `thresh_confid` will be dropped
+        unidirectional: bool:
+            Whether to retrurn the upper triangle of the connectivity matrix
 
         Returns
         -------
