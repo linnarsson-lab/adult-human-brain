@@ -87,7 +87,7 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     confidence = np.zeros(M.shape, dtype="double")
     confidence[M > 0] = 1  # NOTE: Not sure about this
     confidence[q < 1e-12] = 0
-    confidence[M <= 0] = 2 * stats.norm.cdf(M, 0, sigma)
+    confidence[M <= 0] = 2 * stats.norm.cdf(M[M <= 0], 0, sigma[M <= 0])
 
     np.fill_diagonal(confidence, 0)  # NOTE: not sure about this
 
