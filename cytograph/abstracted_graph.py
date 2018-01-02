@@ -77,18 +77,22 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     """
     assert clusters.dtype == "int", "Argument clusters should have dtype == 'int'"
     K = _partition_edges_count(knn.row, knn.col, clusters)  # Inter and intra partition edges
-    n_edges = K.sum()
-    theta = K.sum(0) / n_edges
-    p = theta[:, None] * theta[None, :]  # Expected frequency
-    q = K / n_edges  # Actual frequency
-    M = q - p
-    sigma = np.sqrt(p * (1 - p) / n_edges)  # variance from linear combination of n bernoulli variables
+    np.fill_diagonal(K, 0)
 
-    confidence = np.zeros(M.shape, dtype="double")
-    confidence[M > 0] = 1  # NOTE: Not sure about this
-    confidence[q < 1e-12] = 0
-    confidence[M <= 0] = 2 * stats.norm.cdf(M[M <= 0], 0, sigma[M <= 0])
+    k = len(knn.row) / len(clusters)
+    _, counts = np.unique(clusters)
+    total_n = k * counts
+    expected = total_n[:, None] * total_n[None, :] / np.sum(total_n)**2
+    actual = K / np.sum(total_n)
+    variance = expected * (1 - expected) / np.sum(total_n)
 
+    confidence = np.zeros(K.shape, dtype="double")
+    confidence[actual > expected] = 1  # NOTE: Not sure about this
+    confidence[actual <= expected] = 2 * stats.norm.cdf(actual[actual <= expected],
+                                                        expected[actual <= expected],
+                                                        np.sqrt(variance[actual <= expected]))
+    confidence[actual < 1e-12] = 0
+    confidence = confidence + confidence.T
     np.fill_diagonal(confidence, 0)  # NOTE: not sure about this
 
     return confidence
