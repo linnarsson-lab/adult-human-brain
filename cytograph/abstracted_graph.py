@@ -41,7 +41,7 @@ def _partition_edges_count(rows: np.ndarray, cols: np.ndarray, clusters: np.ndar
     return K
 
 
-def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.ndarray:
+def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray, symmetric: bool=False) -> np.ndarray:
     """Return adjacency confidence for the abstracted graph Gx
 
     Arguments
@@ -51,6 +51,8 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     clusters: np.ndarray, int64[:]
         cluster indexes as they would be provided by the function np.unique(x, return_inverse=True)[1]
         (e.g. dtype int, no holes)
+    symmetric: bool, default=True
+        force symmetry by considering edges in both directions
 
     Returns
     -------
@@ -78,8 +80,12 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     assert clusters.dtype == "int", "Argument clusters should have dtype == 'int'"
     K = _partition_edges_count(knn.row, knn.col, clusters)  # Inter and intra partition edges
     np.fill_diagonal(K, 0)
-
+    if symmetric:
+        K = K + K.T
+    
     k = len(knn.row) / len(clusters)
+    if symmetric:
+        k = k *2
     _, counts = np.unique(clusters)
     total_n = k * counts
     expected = total_n[:, None] * total_n[None, :] / np.sum(total_n)**2
@@ -87,13 +93,13 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray) -> np.nda
     variance = expected * (1 - expected) / np.sum(total_n)
 
     confidence = np.zeros(K.shape, dtype="double")
-    confidence[actual > expected] = 1  # NOTE: Not sure about this
+    confidence[actual > expected] = 1
     confidence[actual <= expected] = 2 * stats.norm.cdf(actual[actual <= expected],
                                                         expected[actual <= expected],
                                                         np.sqrt(variance[actual <= expected]))
     confidence[actual < 1e-12] = 0
-    confidence = confidence + confidence.T
-    np.fill_diagonal(confidence, 0)  # NOTE: not sure about this
+    confidence = confidence
+    np.fill_diagonal(confidence, 0) 
 
     return confidence
 
