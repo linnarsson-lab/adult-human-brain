@@ -2,6 +2,7 @@ import numpy as np
 import loompy
 from scipy import stats, sparse
 from statsmodels.sandbox.stats.multicomp import multipletests
+from typing import *
 
 
 # from numba import njit, jit, autojit
@@ -105,18 +106,22 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray, symmetric
     return confidence
 
 
-def velocity_summary(vlm: Any, confidence: np.ndarray) -> np.ndarray:
-    """Summarize velocity field at teh cluster level
+def velocity_summary(vlm: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Summarize velocity field at the cluster level
 
     Arguments
     ---------
     vlm: velocyto.VelocytoLoom
         The main velocyto object
-    confidence: np.ndarray
-        Array containing the confidence of a connection (i.e. the output of `adjacency_confidence`)
 
     Returns
     -------
+    significant: np.ndarray
+        Whether the transition probability between two clsuters is bigger than expeted by chance
+    trans: np.ndarray
+        Velocity derived transition probability matrix at the cluster level
+    expected_tr: np.ndarray
+        The expected transtion probability taking in consideration only then number of cells per cluster.
 
     """
 
@@ -132,40 +137,35 @@ def velocity_summary(vlm: Any, confidence: np.ndarray) -> np.ndarray:
         vlm.transition_prob /= vlm.transition_prob.sum(1)[:, None]
         sparse_TP = sparse.coo_matrix(vlm.transition_prob)
 
-    Z = np.zeros_like(confidence)
+    Z = np.zeros((len(counts), len(counts)))
     np.add.at(Z, (vlm.cluster_ix[sparse_TP.row], vlm.cluster_ix[sparse_TP.col]), sparse_TP.data)
-    # Normalizations: dividing by counts[:, None]) I would normalize so that if all i connect to j then Z[i,j] ~= 1
+    # Normalizations: dividing by counts[:, None]) it normalizes so that if all i connect to j then Z[i,j] ~= 1
     # However still clusters with more cells are more often acceptors od edges just by chance
-    Z_sca = np.copy(Z)
-    # Divide by number of cell
-    C = (counts * counts[:, None])
-    # Avoid division by zero
-    Z_sca[C != 0] = Z[C != 0] / C[C != 0]
-    # normalize by self-transition_prob
-    Z_sca = Z_sca / np.diag(Z_sca)
-    np.fill_diagonal(Z_sca, 0)
-    delta_Z = Z_sca - Z_sca.T
-    # Background model: cluster that do not have edges we are confident
-    Zflat = np.array(delta_Z[confidence==0].flat[:])
-    # Estimate mean, and std with winsorization
-    up, down =np.percentile(Zflat, (97.5, 2.5))
-    Zflat[Zflat < down] = down
-    Zflat[Zflat > up] = up
-    mu, std = np.mean(Zflat), np.std(Zflat)
+    # this is taken in account later.
+    Z_norm = Z / counts[:, None]  # Z_norm.sum(1) == np.ones
+    np.fill_diagonal(Z_norm, 0)
+    # consiter the netto flux, e.g. if i-> j 0.1 and j->i 0.04 change to i->j 0.06 and j->i 0
+    delta_Z = Z_norm - Z_norm.T
+    # Transition matrix without diagonal
+    trans = np.triu(np.clip(delta_Z, 0, 1)) + np.tril(np.clip(delta_Z, 0, 1))
 
-    p_vals = 2 * (1 - stats.norm(0, std).cdf(np.abs(delta_Z - mu)))
-    _, pvals_corrected, _, _ = multipletests(p_vals.flat[:], method="fdr_bh")
-    pvals_corrected = pvals_corrected.reshape(p_vals.shape)
-    return pvals_corrected
+    expected_tr = counts / np.sum(counts)
+    margin = np.minimum(np.min(expected_tr), (1 - expected_tr) / 3.)  # take care of corner case with few clusters
+    thrs = (expected_tr + margin)[None, :]
+    significant = trans > thrs
+
+    return significant, trans, expected_tr
 
 
-def dummy_heatmap():
-    plt.imshow(delta_Z, cmap=plt.cm.RdBu_r, vmin=-1, vmax=1, )
-    xx, yy = np.where(pvals_corrected.reshape(p_val.shape) < 0.05)
-    plt.scatter(xx,yy, marker="+", c="k")
-    xx, yy = np.where(confidence>0.1)
-    plt.scatter(xx,yy, marker="o", s=40,facecolor="none", edgecolor="k",lw=1)
-    plt.plot(np.arange(16), np.arange(16))
+def plot_confidence_and_velocity(trans: np.ndarray, expected_tr: np.ndarray, confidence: np.ndarray, thrs_conf: float=0.05) -> None:
+    import matplotlib.pyplot as plt
+    plt.imshow(trans, cmap="Blues")
+    yy, xx = np.where(trans > (expected_tr[None, :] + np.min(expected_tr)))
+    plt.scatter(xx, yy, marker="+", c="orange", s=100)
+    plt.plot(np.linspace(-0.5, trans.shape[1] - 0.5), np.linspace(-0.5, trans.shape[1] - 0.5), c="k")
+    xx, yy = np.where(confidence > thrs_conf)
+    plt.scatter(xx, yy, marker="o", s=100, facecolor="none", edgecolor="orange", lw=2)
+    plt.grid("off")
 
 
 class GraphAbstraction:
