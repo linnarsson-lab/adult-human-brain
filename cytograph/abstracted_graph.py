@@ -88,7 +88,7 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray, symmetric
     k = len(knn.row) / len(clusters)
     # if symmetric:
     #     k = k *2
-    _, counts = np.unique(clusters)
+    _, counts = np.unique(clusters, return_counts=True)
     total_n = k * counts
     expected = total_n[:, None] * total_n[None, :] / np.sum(total_n)**2
     actual = K / np.sum(total_n)
