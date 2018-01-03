@@ -1,6 +1,7 @@
 import numpy as np
 import loompy
 from scipy import stats, sparse
+from statsmodels.sandbox.stats.multicomp import multipletests
 
 
 # from numba import njit, jit, autojit
@@ -99,9 +100,72 @@ def adjacency_confidence(knn: sparse.coo_matrix, clusters: np.ndarray, symmetric
                                                         np.sqrt(variance[actual <= expected]))
     confidence[actual < 1e-12] = 0
     confidence = confidence
-    np.fill_diagonal(confidence, 0) 
+    np.fill_diagonal(confidence, 0)
 
     return confidence
+
+
+def velocity_summary(vlm: Any, confidence: np.ndarray) -> np.ndarray:
+    """Summarize velocity field at teh cluster level
+
+    Arguments
+    ---------
+    vlm: velocyto.VelocytoLoom
+        The main velocyto object
+    confidence: np.ndarray
+        Array containing the confidence of a connection (i.e. the output of `adjacency_confidence`)
+
+    Returns
+    -------
+
+    """
+
+    # Count of cells for each clusters
+    _, counts = np.unique(vlm.cluster_ix, return_counts=True)
+    
+    try:
+        sparse_TP = sparse.coo_matrix(vlm.transition_prob)  # NOTE: probably using nonzero/where is better
+    except AttributeError:
+        # Convert correlation coefficient to transition probability
+        sigma_corr = 0.05
+        vlm.transition_prob = np.exp(vlm.corrcoef / sigma_corr) * vlm.embedding_knn.A 
+        vlm.transition_prob /= vlm.transition_prob.sum(1)[:, None]
+        sparse_TP = sparse.coo_matrix(vlm.transition_prob)
+
+    Z = np.zeros_like(confidence)
+    np.add.at(Z, (vlm.cluster_ix[sparse_TP.row], vlm.cluster_ix[sparse_TP.col]), sparse_TP.data)
+    # Normalizations: dividing by counts[:, None]) I would normalize so that if all i connect to j then Z[i,j] ~= 1
+    # However still clusters with more cells are more often acceptors od edges just by chance
+    Z_sca = np.copy(Z)
+    # Divide by number of cell
+    C = (counts * counts[:, None])
+    # Avoid division by zero
+    Z_sca[C != 0] = Z[C != 0] / C[C != 0]
+    # normalize by self-transition_prob
+    Z_sca = Z_sca / np.diag(Z_sca)
+    np.fill_diagonal(Z_sca, 0)
+    delta_Z = Z_sca - Z_sca.T
+    # Background model: cluster that do not have edges we are confident
+    Zflat = np.array(delta_Z[confidence==0].flat[:])
+    # Estimate mean, and std with winsorization
+    up, down =np.percentile(Zflat, (97.5, 2.5))
+    Zflat[Zflat < down] = down
+    Zflat[Zflat > up] = up
+    mu, std = np.mean(Zflat), np.std(Zflat)
+
+    p_vals = 2 * (1 - stats.norm(0, std).cdf(np.abs(delta_Z - mu)))
+    _, pvals_corrected, _, _ = multipletests(p_vals.flat[:], method="fdr_bh")
+    pvals_corrected = pvals_corrected.reshape(p_vals.shape)
+    return pvals_corrected
+
+
+def dummy_heatmap():
+    plt.imshow(delta_Z, cmap=plt.cm.RdBu_r, vmin=-1, vmax=1, )
+    xx, yy = np.where(pvals_corrected.reshape(p_val.shape) < 0.05)
+    plt.scatter(xx,yy, marker="+", c="k")
+    xx, yy = np.where(confidence>0.1)
+    plt.scatter(xx,yy, marker="o", s=40,facecolor="none", edgecolor="k",lw=1)
+    plt.plot(np.arange(16), np.arange(16))
 
 
 class GraphAbstraction:

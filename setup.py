@@ -18,6 +18,7 @@ setup(
 		'hdbscan',
 		'pyyaml',
 		'polo',
+		'statsmodels',  # for multiple testing
 		'numpy-groupies',
 		'python-igraph'
 	],
