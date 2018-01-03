@@ -28,4 +28,4 @@ from .HPF import HPF
 from .poisson_imputation import PoissonImputation
 from .merger import Merger
 from .balanced_knn import BalancedKNN
-from .abstracted_graph import GraphAbstraction
+from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidence_and_velocity
