@@ -14,12 +14,12 @@ def EP2int(timepoint: str) -> int:
 
 
 class FilterManager(object):
-    def __init__(self, punchcard_obj: Dict, ds: loompy.LoomConnection, aa_file_name: str=None) -> None:
+    def __init__(self, punchcard_obj: Dict, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection=None) -> None:
         self.punchcard_obj = punchcard_obj
         self.ds = ds
-        self.aa_file_name = aa_file_name
+        self.dsagg = dsagg
         # Read the autoannotation.aa.tab file and extract tags
-        self.tags_per_cluster = cg.read_autoannotation(self.aa_file_name)
+        self.tags_per_cluster = list(self.dsagg.col_attrs["AutoAnnotation"])  # Previously cg.read_autoannotation()
 
     def _make_filter_aa(self, include_aa: List, exclude_aa: List) -> Tuple[np.ndarray, np.ndarray]:
         """Add and then remove clusters on the basis of the autoannotation
