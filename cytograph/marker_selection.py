@@ -68,7 +68,7 @@ class MarkerSelection:
 		labels = ds.col_attrs[self.labels_attr]
 		cells = labels >= 0
 		labels = labels[cells]
-		n_labels = max(labels) + 1
+		n_labels = np.max(labels) + 1
 		n_cells = cells.sum()
 
 		# Number of cells per cluster

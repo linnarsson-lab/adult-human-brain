@@ -49,7 +49,7 @@ class FilterManager(object):
                         if np.alltrue(np.in1d(exclude_entry, tags)):
                             deselected_clusters |= {cluster_ix}
                     elif type(exclude_entry) == str:
-                        if include_entry in tags:
+                        if exclude_entry in tags:
                             deselected_clusters |= {cluster_ix}
                     else:
                         logging.warning("Punchcards: exclude aa are not correctly formatted")
