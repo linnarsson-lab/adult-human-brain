@@ -52,7 +52,7 @@ class FilterManager(object):
                         if exclude_entry in tags:
                             deselected_clusters |= {cluster_ix}
                     else:
-                        logging.warning("Punchcards: exclude aa are not correctly formatted")
+                        logging.error("Punchcards: exclude aa are not correctly formatted")
         in_aa = np.in1d(self.ds.col_attrs["Clusters"], list(selected_clusters))
         ex_aa = np.in1d(self.ds.col_attrs["Clusters"], list(deselected_clusters))
         return in_aa, ex_aa
@@ -63,7 +63,7 @@ class FilterManager(object):
         include_aa = self.punchcard_obj["include"]["auto-annotations"]
         exclude_aa = self.punchcard_obj["exclude"]["auto-annotations"]
         in_aa, ex_aa = self._make_filter_aa(include_aa, exclude_aa)
-        logging.debug("Filter Manager - autoannotation, include: %d  exclude:  %d" % (np.sum(in_aa), np.sum(ex_aa)))
+        logging.info("Filter Manager - autoannotation, include: %d  exclude:  %d" % (np.sum(in_aa), np.sum(ex_aa)))
         return in_aa, ex_aa
         
     def make_filter_classifier(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -83,7 +83,7 @@ class FilterManager(object):
         else:
             for cl in exclude_class:
                 ex_cla |= self.ds.col_attrs["Class_%s" % cl.title()] > 0.5
-        logging.debug("Filter Manager - classifier, include: %d  exclude:  %d" % (np.sum(in_cla), np.sum(ex_cla)))
+        logging.info("Filter Manager - classifier, include: %d  exclude:  %d" % (np.sum(in_cla), np.sum(ex_cla)))
         return in_cla, ex_cla
 
     def make_filter_cluster(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -99,7 +99,7 @@ class FilterManager(object):
             ex_clu = np.zeros(self.ds.shape[1], dtype=bool)
         else:
             ex_clu = np.in1d(self.ds.col_attrs["Clusters"], exclude_clust)
-        logging.debug("Filter Manager - cluster, include: %d  exclude:  %d" % (np.sum(in_clu), np.sum(ex_clu)))
+        logging.info("Filter Manager - cluster, include: %d  exclude:  %d" % (np.sum(in_clu), np.sum(ex_clu)))
         return in_clu, ex_clu
 
     def make_filter_category(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -141,7 +141,7 @@ class FilterManager(object):
                 else:
                     logging.warning("Processes: exclude categories are not correctly formatted")
         in_cat, ex_cat = self._make_filter_aa(include_aa, exclude_aa)
-        logging.debug("Filter Manager - categories, include: %d  exclude:  %d" % (np.sum(in_cat), np.sum(ex_cat)))
+        logging.info("Filter Manager - categories, include: %d  exclude:  %d" % (np.sum(in_cat), np.sum(ex_cat)))
         return in_cat, ex_cat
 
     def make_filter_time(self) -> np.ndarray:
@@ -150,7 +150,7 @@ class FilterManager(object):
         else:
             time_selected_int = [EP2int(i) for i in self.punchcard_obj["timepoints"]]
             in_time = np.in1d([EP2int(i) for i in self.ds.col_attrs["Age"]], time_selected_int)
-            logging.debug("Filter Manager - time, include: %d " % (np.sum(in_time),))
+            logging.info("Filter Manager - time, include: %d " % (np.sum(in_time),))
             return in_time
 
     def make_filter_tissue(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -162,7 +162,7 @@ class FilterManager(object):
             ex_tis = np.zeros(self.ds.shape[1], dtype=bool)
         else:
             ex_tis = np.in1d(self.ds.col_attrs["Tissue"], self.punchcard_obj["exclude"]["tissues"])
-        logging.debug("Filter Manager - tissue, include: %d  exclude:  %d" % (np.sum(in_tis), np.sum(ex_tis)))
+        logging.info("Filter Manager - tissue, include: %d  exclude:  %d" % (np.sum(in_tis), np.sum(ex_tis)))
         return in_tis, ex_tis
 
     def compute_filter(self) -> np.ndarray:
@@ -174,4 +174,6 @@ class FilterManager(object):
         in_time = self.make_filter_time()
         filter_include = in_aa & in_cat & in_clu & in_cla & in_tis & in_time
         filter_exclude = (ex_aa | ex_cat | ex_clu | ex_cla | ex_tis)
-        return filter_include & np.logical_not(filter_exclude)
+        final_filter = filter_include & np.logical_not(filter_exclude)
+        logging.info(f"Filter Manager - final selection: {final_filter.sum()} cells")
+        return final_filter
