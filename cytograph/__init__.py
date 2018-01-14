@@ -29,3 +29,4 @@ from .poisson_imputation import PoissonImputation
 from .merger import Merger
 from .balanced_knn import BalancedKNN
 from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidence_and_velocity, adjacency_confidence
+from .polished_louvain import PolishedLouvain
