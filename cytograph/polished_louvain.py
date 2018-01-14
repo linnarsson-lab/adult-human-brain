@@ -202,6 +202,6 @@ class PolishedLouvain:
 		logging.info(str(retain))
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
-		logging.info(str(sorted(list(set(labels)))))
+		logging.info((sorted(list(set(labels)))))
 
 		return labels
