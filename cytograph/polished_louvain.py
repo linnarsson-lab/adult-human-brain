@@ -164,10 +164,10 @@ class PolishedLouvain:
 
 		# Renumber the clusters
 		retain = sorted(list(set(labels)))
-		logging.info(retain)
+		logging.info(str(retain))
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
-		logging.info(sorted(list(set(labels))))
+		logging.info(str(sorted(list(set(labels)))))
 
 		# Break clusters based on the embedding
 		logging.info("Breaking clusters")
@@ -182,7 +182,7 @@ class PolishedLouvain:
 			max_label = max_label + np.max(adjusted) + 1
 			labels2[cluster] = new_labels
 		labels = labels2
-		logging.info(sorted(list(set(labels))))
+		logging.info(str(sorted(list(set(labels)))))
 
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
@@ -199,9 +199,9 @@ class PolishedLouvain:
 
 		# Renumber the clusters (since some clusters might have been lost in poor neighborhoods)
 		retain = sorted(list(set(labels)))
-		logging.info(retain)
+		logging.info(str(retain))
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
-		logging.info(sorted(list(set(labels))))
+		logging.info(str(sorted(list(set(labels)))))
 
 		return labels
