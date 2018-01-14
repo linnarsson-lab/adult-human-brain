@@ -13,7 +13,7 @@ setup(
 		'scikit-learn',
 		'scipy',
 		'networkx',
-		'python-louvain',
+		'python-louvain',  # is imported as "community"
 		'luigi',
 		'hdbscan',
 		'pyyaml',

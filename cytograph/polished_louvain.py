@@ -175,6 +175,7 @@ class PolishedLouvain:
 		labels2 = np.copy(labels)
 		for lbl in range(labels.max() + 1):
 			cluster = labels == lbl
+			logging.info(f"{np.sum(cluster)} of cells in cluster {lbl}")
 			adjusted = self._break_cluster(embedding[cluster, :])
 			new_labels = np.copy(adjusted)
 			for i in range(np.max(adjusted) + 1):
