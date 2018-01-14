@@ -14,16 +14,17 @@ class PCAProjection:
 	to one dataset then used to project another. To work properly, both datasets must be normalized in the same 
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str=None) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str=None, nng: np.ndarray = None) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
-			max_n_components: 	Tha maximum number of projected components
-
+			max_n_components: 	The maximum number of projected components
+			nng					Non-neuronal genes, to be zeroed in neurons (where TaxonomyRank1 == "Neurons")
 		"""
 		self.genes = genes
 		self.n_components = max_n_components
 		self.layer = layer
+		self.nng = nng
 		self.cells = None  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
@@ -39,15 +40,23 @@ class PCAProjection:
 		if "Accession" in ds.row_attrs:
 			self.accessions = ds.row_attrs["Accession"]
 
-		# NOTE TO AVOID a BUG with layer of pickled objects
-		try:
-			layer = self.layer
-		except AttributeError:
-			layer = None
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, layer=layer):
-			vals = normalizer.transform(vals, selection)  # NOTE: maybe a layer parameter should be passed but it might make small difference
-			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
+		if self.layer is not None:
+			# NOTE TO AVOID a BUG with layer of pickled objects
+			try:
+				for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[self.layer]):
+					vals = normalizer.transform(view.layers[self.layer][:, :], selection)
+					if self.nng is not None:
+						vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
+					self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
+			except AttributeError:
+				self.layer = None
+		if self.layer is None:
+			for (ix, selection, view) in ds.scan(items=cells, axis=1):
+				vals = normalizer.transform(view[:, :], selection)
+				if self.nng is not None:
+					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
+				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
@@ -62,19 +71,26 @@ class PCAProjection:
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
 
-		# NOTE TO AVOID a BUG with layer of pickled objects
-		try:
-			layer = self.layer
-		except AttributeError:
-			layer = None
-		for (_, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=1, layer=layer):
-			if self.accessions is not None:
-				vals = vals[ordering, :]
-			vals = normalizer.transform(vals, selection)
-			n_cells_in_batch = selection.shape[0]
-			temp = self.pca.transform(vals[self.genes, :].transpose())
-			transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
-			j += n_cells_in_batch
+		if self.layer is not None:
+			# NOTE TO AVOID a BUG with layer of pickled objects
+			try:
+				for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[self.layer]):
+					vals = normalizer.transform(view.layers[self.layer][:, :], selection)
+					if self.nng is not None:
+						vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
+					n_cells_in_batch = selection.shape[0]
+					transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
+					j += n_cells_in_batch
+			except AttributeError:
+				self.layer = None
+		if self.layer is None:
+			for (ix, selection, view) in ds.scan(items=cells, axis=1):
+				vals = normalizer.transform(view[:, :], selection)
+				if self.nng is not None:
+					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
+				n_cells_in_batch = selection.shape[0]
+				transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
+				j += n_cells_in_batch
 
 		# Must select significant components only once, and reuse for future transformations
 		if self.sigs is None:

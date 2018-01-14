@@ -127,7 +127,7 @@ class Clustering:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
-			lj = cg.LouvainJaccard(resolution=100, jaccard=False)
+			lj = cg.LouvainJaccard(resolution=1, jaccard=False)
 			labels = lj.fit_predict(knn.tocoo())
 
 		# At this point, cells should be labeled 0, 1, 2, ...
@@ -137,8 +137,8 @@ class Clustering:
 		labels_all[cells] = labels
 		outliers[labels_all == -1] = 1
 		labels_all[cells] = labels - np.min(labels)
-		ds.set_attr("Clusters", labels_all, axis=1)
-		ds.set_attr("Outliers", outliers, axis=1)
+		ds.ca.Clusters = labels_all
+		ds.ca.Outliers = outliers
 		logging.info("Found " + str(max(labels_all) + 1) + " clusters")
 		if not len(set(ds.ca.Clusters)) == ds.ca.Clusters.max() + 1:
 			raise ValueError("There are holes in the cluster ID sequence!")

@@ -55,7 +55,7 @@ class Classifier:
 							items = line[:-1].split("\t")
 							d[int(items[0])] = items[1]
 					sa = np.array(list(map(lambda x: d[x] if d[x] != "Outliers" else "Unknown", ds.ca.Clusters)))
-					ds.set_attr("SubclassAssigned", sa, axis=1)
+					ds.ca.SubclassAssigned = sa
 				if accessions is None:
 					# Keep track of the gene order in the first file
 					accessions = ds.row_attrs["Accession"]
@@ -77,72 +77,59 @@ class Classifier:
 				cells = np.array(sorted(temp))
 				logging.info("Sampling %d cells from %s", cells.shape[0], fname)
 
-				# put the cells in the training dataset
-				# This is magic sauce for making the order of one list be like another
-				ordering = np.where(ds.row_attrs["Accession"][None, :] == accessions[:, None])[1]
-				for (ix, selection, vals) in ds.batch_scan(cells=cells, axis=1):
-					ca = {key: val[selection] for key, val in ds.col_attrs.items()}
-					if ds_training is None:
-						loompy.create(foutname, vals[ordering, :], row_attrs=ds.row_attrs, col_attrs=ca)
-						ds_training = loompy.connect(foutname)
-					else:
-						ds_training.add_columns(vals[ordering, :], ca)
+				for (_, _, view) in ds.scan(items=cells, axis=1):
+					loompy.create_append(foutname, view.layers, view.ra, view.ca)
 
-		# We had a bug after newly creating a loom file, so close and reopen to be sure it's flushed
-		ds_training.close()
-		ds_training = loompy.connect(foutname)
-
-		# Make sure we don't have both "Neurons,Oligos" and "Oligos,Neurons"
-		classes = ds_training.col_attrs["SubclassAssigned"]
-		classes_fixed = []
-		for cls in classes:
-			items = cls.split(",")
-			if len(items) == 2 and items[1] != "Cycling":
-				items = sorted(items)
-			classes_fixed.append(",".join(items))
-		ds_training.set_attr("SubclassAssigned", np.array(classes_fixed), axis=1)
+		with loompy.connect(foutname) as ds_training:
+			# Make sure we don't have both "Neurons,Oligos" and "Oligos,Neurons"
+			classes = ds_training.col_attrs["SubclassAssigned"]
+			classes_fixed = []
+			for cls in classes:
+				items = cls.split(",")
+				if len(items) == 2 and items[1] != "Cycling":
+					items = sorted(items)
+				classes_fixed.append(",".join(items))
+			ds_training.ca.SubclassAssigned = np.array(classes_fixed)
 
 	def aggregate_export(self) -> None:
 		# Aggregate and compute enrichment, trinaries etc.
 		logging.info("Aggregating loom file")
 		ds_training = loompy.connect(os.path.join(self.classified_dir, "classified.loom"))
 		classes = ds_training.col_attrs["SubclassAssigned"]
-		ds_training.set_attr("Clusters", LabelEncoder().fit_transform(classes), axis=1)
+		ds_training.ca.Clusters = LabelEncoder().fit_transform(classes)
 		out_file = os.path.join(self.classified_dir, "classified.agg.loom")
 		cg.Aggregator(10).aggregate(ds_training, out_file)
-		dsagg = loompy.connect(out_file)
+		with loompy.connect(out_file) as dsagg:
+			logging.info("Computing auto-annotation")
+			aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
+			aa.annotate_loom(dsagg)
+			aa.save_in_loom(dsagg)
 
-		logging.info("Computing auto-annotation")
-		aa = cg.AutoAnnotator(root=cg.paths().autoannotation)
-		aa.annotate_loom(dsagg)
-		aa.save_in_loom(dsagg)
-
-		logging.info("Computing auto-auto-annotation")
-		n_clusters = dsagg.shape[1]
-		(selected, selectivity, specificity, robustness) = cg.AutoAutoAnnotator(n_genes=6).fit(dsagg)
-		dsagg.set_attr("MarkerGenes", np.array([" ".join(ds_training.Gene[selected[:, ix]]) for ix in np.arange(n_clusters)]), axis=1)
-		np.set_printoptions(precision=1, suppress=True)
-		dsagg.set_attr("MarkerSelectivity", np.array([str(selectivity[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
-		dsagg.set_attr("MarkerSpecificity", np.array([str(specificity[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
-		dsagg.set_attr("MarkerRobustness", np.array([str(robustness[:, ix]) for ix in np.arange(n_clusters)]), axis=1)
-		dsagg.close()
+			logging.info("Computing auto-auto-annotation")
+			n_clusters = dsagg.shape[1]
+			(selected, selectivity, specificity, robustness) = cg.AutoAutoAnnotator(n_genes=6).fit(dsagg)
+			dsagg.ca.MarkerGenes = np.array([" ".join(ds_training.Gene[selected[:, ix]]) for ix in np.arange(n_clusters)])
+			np.set_printoptions(precision=1, suppress=True)
+			dsagg.ca.MarkerSelectivity = np.array([str(selectivity[:, ix]) for ix in np.arange(n_clusters)])
+			dsagg.ca.MarkerSpecificity = np.array([str(specificity[:, ix]) for ix in np.arange(n_clusters)])
+			dsagg.ca.MarkerRobustness = np.array([str(robustness[:, ix]) for ix in np.arange(n_clusters)])
 
 		out_dir = os.path.join(self.classified_dir, "classified_exported")
 		logging.info("Exporting cluster data")
 		if not os.path.exists(out_dir):
 			os.mkdir(out_dir)
-		dsagg = loompy.connect(out_file)
-		dsagg.export(os.path.join(out_dir, "classified_expression.tab"))
-		dsagg.export(os.path.join(out_dir, "classified_enrichment.tab"), layer="enrichment")
-		dsagg.export(os.path.join(out_dir, "classified_enrichment_q.tab"), layer="enrichment_q")
-		dsagg.export(os.path.join(out_dir, "classified_trinaries.tab"), layer="trinaries")
+		with loompy.connect(out_file) as dsagg:
+			dsagg.export(os.path.join(out_dir, "classified_expression.tab"))
+			dsagg.export(os.path.join(out_dir, "classified_enrichment.tab"), layer="enrichment")
+			dsagg.export(os.path.join(out_dir, "classified_enrichment_q.tab"), layer="enrichment_q")
+			dsagg.export(os.path.join(out_dir, "classified_trinaries.tab"), layer="trinaries")
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		# Validating genes
 		logging.info("Marking invalid genes")
 		nnz = ds.map([np.count_nonzero], axis=0)[0]
 		valid_genes = np.logical_and(nnz > 5, nnz < ds.shape[1] * 0.5).astype("int")
-		ds.set_attr("_Valid", valid_genes, axis=0)
+		ds.ra._Valid = valid_genes
 		with open(os.path.join(self.classified_dir, "genes.txt"), "w") as f:
 			for ix in range(valid_genes.shape[0]):
 				f.write(ds.Accession[ix])

@@ -38,7 +38,7 @@ class OutsProcessor:
 				ivlfile = ivl_path_pat.replace('*', tr)
 				print("Making loom file with velocyto using " + ivlfile)
 				cmd = ["velocyto", "run10x", "--outputfolder", d, d, ivlfile]
-				errcode = run(cmd).returncode # Should return outputfile, or allow passing  it
+				errcode = run(cmd).returncode  # Should return outputfile, or allow passing  it
 				if errcode == 0:
 					loom_made = True
 			if not loom_made:

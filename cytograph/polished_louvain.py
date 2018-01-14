@@ -9,67 +9,42 @@ from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 from scipy.stats import t, zscore
+import loompy
+import hdbscan
 
 
-def grubbs(X: np.ndarray, test: str = 'two-tailed', alpha: float = 0.05) -> Tuple[np.ndarray, np.ndarray]:
-	'''
-	Performs Grubbs' test for outliers recursively until the null hypothesis is
-	true.
+def is_outlier(points, thresh=3.5):
+	"""
+	Returns a boolean array with True if points are outliers and False
+	otherwise.
 
-	Parameters
+	Parameters:
+	-----------
+		points : An numobservations by numdimensions array of observations
+		thresh : The modified z-score to use as a threshold. Observations with
+			a modified z-score (based on the median absolute deviation) greater
+			than this value will be classified as outliers.
+
+	Returns:
+	--------
+		mask : A numobservations-length boolean array.
+
+	References:
 	----------
-	X : ndarray
-		A numpy array to be tested for outliers.
-	test : str
-		Describes the types of outliers to look for. Can be 'min' (look for
-		small outliers), 'max' (look for large outliers), or 'two-tailed' (look
-		for both).
-	alpha : float
-		The significance level.
+		Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
+		Handle Outliers", The ASQC Basic References in Quality Control:
+		Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
+	"""
+	if len(points.shape) == 1:
+		points = points[:,None]
+	median = np.median(points, axis=0)
+	diff = np.sum((points - median)**2, axis=-1)
+	diff = np.sqrt(diff)
+	med_abs_deviation = np.median(diff)
 
-	Returns
-	-------
-	X : ndarray
-		A copy of the original array with outliers removed.
-	outliers : ndarray
-		An array of outliers.
-	'''
+	modified_z_score = 0.6745 * diff / med_abs_deviation
 
-	Z = zscore(X, ddof=1)  # Z-score
-	N = len(X)  # number of samples
-
-	# calculate extreme index and the critical t value based on the test
-	if test == 'two-tailed':
-		extreme_ix = lambda Z: np.abs(Z).argmax()
-		t_crit = lambda N: t.isf(alpha / (2.*N), N-2)
-	elif test == 'max':
-		extreme_ix = lambda Z: Z.argmax()
-		t_crit = lambda N: t.isf(alpha / N, N-2)
-	elif test == 'min':
-		extreme_ix = lambda Z: Z.argmin()
-		t_crit = lambda N: t.isf(alpha / N, N-2)
-	else:
-		raise ValueError("Test must be 'min', 'max', or 'two-tailed'")
-
-	# compute the threshold
-	thresh = lambda N: (N - 1.) / np.sqrt(N) * \
-		np.sqrt(t_crit(N)**2 / (N - 2 + t_crit(N)**2))
-
-	# create array to store outliers
-	outliers = np.array([])
-
-	# loop throught the array and remove any outliers
-	while abs(Z[extreme_ix(Z)]) > thresh(N):
-
-		# update the outliers
-		outliers = np.r_[outliers, X[extreme_ix(Z)]]
-		# remove outlier from array
-		X = np.delete(X, extreme_ix(Z))
-		# repeat Z score
-		Z = zscore(X, ddof=1)
-		N = len(X)
-
-	return X, outliers
+	return modified_z_score > thresh
 
 
 class PolishedLouvain:
@@ -91,38 +66,43 @@ class PolishedLouvain:
 		# Standardize x and y (not sure if this is really necessary)
 		x = (x - x.mean()) / x.std()
 		y = (y - y.mean()) / y.std()
-		(_, outliers_x) = grubbs(x)
-		(_, outliers_y) = grubbs(y)
-		outliers = np.union1d(outliers_x, outliers_y)
+		xy = np.vstack([x, y]).transpose()
+
+		outliers = np.zeros(embedding.shape[0], dtype='bool')
+		for _ in range(5):
+			outliers[~outliers] = is_outlier(x[~outliers])
+			outliers[~outliers] = is_outlier(y[~outliers])
 
 		# See if the cluster is very dispersed
-		min_pts = min(x.shape[0] - 1, max(5, round(0.1 * x.shape[0])))
+		min_pts = min(50, min(x.shape[0] - 1, max(5, round(0.1 * x.shape[0]))))
 		nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
-		nn.fit(embedding)
+		nn.fit(xy)
 		knn = nn.kneighbors_graph(mode='distance')
 		k_radius = knn.max(axis=1).toarray()
 		epsilon = np.percentile(k_radius, 70)
-
 		# Not too many outliers, and not too dispersed
-		if outliers.shape[0] <= 3 and (np.sqrt(x**2 + y**2) < epsilon).sum() >= min_pts:
+		if outliers.sum() <= 3 and (np.sqrt(x**2 + y**2) < epsilon).sum() >= min_pts * 0.5:
 			return np.zeros(embedding.shape[0], dtype='int')
 
 		# Too many outliers, or too dispersed
-		clusterer = DBSCAN(eps=epsilon, min_samples=min_pts)
-		return clusterer.fit_predict(embedding)
-		
-	def fit_predict(self, knn: sparse.coo_matrix, embedding: np.ndarray) -> np.ndarray:
+		clusterer = DBSCAN(eps=epsilon, min_samples=round(min_pts * 0.5))
+		return clusterer.fit_predict(xy)
+
+	def fit_predict(self, ds: loompy.LoomConnection, graph: str = "MKNN") -> np.ndarray:
 		"""
 		Given a sparse adjacency matrix, perform Louvain clustering, then polish the result
 
 		Args:
-			knn:		The sparse adjacency matrix
-			embedding: 	The 2D embedding of the graph, shape (n_cells, 2)
+			ds		The loom dataset
+			graph	The graph to use
 
 		Returns:
 			labels:	The cluster labels (where -1 indicates outliers)
 
 		"""
+		embedding = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
+		knn = ds.col_graphs[graph]
+
 		logging.info("Louvain community detection")
 		g = nx.from_scipy_sparse_matrix(knn)
 		partitions = community.best_partition(g, resolution=self.resolution, randomize=False)
@@ -161,13 +141,12 @@ class PolishedLouvain:
 				temp.append(labels[ix])
 			else:
 				temp.append(-1)
+		labels = np.array(temp)
 
 		# Renumber the clusters
 		retain = sorted(list(set(labels)))
-		logging.info(retain)
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
-		logging.info(sorted(list(set(labels))))
 
 		# Break clusters based on the embedding
 		logging.info("Breaking clusters")
@@ -175,6 +154,8 @@ class PolishedLouvain:
 		labels2 = np.copy(labels)
 		for lbl in range(labels.max() + 1):
 			cluster = labels == lbl
+			if cluster.sum() < 10:
+				continue
 			adjusted = self._break_cluster(embedding[cluster, :])
 			new_labels = np.copy(adjusted)
 			for i in range(np.max(adjusted) + 1):
@@ -182,7 +163,7 @@ class PolishedLouvain:
 			max_label = max_label + np.max(adjusted) + 1
 			labels2[cluster] = new_labels
 		labels = labels2
-		logging.info(sorted(list(set(labels))))
+
 
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
@@ -191,17 +172,13 @@ class PolishedLouvain:
 		knn = nn.kneighbors_graph(mode='connectivity').tocoo()
 		temp = []
 		for ix in range(labels.shape[0]):
-			if labels[ix] == -1:
-				temp.append(-1)
-				continue
 			neighbors = knn.col[np.where(knn.row == ix)[0]]
 			temp.append(mode(labels[neighbors])[0][0])
+		labels = np.array(temp)
 
 		# Renumber the clusters (since some clusters might have been lost in poor neighborhoods)
 		retain = sorted(list(set(labels)))
-		logging.info(retain)
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
-		logging.info(sorted(list(set(labels))))
 
 		return labels

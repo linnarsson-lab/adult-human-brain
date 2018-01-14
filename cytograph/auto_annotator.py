@@ -167,8 +167,7 @@ class AutoAnnotator(object):
 					tags.append(self.tags[j].abbreviation)
 			tags.sort()
 			attr.append(",".join(tags))
-		ds.set_attr("AutoAnnotation", np.array(attr), axis=1)
-
+		ds.ca.AutoAnnotation = np.array(attr)
 
 def read_autoannotation(aa_file: str) -> List[List[str]]:
 	"""Extract autoannotations from file

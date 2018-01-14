@@ -71,5 +71,5 @@ class Merger:
 				d[ix] = m
 		logging.info(d)
 		new_clusters = np.array([d[x] for x in ds.ca.Clusters])
-		ds.set_attr("Clusters", new_clusters, axis=1)
+		ds.ca.Clusters = new_clusters
 		logging.info(f"Merged {n_labels} -> {len(set(new_clusters))} clusters")

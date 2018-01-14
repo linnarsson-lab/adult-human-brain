@@ -37,6 +37,7 @@ def credible_discordance(X: np.ndarray, pep: float = 0.05) -> np.ndarray:
 	"""
 	return np.dot(binarize(X, 1 - pep), (1 - binarize(X, pep)).T)
 
+
 class Trinarizer:
 	def __init__(self, f: float = 0.2) -> None:
 		self.f = f

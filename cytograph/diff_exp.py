@@ -156,4 +156,4 @@ def save_cluster_avg(input_file: str, output_file: str) -> None:
 	for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 		vals_avg = npg.aggregate_numba.aggregate(labels, vals, func="mean", axis=1)
 		m[selection, :] = vals_avg
-	dsout = loompy.create(output_file, m, ra, ca)
+	loompy.create(output_file, m, ra, ca)

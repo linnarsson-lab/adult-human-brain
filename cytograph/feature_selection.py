@@ -29,7 +29,10 @@ class FeatureSelection:
 		if mu is None or sd is None:
 			(mu, sd) = ds.map((np.mean, np.std), axis=0, selection=cells)
 
-		valid = ds.row_attrs["_Valid"] == 1
+		if "_Valid" in ds.ra:
+			valid = ds.ra._Valid == 1
+		else:
+			valid = np.ones(ds.shape[0], dtype='bool')
 		if mask is not None:
 			valid = np.logical_and(valid, np.logical_not(mask))
 		valid = np.logical_and(valid, ds.row_attrs["Gene"] != "Xist")
