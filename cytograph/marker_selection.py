@@ -30,8 +30,12 @@ class MarkerSelection:
 		logging.info("Computing enrichment null distribution")
 		labels = ds.col_attrs[self.labels_attr]
 		ds.set_attr(self.labels_attr, np.random.permutation(labels), axis=1)
-		(_, null_enrichment) = self._fit(ds)
-		ds.set_attr(self.labels_attr, labels, axis=1)
+		try:
+			(_, null_enrichment) = self._fit(ds)
+		except:
+			raise
+		finally:
+			ds.set_attr(self.labels_attr, labels, axis=1)
 
 		# Get the observed enrichment statistics
 		logging.info("Computing enrichment statistic")
@@ -64,7 +68,7 @@ class MarkerSelection:
 		labels = ds.col_attrs[self.labels_attr]
 		cells = labels >= 0
 		labels = labels[cells]
-		n_labels = max(labels) + 1
+		n_labels = np.max(labels) + 1
 		n_cells = cells.sum()
 
 		# Number of cells per cluster

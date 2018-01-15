@@ -13,11 +13,12 @@ setup(
 		'scikit-learn',
 		'scipy',
 		'networkx',
-		'python-louvain',
+		'python-louvain',  # is imported as "community"
 		'luigi',
 		'hdbscan',
 		'pyyaml',
 		'polo',
+		'statsmodels',  # for multiple testing
 		'numpy-groupies',
 		'python-igraph'
 	],

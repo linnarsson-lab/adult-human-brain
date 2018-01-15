@@ -226,7 +226,8 @@ class AutoAnnotator(object):
 
 
 def read_autoannotation(aa_file: str) -> List[List[str]]:
-	"""Extract autoannotations from file
+	"""DEPRECATED
+	Extract autoannotations from file
 
 	Arguments
 
