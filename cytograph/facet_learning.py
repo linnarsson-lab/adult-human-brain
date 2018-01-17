@@ -69,7 +69,7 @@ class FacetLearning:
 		last_BIC = None  # type: float
 		while splitting:
 			# Run EM on the combined facets
-			for _ in trange(self.max_iter, desc="EM", leave=False):
+			for _ in range(self.max_iter):
 				self._E_step(X)
 				self._M_step(X)
 			splitting = False
@@ -223,7 +223,7 @@ class FacetLearning:
 		f0.adaptive = False
 		f0.labels = np.zeros(cells.shape[0], dtype='int')
 		fl = FacetLearning([f0], self.r, self.alpha, max_iter=1)
-		_ = fl.fit_transform(x)
+		_ = fl.fit_predict(x)
 		original_BIC = f0.BIC
 		best_BIC = original_BIC
 		best_labels = f0.labels
@@ -236,7 +236,7 @@ class FacetLearning:
 			f0.adaptive = False
 			f0.labels = (x[:, gene] > theta).astype('int')
 			fl = FacetLearning([f0], self.r, self.alpha, max_iter=20)
-			labels = fl.fit_transform(x)
+			labels = fl.fit_predict(x)
 			if f0.BIC < best_BIC:
 				best_BIC = f0.BIC
 				best_labels = f0.labels
@@ -246,10 +246,11 @@ class FacetLearning:
 		if best_BIC >= original_BIC:
 			logging.debug("No improvement over original BIC score")
 		else:
-			logging.debug("Splitting %d cells into %s would reduce BIC by %f", n_cells, str(np.bincount(best_labels, minlength=2)), best_BIC - original_BIC)
-		logging.info("Best gene: " + self.gene_names[best_gene])
+			logging.debug("Splitting %d cells into %s would reduce BIC by %f", n_cells, str(np.bincount(best_labels, minlength=2)), original_BIC - best_BIC)
+		if self.gene_names is not None:
+			logging.info("Best gene: " + self.gene_names[best_gene])
 
-		return (best_labels, best_gene, best_BIC - original_BIC)
+		return (best_labels, best_gene, original_BIC - best_BIC)
 
 	def _split_facet(self, X: np.ndarray, facet: Facet) -> int:
 		"""
@@ -275,7 +276,7 @@ class FacetLearning:
 				best_genes = np.argsort(gains)[-self.n_split_tries:]
 				best_thetas = thetas[-self.n_split_tries:]
 				(split_labels, split_gene, delta_BIC) = self._evaluate_splits(X, facet, cells, best_genes, best_thetas)
-				if split_gene != -1 and (best_delta_BIC is None or delta_BIC < best_delta_BIC):
+				if split_gene != -1 and (best_delta_BIC is None or delta_BIC > best_delta_BIC):
 					did_split = True
 					best_delta_BIC = delta_BIC
 					best_split_labels = split_labels
@@ -291,4 +292,3 @@ class FacetLearning:
 			return 1
 		else:
 			return 0
-

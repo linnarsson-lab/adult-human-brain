@@ -37,6 +37,7 @@ def credible_discordance(X: np.ndarray, pep: float = 0.05) -> np.ndarray:
 	"""
 	return np.dot(binarize(X, 1 - pep), (1 - binarize(X, pep)).T)
 
+
 class Trinarizer:
 	def __init__(self, f: float = 0.2) -> None:
 		self.f = f
@@ -49,7 +50,7 @@ class Trinarizer:
 		n_labels = np.max(labels) + 1
 		logging.info("n_labels %d", n_labels)
 		self.trinary_prob = np.empty((ds.shape[0], n_labels))
-		self.genes = ds.Gene
+		self.genes = ds.ra.Gene
 
 		j = 0
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):

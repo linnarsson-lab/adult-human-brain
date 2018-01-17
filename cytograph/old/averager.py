@@ -45,4 +45,4 @@ class Averager:
 		for (ix, selection, vals) in ds.batch_scan(cells=cells, genes=None, axis=0):
 			vals_avg = npg.aggregate_numba.aggregate(categories_ix, vals, func=self.func, axis=1)
 			m[selection, :] = vals_avg
-		dsout = loompy.create(output_file, m, ra, ca)
+		loompy.create(output_file, m, ra, ca)

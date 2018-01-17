@@ -87,7 +87,7 @@ class TSNE:
 			transformed:	The (typically) PCA-transformed input data, shape: (n_samples, n_components)
 			n_dims:			2 or 3
 			initial_pos:	Initial layout, or None to use the first components of 'transformed'
-			knn: 			Precomputed knn graph is sparse matrix format, or None to use Gaussian perplexity
+			knn: 			Precomputed knn graph in sparse matrix format, or None to use Gaussian perplexity
 
 		Remarks:
 			Requires 'bh_tsne' to be available on the $PATH

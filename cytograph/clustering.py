@@ -24,9 +24,10 @@ from sklearn.cluster import DBSCAN
 
 try:
 	import igraph
+	import louvain
 	passed_import = True
 except ModuleNotFoundError:
-	logging.warning("Import of igraph failed. Clustering will fall back to lj")
+	logging.warning("Import of igraph and louvain failed. Clustering will fall back to lj")
 	passed_import = False
 
 
@@ -81,7 +82,7 @@ class Clustering:
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
 			# sources, targets = knn.nonzero()
-			G = igraph.Graph(list(zip(a, b)), directed=False)
+			G = igraph.Graph(n_total, list(zip(a, b)), directed=False)
 			VxCl = G.community_multilevel(return_levels=False)
 			labels = np.array(VxCl.membership)
 		elif self.method == "wmultilev" and passed_import:
@@ -89,7 +90,7 @@ class Clustering:
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
 			# a, b = knn.nonzero()
-			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
+			G = igraph.Graph(n_total, list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
 		elif self.method == "mknn_louvain" and passed_import:
@@ -97,20 +98,36 @@ class Clustering:
 			(a, b, w) = ds.get_edges("MKNN", axis=1)
 			random.seed(13)
 			igraph._igraph.set_random_number_generator(random)
-			G = igraph.Graph(list(zip(a, b)), directed=False, edge_attrs={'weight': w})
+			G = igraph.Graph(n_total, list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
+			logging.info(f"labels.shape = {labels.shape}")
 			if not self.outliers:
 				bigs = np.where(np.bincount(labels) >= 0)[0]
 			else:
-				bigs = np.where(np.bincount(labels) >= self.min_pts)[0]				
+				bigs = np.where(np.bincount(labels) >= self.min_pts)[0]	
 			mapping = {k: v for v, k in enumerate(bigs)}
 			labels = np.array([mapping[x] if x in bigs else -1 for x in labels])			
+		# elif self.method == "mknn_louvain" and passed_import:
+		# 	logging.info("surprise clustering on the multiscale MKNN graph")
+		# 	(a, b, w) = ds.get_edges("KNN", axis=1)
+		# 	random.seed(13)
+		# 	igraph._igraph.set_random_number_generator(random)
+		# 	G = igraph.Graph(n_total, list(zip(a, b)), directed=False, edge_attrs={'weight': w})
+		# 	partition = louvain.find_partition(G, louvain.CPMVertexPartition, resolution_parameter=10000)
+		# 	labels = np.array(partition.membership)
+		# 	logging.info(f"labels.shape = {labels.shape}")
+		# 	if not self.outliers:
+		# 		bigs = np.where(np.bincount(labels) >= 0)[0]
+		# 	else:
+		# 		bigs = np.where(np.bincount(labels) >= self.min_pts)[0]	
+		# 	mapping = {k: v for v, k in enumerate(bigs)}
+		# 	labels = np.array([mapping[x] if x in bigs else -1 for x in labels])			
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
-			lj = cg.LouvainJaccard(resolution=100, jaccard=False)
+			lj = cg.LouvainJaccard(resolution=1, jaccard=False)
 			labels = lj.fit_predict(knn.tocoo())
 
 		# At this point, cells should be labeled 0, 1, 2, ...
@@ -120,9 +137,9 @@ class Clustering:
 		labels_all[cells] = labels
 		outliers[labels_all == -1] = 1
 		labels_all[cells] = labels - np.min(labels)
-		ds.set_attr("Clusters", labels_all, axis=1)
-		ds.set_attr("Outliers", outliers, axis=1)
+		ds.ca.Clusters = labels_all
+		ds.ca.Outliers = outliers
 		logging.info("Found " + str(max(labels_all) + 1) + " clusters")
-		if not len(set(ds.Clusters)) == ds.Clusters.max() + 1:
+		if not len(set(ds.ca.Clusters)) == ds.ca.Clusters.max() + 1:
 			raise ValueError("There are holes in the cluster ID sequence!")
 		return labels_all
