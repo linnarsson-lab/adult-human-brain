@@ -164,7 +164,6 @@ class PolishedLouvain:
 			labels2[cluster] = new_labels
 		labels = labels2
 
-
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
 		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)

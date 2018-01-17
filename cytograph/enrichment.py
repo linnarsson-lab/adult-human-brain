@@ -4,6 +4,7 @@ import loompy
 import numpy as np
 import cytograph as cg
 
+
 class MarkerEnrichment:
 	"""
 	DEPRECATED
@@ -46,7 +47,7 @@ class MarkerEnrichment:
 				scores2[row, :] = score2
 		self.enrichment = scores1 * np.power(scores2, self.power)
 		self.genes = np.copy(ds.ra.Gene)
-		self.valid = np.copy(ds.row_attrs["_Valid"])
+		self.valid = np.copy(ds.ra._Valid)
 
 	def save(self, fname: str) -> None:
 		with open(fname, "w") as f:

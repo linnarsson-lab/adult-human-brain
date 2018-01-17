@@ -111,14 +111,12 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
 
 	logging.info("Drawing cluster IDs")
-	mg_pos = []
 	for lbl in range(0, max(labels) + 1):
 		if np.all(outliers[labels == lbl] == 1):
 			continue
 		if np.sum(labels == lbl) == 0:
 			continue
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-		mg_pos.append((x, y))
 		ax.text(x, y, str(lbl), fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
 	logging.info("Saving to file")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
@@ -160,12 +158,10 @@ def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) ->
 	block_colors = plt.cm.nipy_spectral_r((age - 6) / 14.)
 	nx.draw_networkx_nodes(g, pos=sfdp, node_color=block_colors, node_size=10, alpha=0.4, linewidths=0)
 
-	mg_pos = []
 	for lbl in range(0, max(labels) + 1):
 		if np.sum(labels == lbl) == 0:
 			continue
 		(x, y) = np.median(sfdp[np.where(labels == lbl)[0]], axis=0)
-		mg_pos.append((x, y))
 		text = "#" + str(lbl)
 		if len(tags[lbl]) > 0:
 			text += "\n" + tags[lbl]

@@ -26,6 +26,8 @@ cd ..
 python setup.py install
 ```
 
+Make sure `bhtsne` is in your $PATH
+
 ## Running the pipeline
 
 **Note:** pipelines are now separated out into their own repos:

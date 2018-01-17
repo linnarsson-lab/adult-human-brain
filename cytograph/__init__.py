@@ -28,3 +28,4 @@ from .balanced_knn import BalancedKNN
 from .polished_louvain import PolishedLouvain
 from .facet_learning import FacetLearning, Facet
 from .gsea import GSEA
+from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidence_and_velocity, adjacency_confidence
