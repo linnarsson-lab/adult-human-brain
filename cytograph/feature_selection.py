@@ -54,3 +54,23 @@ class FeatureSelection:
 		self.genes = np.where(ok)[0][np.argsort(score)][-self.n_genes:]
 
 		return self.genes
+
+
+# This works on a matrix in memory
+def feature_selection(data: np.ndarray, n_genes: int) -> np.ndarray:
+	valid = (data.sum(axis=0) > 0).astype('int')
+	mu = np.mean(data, axis=0)
+	sd = np.std(data, axis=0)
+	ok = np.logical_and(mu > 0, sd > 0)
+	cv = sd[ok] / mu[ok]
+	log2_m = np.log2(mu[ok])
+	log2_cv = np.log2(cv)
+
+	svr_gamma = 1000. / len(mu[ok])
+	clf = SVR(gamma=svr_gamma)
+	clf.fit(log2_m[:, np.newaxis], log2_cv)
+	fitted_fun = clf.predict
+	# Score is the relative position with respect of the fitted curve
+	score = log2_cv - fitted_fun(log2_m[:, np.newaxis])
+	score = score * valid[ok]
+	return np.where(ok)[0][np.argsort(score)][-n_genes:]
