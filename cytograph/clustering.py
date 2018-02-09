@@ -4,6 +4,7 @@ from shutil import copyfile
 import numpy as np
 import random
 import logging
+import igraph
 import cytograph as cg
 import loompy
 import logging
@@ -21,14 +22,6 @@ from scipy.stats import ks_2samp
 import networkx as nx
 import hdbscan
 from sklearn.cluster import DBSCAN
-
-try:
-	import igraph
-	import louvain
-	passed_import = True
-except ModuleNotFoundError:
-	logging.warning("Import of igraph and louvain failed. Clustering will fall back to lj")
-	passed_import = False
 
 
 class Clustering:
@@ -77,7 +70,7 @@ class Clustering:
 				nn.fit(tsne_pos[labels >= 0])
 				nearest = nn.kneighbors(tsne_pos[labels == -1], n_neighbors=1, return_distance=False)
 				labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
-		elif self.method == "multilev" and passed_import:
+		elif self.method == "multilev":
 			logging.info("comunity-multilevel clustering on unweighted KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
@@ -85,7 +78,7 @@ class Clustering:
 			G = igraph.Graph(n_total, list(zip(a, b)), directed=False)
 			VxCl = G.community_multilevel(return_levels=False)
 			labels = np.array(VxCl.membership)
-		elif self.method == "wmultilev" and passed_import:
+		elif self.method == "wmultilev":
 			logging.info("comunity-multilevel clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
 			# knn = sparse.coo_matrix((w, (a, b)), shape=(ds.shape[1], ds.shape[1])).tocsr()[cells, :][:, cells]
@@ -93,7 +86,7 @@ class Clustering:
 			G = igraph.Graph(n_total, list(zip(a, b)), directed=False, edge_attrs={'weight': w})
 			VxCl = G.community_multilevel(return_levels=False, weights="weight")
 			labels = np.array(VxCl.membership)
-		elif self.method == "mknn_louvain" and passed_import:
+		elif self.method == "mknn_louvain":
 			logging.info("comunity-multilevel clustering on the multiscale MKNN graph")
 			(a, b, w) = ds.get_edges("MKNN", axis=1)
 			random.seed(13)
@@ -107,22 +100,7 @@ class Clustering:
 			else:
 				bigs = np.where(np.bincount(labels) >= self.min_pts)[0]	
 			mapping = {k: v for v, k in enumerate(bigs)}
-			labels = np.array([mapping[x] if x in bigs else -1 for x in labels])			
-		# elif self.method == "mknn_louvain" and passed_import:
-		# 	logging.info("surprise clustering on the multiscale MKNN graph")
-		# 	(a, b, w) = ds.get_edges("KNN", axis=1)
-		# 	random.seed(13)
-		# 	igraph._igraph.set_random_number_generator(random)
-		# 	G = igraph.Graph(n_total, list(zip(a, b)), directed=False, edge_attrs={'weight': w})
-		# 	partition = louvain.find_partition(G, louvain.CPMVertexPartition, resolution_parameter=10000)
-		# 	labels = np.array(partition.membership)
-		# 	logging.info(f"labels.shape = {labels.shape}")
-		# 	if not self.outliers:
-		# 		bigs = np.where(np.bincount(labels) >= 0)[0]
-		# 	else:
-		# 		bigs = np.where(np.bincount(labels) >= self.min_pts)[0]	
-		# 	mapping = {k: v for v, k in enumerate(bigs)}
-		# 	labels = np.array([mapping[x] if x in bigs else -1 for x in labels])			
+			labels = np.array([mapping[x] if x in bigs else -1 for x in labels])						
 		else:
 			logging.info("Louvain clustering on the multiscale KNN graph")
 			(a, b, w) = ds.get_edges("KNN", axis=1)
