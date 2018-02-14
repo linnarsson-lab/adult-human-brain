@@ -328,7 +328,9 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		tissues = set(ds.col_attrs["Tissue"])
 	n_tissues = len(tissues)
 
-	classes = sorted(list(set(ds.col_attrs["Subclass"])))
+	classes = []
+	if "Subclass" in ds.ca.keys():
+		classes = sorted(list(set(ds.col_attrs["Subclass"])))
 	n_classes = len(classes)
 
 	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
@@ -337,6 +339,9 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	genes = [g for g in genes if g in ds.ra.Gene]
 	n_genes = len(genes)
+	if n_genes == 0:
+		genes = [g.toupper() for g in genes]
+		genes = [g for g in genes if g in ds.ra.Gene]
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1
 	# colormax = np.max(data, axis=1)
