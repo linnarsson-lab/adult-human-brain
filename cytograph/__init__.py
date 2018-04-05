@@ -19,6 +19,7 @@ from .TFs import TFs
 from .utils import cap_select, logging, colorize, colors75
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
+from .manifold_learning_4 import ManifoldLearning4
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF
@@ -29,3 +30,5 @@ from .polished_louvain import PolishedLouvain
 from .facet_learning import FacetLearning, Facet
 from .gsea import GSEA
 from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidence_and_velocity, adjacency_confidence
+from .vbgmm_clustering import VbgmmClustering
+from .cluster_validator import ClusterValidator

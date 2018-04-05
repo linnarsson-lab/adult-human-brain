@@ -49,7 +49,7 @@ class Normalizer:
 		vals = vals - self.mu[:, None]
 		if self.standardize:
 			# Scale to unit standard deviation per gene
-			vals = div0(vals, self.sd[:, None])
+			vals = div0(vals.T, self.sd).T
 		return vals
 
 	def fit_transform(self, ds: loompy.LoomConnection, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:

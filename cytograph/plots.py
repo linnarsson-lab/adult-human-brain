@@ -103,21 +103,27 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 			names.append(f"{i}/n={n_cells}  (outliers)")
 		else:
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors75[np.mod(i, 75)], marker='.', lw=0, s=epsilon, alpha=0.75))
+			txt = str(i)
+			if "ClusterName" in ds.ca.keys():
+				txt = ds.ca.ClusterName[ds.ca.Clusters == i][0]
 			if tags is not None:
-				names.append(f"{i}/n={n_cells} " + tags[i].replace("\n", " "))
+				names.append(f"{txt}/n={n_cells} " + tags[i].replace("\n", " "))
 			else:
-				names.append(f"{i}/n={n_cells}")
+				names.append(f"{txt}/n={n_cells}")
 	logging.info("Drawing legend")
 	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
 
 	logging.info("Drawing cluster IDs")
 	for lbl in range(0, max(labels) + 1):
+		txt = str(lbl)
+		if "ClusterName" in ds.ca.keys():
+			txt = ds.ca.ClusterName[ds.ca.Clusters == lbl][0]
 		if np.all(outliers[labels == lbl] == 1):
 			continue
 		if np.sum(labels == lbl) == 0:
 			continue
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-		ax.text(x, y, str(lbl), fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
+		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
 	logging.info("Saving to file")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
 	plt.close()
@@ -339,7 +345,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	genes = [g for g in genes if g in ds.ra.Gene]
 	n_genes = len(genes)
-	if n_genes == 0:
+	if n_genes < 3:
 		genes = [g.toupper() for g in genes]
 		genes = [g for g in genes if g in ds.ra.Gene]
 
@@ -407,21 +413,28 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_probclasses + n_genes])
 	# Draw border between clusters
-	tops = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) - 0.5)).T
-	bottoms = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) + n_topmarkers - 0.5)).T
-	lc = LineCollection(zip(tops, bottoms), linewidths=1, color='white', alpha=0.5)
-	ax.add_collection(lc)
+	if n_clusters > 2:
+		tops = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) - 0.5)).T
+		bottoms = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) + n_topmarkers - 0.5)).T
+		lc = LineCollection(zip(tops, bottoms), linewidths=1, color='white', alpha=0.5)
+		ax.add_collection(lc)
 		
 	ax.imshow(topmarkers, aspect='auto', cmap="viridis", vmin=0, vmax=1)
 	for ix in range(n_topmarkers):
 		xpos = gene_pos[ix]
 		if xpos == clusterborders[-1]:
-			xpos = clusterborders[-3]
+			if n_clusters > 2:
+				xpos = clusterborders[-3]
 		text = plt.text(0.001 + xpos, ix - 0.5, ds.ra.Gene[:n_markers][ix], horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
 
 	# Cluster IDs
-	for ix in range(1, clusterborders.shape[0]):
-		text = plt.text(clusterborders[ix - 1] + (clusterborders[ix] - clusterborders[ix - 1]) / 2, 1, "#" + str(ix), horizontalalignment='center', verticalalignment='top', fontsize=6, color="white", weight="bold")
+	labels = ["#" + str(x) for x in np.arange(n_clusters)]
+	if "ClusterName" in ds.ca.keys():
+		labels = dsagg.ca.ClusterName
+	for ix in range(0, clusterborders.shape[0]):
+		left = 0 if ix == 0 else clusterborders[ix - 1]
+		right = clusterborders[ix]
+		text = plt.text(left + (right - left) / 2, 1, labels[ix], horizontalalignment='center', verticalalignment='top', fontsize=6, color="white", weight="bold")
 
 	ax.set_frame_on(False)
 	ax.set_xticks([])
