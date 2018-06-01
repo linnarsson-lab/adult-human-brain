@@ -19,7 +19,7 @@ setup(
 		'pyyaml',
 		'polo',
 		'statsmodels',  # for multiple testing
-		'numpy-groupies',
+		'numpy-groupies==0.9.6',
 		'python-igraph'  # imported as "igraph"
 	],
 	

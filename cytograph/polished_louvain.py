@@ -100,7 +100,12 @@ class PolishedLouvain:
 			labels:	The cluster labels (where -1 indicates outliers)
 
 		"""
-		embedding = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
+		if "TSNE" in ds.ca:
+			embedding = ds.ca.TSNE
+		elif "_X" in ds.ca:
+			embedding = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
+		else:
+			raise ValueError("The loom file has no embedding (TSNE or _X, _Y)")
 		knn = ds.col_graphs[graph]
 
 		logging.info("Louvain community detection")

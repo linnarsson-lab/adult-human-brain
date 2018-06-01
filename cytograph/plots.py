@@ -43,7 +43,10 @@ def plot_knn(ds: loompy.LoomConnection, out_file: str) -> None:
 	valid = ds.col_attrs["_Valid"].astype('bool')
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
-	xy = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
+	if "TSNE" in ds.ca:
+		xy = ds.ca.TSNE
+	else:
+		xy = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
 
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(mknn)
@@ -64,7 +67,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	if "MKNN" in ds.list_edges(axis=1):
 		(a, b, w) = ds.get_edges("MKNN", axis=1)
 		has_edges = True
-	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
+	if "TSNE" in ds.ca:
+		pos = ds.ca.TSNE
+	else:
+		pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
 	labels = ds.col_attrs["Clusters"]
 	if "Outliers" in ds.col_attrs:
 		outliers = ds.col_attrs["Outliers"]
@@ -262,7 +268,10 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 		g = ds.col_graphs.MKNN
 		(a, b, w) = (g.row, g.col, g.data)
 		has_edges = True
-	pos = np.vstack((ds.ca._X, ds.ca._Y)).transpose()
+	if "TSNE" in ds.ca:
+		pos = ds.ca.TSNE
+	else:
+		pos = np.vstack((ds.ca._X, ds.ca._Y)).transpose()
 	labels = ds.col_attrs["Clusters"]
 	if "Outliers" in ds.col_attrs:
 		outliers = ds.col_attrs["Outliers"]
@@ -444,3 +453,31 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	if out_file is not None:
 		plt.savefig(out_file, format="pdf", dpi=144)
 		plt.close()
+
+
+def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
+	# Plots
+	logging.info(f"Plotting factors")
+	offset = 0
+	beta = ds.ca.HPF
+	theta = ds.ra.HPF
+	n_factors = beta.shape[1]
+	while offset < n_factors:
+		fig = plt.figure(figsize=(10, 10))
+		fig.subplots_adjust(hspace=0, wspace=0)
+		for nnc in range(offset, offset + 16):
+			if nnc >= n_factors:
+				break
+			ax = plt.subplot(4, 4, nnc + 1 - offset)
+			plt.xticks(())
+			plt.yticks(())
+			plt.scatter(x=ds.ca.TSNE[:, 0], y=ds.ca.TSNE[:, 1], c='lightgrey', marker='.', alpha=0.5,s=10,lw=0)
+			cells = beta[:, nnc] > np.percentile(beta[:, nnc],99) * 0.25
+			cmap = "viridis"
+			if cells.sum() > ds.shape[1] * 0.5:
+				cmap = "autumn"
+			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], vmax=np.percentile(beta[:, nnc][cells],95), c=beta[:, nnc][cells],marker='.',alpha=0.5,s=10,cmap=cmap,lw=0)
+			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-theta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
+			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes)
+		plt.savefig(base_name + f"{offset}.png")
+		offset += 16

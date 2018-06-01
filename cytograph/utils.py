@@ -22,6 +22,14 @@ pd.options.mode.chained_assignment = None  # this is because of a warning in pre
 lg.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=lg.DEBUG)
 
 
+def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+	""" ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+	with np.errstate(divide='ignore', invalid='ignore'):
+		c = np.true_divide(a, b)
+		c[~np.isfinite(c)] = 0  # -inf inf NaN
+	return c
+
+
 def logging(task: luigi.Task, log_dependencies: bool = False) -> lg.Logger:
 	logger_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 	log_file = task.output().path + ".log"

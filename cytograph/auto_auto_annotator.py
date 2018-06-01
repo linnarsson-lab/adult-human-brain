@@ -11,9 +11,10 @@ class AutoAutoAnnotator:
 	"""
 	Automatically discover suitable auto-annotation marker combinations
 	"""
-	def __init__(self, pep: float = 0.05, n_genes: int = 6) -> None:
+	def __init__(self, pep: float = 0.05, n_genes: int = 6, genes_allowed: np.ndarray = None) -> None:
 		self.pep = pep
 		self.n_genes = max(2, n_genes)
+		self.genes_allowed = genes_allowed
 	
 	def fit(self, dsagg: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		"""
@@ -33,7 +34,9 @@ class AutoAutoAnnotator:
 		n_clusters = dsagg.shape[1]
 		positives = (trinaries > (1 - self.pep)).astype('int')
 		genes = np.where(np.logical_and(positives.sum(axis=1) < n_clusters * 0.5, positives.sum(axis=1) > 0))[0]
-
+		if self.genes_allowed is not None:
+			genes = np.intersect1d(genes, self.genes_allowed)
+	
 		# Select the most enriched gene in each cluster
 		gene1 = []  # type: List[int]
 		for ix in range(dsagg.shape[1]):

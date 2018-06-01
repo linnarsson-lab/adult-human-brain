@@ -91,9 +91,18 @@ class HPF:
 	"""
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
+	This implementation is the version with fixed hyperparameters (BPF in the paper)
 	"""
-	def __init__(self, k: int, a: float = 0.3, b: float = 0.3, c: float = 0.3, d: float = 0.3,
-				 max_iter: int = 1000, stop_interval: int = 10, stop_at_ll: float = 0.000001, numexpr_kwargs: Dict[str, Any]={}) -> None:
+	def __init__(self, k: int = 100, a: float = 1, b: float = 5, c: float = 1, d: float = 5, 
+		max_iter: int = 1000, stop_interval: int = 10, stop_at_ll: float = 0.000001, numexpr_kwargs: Dict[str, Any]={}) -> None:
+		"""
+		Args:
+			k		Maximum number of components
+			a		Shape prior on users (a in the paper)
+			b		Rate prior on users (a'/b' in the paper)
+			c		Shape prior on items (c in the paper)
+			d		Rate prior on items (c'/d' in the paper)
+		"""
 		self.k = k
 		self.a = a
 		self.b = b
@@ -149,6 +158,8 @@ class HPF:
 		# Initialize the variational parameters with priors
 		kappa_shape = np.full(n_users, a) + np.random.uniform(0, 0.1, n_users)
 		kappa_rate = np.full(n_users, b + k)
+#		kappa_shape = np.full(n_users, 0.3 + k * a)
+#		kappa_rate = np.full(n_users, b) + np.random.uniform(0, 0.1, n_users)
 		gamma_shape = np.full((n_users, k), a) + np.random.uniform(0, 0.1, (n_users, k))
 		gamma_rate = np.full((n_users, k), b) + np.random.uniform(0, 0.1, (n_users, k))
 
@@ -160,6 +171,8 @@ class HPF:
 		else:
 			tau_shape = np.full(n_items, c) + np.random.uniform(0, 0.1, n_items)
 			tau_rate = np.full(n_items, d + k)
+#			tau_shape = np.full(n_items, 0.3 + k * c)
+#			tau_rate = np.full(n_items, d) + np.random.uniform(0, 0.1, n_items)
 			lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
 			lambda_rate = np.full((n_items, k), d) + np.random.uniform(0, 0.1, (n_items, k))
 
@@ -174,13 +187,15 @@ class HPF:
 			make_nonzero(lambda_shape)
 			make_nonzero(lambda_rate)
 			# logging.debug("make_nonzero %.4e" % clock.toc())
-
 			# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 			# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 			# Shape of phi will be (nnz, k)
 			# clock.tic()
 			# phi = (numexpr_digamma(gamma_shape) - fast_log(gamma_rate))[u, :] + (numexpr_digamma(lambda_shape) - fast_log(lambda_rate))[i, :]
-			phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
+			# NOTE: phi is calculated with reduced precision (32-bit float) to save memory, since it's by far the largest of the arrays
+			phi = None  # release memory from previous iteration
+			phi = (digamma(gamma_shape) - np.log(gamma_rate)).astype('float32')[u, :]
+			phi += (digamma(lambda_shape) - np.log(lambda_rate)).astype('float32')[i, :]
 			# logging.debug("phi_calc %.4e" % clock.toc())
 
 			# Multiply y by phi normalized (in log space) along the k axis
@@ -238,10 +253,15 @@ class HPF:
 					# clock.tic()
 					prev_ll = self.log_likelihoods[-2]
 					diff = abs((log_likelihood - prev_ll) / prev_ll)
-					logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {diff:.6f}")
+					logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}, diff = {abs(diff):.6f}")
+					#logging.info(f"{lambda_shape.mean()}/{lambda_rate.mean()} {gamma_shape.mean()}/{gamma_rate.mean()}")
 					# logging.debug("log_lik_calc %.4e" % clock.toc())
 					if diff < self.stop_at_ll:
 						break
+				else:
+					logging.info(f"Iteration {n_iter}, ll = {log_likelihood:.0f}")
+					#logging.info(f"{lambda_shape.mean()}/{lambda_rate.mean()} {gamma_shape.mean()}/{gamma_rate.mean()}")
+					
 		# End of the main fitting loop
 		# Compute beta and theta, which are given by the expectations, i.e. shape / rate
 		# clock.tic()

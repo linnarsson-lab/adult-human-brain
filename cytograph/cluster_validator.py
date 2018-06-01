@@ -61,11 +61,11 @@ class ClusterValidator:
 			plt.imshow(agg, cmap="viridis")
 			plt.xticks(np.arange(le.classes_.shape[0]), le.classes_, rotation="vertical", fontsize=7)
 			plt.yticks(np.arange(le.classes_.shape[0]), le.classes_, rotation="horizontal", fontsize=7)
-			plt.xlabel("Predicted cell type")
-			plt.ylabel("Observed cell type")
+			plt.xlabel("Predicted cluster")
+			plt.ylabel("Ground truth cluster")
 			plt.title("Predictive power of cluster identities")
 			cbar = plt.colorbar()
-			cbar.set_label('Average classification probability', rotation=90)
+			cbar.set_label('Probability of predicted cluster', rotation=90)
 			plt.savefig(plot, bbox_inches="tight")
 
 		return self.proba

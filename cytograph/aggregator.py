@@ -144,11 +144,11 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			elif func == "mode":
 				def mode(x):
 					return scipy.stats.mode(x)[0][0]
-				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key], func=mode, fill_value=0).astype('str')
+				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.ca[key], func=mode, fill_value=0).astype('str')
 			elif func == "mean":
-				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key], func=func, fill_value=0)
+				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.ca[key], func=func, fill_value=0)
 			elif func == "first":
-				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.col_attrs[key], func=func, fill_value=ds.col_attrs[key][0])
+				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.ca[key], func=func, fill_value=ds.ca[key][0])
 
 	m = np.empty((ds.shape[0], n_groups))
 	for (_, selection, view) in ds.scan(axis=0):
