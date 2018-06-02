@@ -20,7 +20,8 @@ setup(
 		'polo',
 		'statsmodels',  # for multiple testing
 		'numpy-groupies==0.9.6',
-		'python-igraph'  # imported as "igraph"
+		'python-igraph',  # imported as "igraph"
+		'tqdm'
 	],
 	
 	# metadata
