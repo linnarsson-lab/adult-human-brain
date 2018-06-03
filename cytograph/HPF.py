@@ -2,7 +2,7 @@ from typing import *
 import tempfile
 import os
 from subprocess import Popen
-import numpy as np
+import bohrium as np
 import logging
 import scipy.sparse as sparse
 from sklearn.model_selection import train_test_split
