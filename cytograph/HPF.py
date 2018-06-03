@@ -10,6 +10,7 @@ from sklearn.exceptions import NotFittedError
 from scipy.special import gammaln, digamma, psi
 from scipy.misc import logsumexp
 from tqdm import trange
+import ctypes
 
 
 def make_nonzero(a: np.ndarray) -> np.ndarray:
@@ -62,6 +63,7 @@ class HPF:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
 		(beta, theta) = self._fit(X)
+
 		self.beta = beta
 		self.theta = theta
 		return self
@@ -165,6 +167,7 @@ class HPF:
 		theta = gamma_shape / gamma_rate
 		return (beta, theta)
 
+
 	def transform(self, X: sparse.coo_matrix) -> np.ndarray:
 		"""
 		Transform the data matrix using an already fitted HPF model
@@ -179,4 +182,5 @@ class HPF:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
 		(beta, theta) = self._fit(X, beta_precomputed=True)
+
 		return theta
