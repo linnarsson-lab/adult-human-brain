@@ -153,6 +153,13 @@ class HPF:
 						t.set_postfix(ll=log_likelihood)
 
 		# End of the main fitting loop
+		if not beta_precomputed:
+			# Save these for future use in self.transform()
+			self._tau_shape = tau_shape
+			self._tau_rate = tau_rate
+			self._lambda_shape = lambda_shape
+			self._lambda_rate = lambda_rate
+
 		# Compute beta and theta, which are given by the expectations, i.e. shape / rate
 		beta = lambda_shape / lambda_rate
 		theta = gamma_shape / gamma_rate
