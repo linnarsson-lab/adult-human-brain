@@ -56,7 +56,7 @@ Projection
 @numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
 def poisson_distance_model_selection(x: np.ndarray, y: np.ndarray) -> float:
 	"""
-	Calculate the (log of the) Bayes factor for a model selection between M1 (single Poisson) ansd M2 (two Poissons)
+	Calculate the (log of the) Bayes factor for a model selection between M1 (single product-Poisson) ansd M2 (two product-Poissons)
 
 	Args:
 		x, y		Input vectors
