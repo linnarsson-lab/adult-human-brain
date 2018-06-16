@@ -97,7 +97,6 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 
 	# Draw nodes
 	logging.info("Drawing nodes")
-	colors20 = np.vstack((plt.cm.Vega20b(np.linspace(0., 1, 20))[::2], plt.cm.Vega20c(np.linspace(0, 1, 20))[1::2]))
 	plots = []
 	names = []
 	for i in range(max(labels) + 1):
@@ -203,7 +202,7 @@ def plot_classification(ds: loompy.LoomConnection, out_file: str) -> None:
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(mknn)
 	classes = ["Neurons", "Astrocyte", "Ependymal", "OEC", "Oligos", "Schwann", "Cycling", "Vascular", "Immune"]
-	colors = [plt.cm.get_cmap('Vega20')((ix + 0.5) / 20) for ix in range(20)]
+	colors = [plt.cm.get_cmap('tab20')((ix + 0.5) / 20) for ix in range(20)]
 
 	combined_colors = np.zeros((ds.shape[1], 4)) + np.array((0.5, 0.5, 0.5, 0))
 	
@@ -298,7 +297,6 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 	# Draw nodes
 	logging.info("Drawing nodes")
-	colors20 = np.vstack((plt.cm.Vega20b(np.linspace(0., 1, 20))[::2], plt.cm.Vega20c(np.linspace(0, 1, 20))[1::2]))
 	plots = []
 	names = []
 	classes = list(set(ds.ca.Class))
