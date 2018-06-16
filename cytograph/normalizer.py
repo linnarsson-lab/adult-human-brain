@@ -4,20 +4,18 @@ import numpy as np
 import logging
 import luigi
 
-## TODO: this needs to be moved in the project specific repo
-class normalizer(luigi.Config):
-	level = luigi.IntParameter(default=5000)
-
 
 class Normalizer:
 	"""
 	Normalize and optionally standardize a dataset, dealing properly with edge cases such as division by zero.
 	"""
-	def __init__(self, standardize: bool = False) -> None:
+	def __init__(self, standardize: bool = False, level: int = 5000, layer="") -> None:
 		self.standardize = standardize
 		self.sd = None  # type: np.ndarray
 		self.mu = None  # type: np.ndarray
 		self.totals = None  # type: np.ndarray
+		self.level = 5000
+		self.layer = layer
 
 	def fit(self, ds: loompy.LoomConnection, mu: np.ndarray = None, sd: np.ndarray = None, totals: np.ndarray = None) -> None:
 		self.sd = sd
@@ -25,9 +23,9 @@ class Normalizer:
 		self.totals = totals
 
 		if mu is None or sd is None:
-			(self.sd, self.mu) = ds.map([np.std, np.mean], axis=0)
+			(self.sd, self.mu) = ds[self.layer].map([np.std, np.mean], axis=0)
 		if totals is None:
-			self.totals = ds.map([np.sum], chunksize=100, axis=1)[0]
+			self.totals = ds[self.layer].map([np.sum], chunksize=100, axis=1)[0]
 
 	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""
@@ -40,8 +38,8 @@ class Normalizer:
 		Returns:
 			vals_adjusted (ndarray):	The normalized values
 		"""
-		# Adjust total count per cell to 10,000
-		vals = vals / (self.totals[cells] + 1) * normalizer().level
+		# Adjust total count per cell to 5,000
+		vals = vals / (self.totals[cells] + 1) * self.level
 
 		# Log transform
 		vals = np.log(vals + 1)

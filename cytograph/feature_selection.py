@@ -6,12 +6,13 @@ import loompy
 
 
 class FeatureSelection:
-	def __init__(self, n_genes: int) -> None:
+	def __init__(self, n_genes: int, layer: str = "") -> None:
 		self.n_genes = n_genes
 		self.genes = None  # type: np.ndarray
 		self.mu = None  # type: np.ndarray
 		self.sd = None  # type: np.ndarray
 		self.totals = None  # type: np.ndarray
+		self.layer = layer
 
 	def fit(self, ds: loompy.LoomConnection, cells: np.ndarray = None, mu: np.ndarray = None, sd: np.ndarray = None, mask: np.ndarray=None) -> np.ndarray:
 		"""
@@ -27,7 +28,7 @@ class FeatureSelection:
 			ndarray of selected genes (list of ints)
 		"""
 		if mu is None or sd is None:
-			(mu, sd) = ds.map((np.mean, np.std), axis=0, selection=cells)
+			(mu, sd) = ds[self.layer].map((np.mean, np.std), axis=0, selection=cells)
 
 		if "_Valid" in ds.ra:
 			valid = ds.ra._Valid == 1

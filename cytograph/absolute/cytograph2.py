@@ -26,55 +26,54 @@ class Cytograph2:
 		self.c = c
 		self.d = d
 		self.max_iter = max_iter
-		self.smoothing = (True if k_smoothing > 0 else False)
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
-		if self.smoothing:
-			# Select genes
-			logging.info(f"Selecting {self.n_genes} genes")
-			normalizer = cg.Normalizer(False)
-			normalizer.fit(ds)
-			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-			self.genes = genes
-			data = ds.sparse(rows=genes).T
-
-			# HPF factorization
-			logging.info(f"HPF to {self.n_factors} latent factors")
-			if self.accel:
-				hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
-			else:
-				hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
-			hpf.fit(data)
-
-			# KNN in HPF space
-			logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
-			if self.log:
-				theta = np.log(hpf.theta)
-			else:
-				theta = hpf.theta
-			if self.normalize:
-				theta = (theta - theta.min(axis=0))
-				theta = theta / theta.max(axis=0)
-			hpfn = normalize(theta)  # This converts euclidean distances to cosine distances (ball_tree doesn't directly support cosine)
-			nn = NearestNeighbors(self.k_smoothing, algorithm="ball_tree", metric='euclidean', n_jobs=4)
-			nn.fit(hpfn)
-			knn = nn.kneighbors_graph(hpfn, mode='connectivity')
-			knn.setdiag(1)
-
-			# Poisson smoothing (in place)
-			logging.info(f"Poisson smoothing")
-			for (ix, indexes, view) in ds.scan(axis=0):
-				ds[indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
-
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes")
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		self.genes = genes
+		data = ds.sparse(rows=genes).T
+
+		# HPF factorization
+		logging.info(f"HPF to {self.n_factors} latent factors")
+		if self.accel:
+			hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+		else:
+			hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+		hpf.fit(data)
+
+		# KNN in HPF space
+		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
+		if self.log:
+			theta = np.log(hpf.theta)
+		else:
+			theta = hpf.theta
+		if self.normalize:
+			theta = (theta - theta.min(axis=0))
+			theta = theta / theta.max(axis=0)
+		hpfn = normalize(theta)  # This converts euclidean distances to cosine distances (ball_tree doesn't directly support cosine)
+		nn = NearestNeighbors(self.k_smoothing, algorithm="ball_tree", metric='euclidean', n_jobs=4)
+		nn.fit(hpfn)
+		knn = nn.kneighbors_graph(hpfn, mode='connectivity')
+		knn.setdiag(1)
+
+		# Poisson smoothing (in place)
+		logging.info(f"Poisson smoothing")
+		ds["smoothened"] = 'int32'
+		for (ix, indexes, view) in ds.scan(axis=0):
+			ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+
+		# Select genes
+		logging.info(f"Selecting {self.n_genes} genes")
+		normalizer = cg.Normalizer(False, layer="smoothened")
+		normalizer.fit(ds)
+		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
-		data = ds.sparse(rows=genes).T
+		data = ds["smoothened"].sparse(rows=genes).T
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
