@@ -23,6 +23,7 @@ from .manifold_learning_4 import ManifoldLearning4
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF
+from .HPF_accel import HPF_accel
 from .poisson_proximity import PoissonProximity
 from .merger import Merger
 from .balanced_knn import BalancedKNN

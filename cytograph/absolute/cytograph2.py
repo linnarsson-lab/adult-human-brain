@@ -13,11 +13,18 @@ import igraph
 
 
 class Cytograph2:
-	def __init__(self, n_genes: int = 1000, n_factors: int = 200, k: int = 25, k_smoothing: int = 10, max_iter: int = 200) -> None:
+	def __init__(self, accel: bool = False, log: bool = False, normalize: bool = False, n_genes: int = 1000, n_factors: int = 200, a: float = 1, b: float = 5, c: float = 1, d: float = 5, k: int = 25, k_smoothing: int = 10, max_iter: int = 200) -> None:
+		self.accel = accel
+		self.log = log
+		self.normalize = normalize
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_smoothing = k_smoothing
 		self.k = k
+		self.a = a
+		self.b = b
+		self.c = c
+		self.d = d
 		self.max_iter = max_iter
 		self.smoothing = (True if k_smoothing > 0 else False)
 
@@ -33,14 +40,21 @@ class Cytograph2:
 
 			# HPF factorization
 			logging.info(f"HPF to {self.n_factors} latent factors")
-			hpf = cg.HPF(a=1, b=10, c=1, d=10, k=self.n_factors, max_iter=self.max_iter)
+			if self.accel:
+				hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+			else:
+				hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
 			hpf.fit(data)
 
 			# KNN in HPF space
 			logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
-			theta = np.log(hpf.theta)
-			theta = (theta - theta.min(axis=0))
-			theta = theta / theta.max(axis=0)
+			if self.log:
+				theta = np.log(hpf.theta)
+			else:
+				theta = hpf.theta
+			if self.normalize:
+				theta = (theta - theta.min(axis=0))
+				theta = theta / theta.max(axis=0)
 			hpfn = normalize(theta)  # This converts euclidean distances to cosine distances (ball_tree doesn't directly support cosine)
 			nn = NearestNeighbors(self.k_smoothing, algorithm="ball_tree", metric='euclidean', n_jobs=4)
 			nn.fit(hpfn)
@@ -64,20 +78,31 @@ class Cytograph2:
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = cg.HPF(a=1, b=10, c=1, d=10, k=self.n_factors, max_iter=self.max_iter)
+		if self.accel:
+			hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+		else:
+			hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
 		hpf.fit(data)
 
 		logging.info(f"Saving normalized latent factors")
-		beta = np.log(hpf.beta)
-		beta = (beta - beta.min(axis=0))
-		beta = beta / beta.max(axis=0)
+		if self.log:
+			beta = np.log(hpf.beta)
+		else:
+			beta = hpf.beta
+		if self.normalize:
+			beta = (beta - beta.min(axis=0))
+			beta = beta / beta.max(axis=0)
 		beta_all = np.zeros((ds.shape[0], beta.shape[1]))
 		beta_all[genes] = beta
 		ds.ra.HPF = beta_all
 
-		theta = np.log(hpf.theta)
-		theta = (theta - theta.min(axis=0))
-		theta = theta / theta.max(axis=0)
+		if self.log:
+			theta = np.log(hpf.theta)
+		else:
+			theta = hpf.theta
+		if normalize:
+			theta = (theta - theta.min(axis=0))
+			theta = theta / theta.max(axis=0)
 		totals = ds.map([np.sum], axis=1)[0]
 		theta = (theta.T / totals).T * np.median(totals)
 		ds.ca.HPF = theta
@@ -94,22 +119,6 @@ class Cytograph2:
 		mknn = knn.minimum(knn.transpose())
 		ds.col_graphs.KNN = knn
 		ds.col_graphs.MKNN = mknn
-
-		logging.info(f"Poisson resampling and HPF projection to latent space")
-		data.data = np.random.poisson(data.data)  # this replaces the non-zero value with poisson samples of the same mean
-		hpf.transform(data)
-		theta = np.log(hpf.theta)
-		theta = (theta - theta.min(axis=0))
-		theta = theta / theta.max(axis=0)
-		totals = ds.map([np.sum], axis=1)[0]
-		theta = (theta.T / totals).T * np.median(totals)
-
-		logging.info(f"Computing KNN (k = 10) of Poisson samples in latent space")
-		hpfn = normalize(theta)  # This makes euclidean distances equivalent to cosine distances (ball_tree doesn't support cosine)
-		nn = NearestNeighbors(n_neighbors=10, metric="euclidean", algorithm="ball_tree")
-		nn.fit(hpfn)
-		knnp = nn.kneighbors_graph(mode='connectivity')
-		ds.col_graphs.KNNP = knnp
 
 		logging.info("Clustering by polished Louvain")
 		pl = cg.PolishedLouvain()

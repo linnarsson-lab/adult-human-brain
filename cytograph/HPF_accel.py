@@ -93,7 +93,7 @@ def make_nonzero(a: np.ndarray) -> np.ndarray:
 	return a
 
 
-class HPF:
+class HPF_accel:
 	"""
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
