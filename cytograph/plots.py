@@ -450,7 +450,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	plt.subplots_adjust(hspace=0)
 	if out_file is not None:
 		plt.savefig(out_file, format="pdf", dpi=144)
-		plt.close()
+	plt.close()
 
 
 def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
@@ -479,3 +479,4 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes)
 		plt.savefig(base_name + f"{offset}.png")
 		offset += 16
+	plt.close()
