@@ -30,6 +30,16 @@ class HPF:
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
 	"""
 	def __init__(self, k: int, a: float = 1, b: float = 5, c: float = 1, d: float = 5, max_iter: int = 1000, stop_interval: int = 10) -> None:
+		"""
+		Args:
+			k				Number of components
+			a				Hyperparameter a in the paper
+			b				Hyperparameter a' in the paper
+			c				Hyperparameter c in the paper
+			d				Hyperparameter c' in the paper
+			max_iter		Maximum number of iterations
+			stop_interval	Interval between calculating and reporting the log-likelihood
+		"""
 		self.k = k
 		self.a = a
 		self.b = b

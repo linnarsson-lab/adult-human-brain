@@ -69,7 +69,7 @@ class Cytograph2:
 		logging.info(f"Selecting {self.n_genes} genes")
 		normalizer = cg.Normalizer(False, layer="smoothened")
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		genes = cg.FeatureSelection(self.n_genes, layer="smoothened").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected

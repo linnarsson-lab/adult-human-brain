@@ -32,6 +32,8 @@ class FeatureSelection:
 
 		if "_Valid" in ds.ra:
 			valid = ds.ra._Valid == 1
+		elif "Valid" in ds.ra:
+			valid = ds.ra.Valid == 1
 		else:
 			valid = np.ones(ds.shape[0], dtype='bool')
 		if mask is not None:
