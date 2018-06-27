@@ -62,8 +62,16 @@ class Cytograph2:
 		# Poisson smoothing (in place)
 		logging.info(f"Poisson smoothing")
 		ds["smoothened"] = 'int32'
+		if "spliced" in ds.layers:
+			ds["spliced_ps"] = 'int32'
+			ds["unspliced_ps"] = 'int32'
 		for (ix, indexes, view) in ds.scan(axis=0):
-			ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+			if "spliced" in ds.layers:
+				ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view["spliced"][:, :].T).T
+				ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view["unspliced"][:, :].T).T
+				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :]
+			else:
+				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes")

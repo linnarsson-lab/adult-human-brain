@@ -14,43 +14,6 @@ from subprocess import Popen
 from pathlib import Path
 from typing import *
 
-"""
-TODO
-Subspace learning
-
-	- Compute an initial shared subspace by CV-vs-mean
-	- Learn the manifold
-	- Subsample it at uniform density
-	- Use Isomap for graph abstraction
-	- Use gene enrichment on the top-level Isomap modules
-	- Repeat
-
-Corrections for technical artefacts
-
-	- doublet identification and removal
-	- batch effects correction (Satija)
-	- ambient RNA removal
-	- subspace separation:
-		- sex genes
-		- activity-dependent genes
-		- cell cycle
-		- patterning genes (Hox et al.)
-
-Correction for uneven sampling
-
-	- subsample and interpolate to make uniform density along manifold
-
-Velocity
-
-	- estimate direction of flow at each InfoMap edge
-	- fit a pseudotime along each edge
-	- infer alpha, beta, gamma along each edge
-
-Projection
-
-	- Learn the manifold, smoothen and subsample
-	- Project using UMAP
-"""
 
 
 @numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
