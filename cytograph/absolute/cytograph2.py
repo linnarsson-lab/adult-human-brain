@@ -13,7 +13,7 @@ import igraph
 
 
 class Cytograph2:
-	def __init__(self, accel: bool = False, log: bool = False, normalize: bool = False, n_genes: int = 1000, n_factors: int = 200, a: float = 1, b: float = 5, c: float = 1, d: float = 5, k: int = 25, k_smoothing: int = 10, max_iter: int = 200) -> None:
+	def __init__(self, accel: bool = False, log: bool = True, normalize: bool = True, n_genes: int = 1000, n_factors: int = 100, a: float = 1, b: float = 10, c: float = 1, d: float = 10, k: int = 10, k_smoothing: int = 100, max_iter: int = 200) -> None:
 		self.accel = accel
 		self.log = log
 		self.normalize = normalize
