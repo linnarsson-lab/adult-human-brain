@@ -67,8 +67,8 @@ class Cytograph2:
 			ds["unspliced_ps"] = 'int32'
 		for (ix, indexes, view) in ds.scan(axis=0):
 			if "spliced" in ds.layers:
-				ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view["spliced"][:, :].T).T
-				ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view["unspliced"][:, :].T).T
+				ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
+				ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
 				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :]
 			else:
 				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T

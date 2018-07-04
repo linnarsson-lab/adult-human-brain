@@ -6,6 +6,7 @@ import loompy
 import cytograph as cg
 import logging
 from scipy.special import gammaln
+from scipy.spatial.distance import minkowski
 from math import lgamma
 import math
 import numba
@@ -92,7 +93,13 @@ class AbsoluteManifold:
 	def fit(self, data: np.ndarray) -> Any:
 		self.data = data
 		self.n_samples = data.shape[0]
-		metric = poisson_distance_cosine_expectation if self.metric == "cosine_exp" else poisson_distance_model_selection
+		if self.metric == "model":
+			metric = poisson_distance_model_selection
+		elif self.metric == "cosine_exp":
+			metric = poisson_distance_cosine_expectation
+		elif self.metric == "variance_stabilized":
+			metric = cg.stabilized_minkowski
+
 		nn = NearestNeighbors(metric=metric, radius=self.radius, algorithm="ball_tree")
 		nn.fit(self.data)
 		self.rnn = nn.radius_neighbors_graph(self.data, radius=self.radius)
