@@ -11,17 +11,30 @@ from scipy.special import gammaln, digamma, psi
 from scipy.misc import logsumexp
 from tqdm import trange
 import ctypes
+from sklearn.neighbors import DistanceMetric
+import scipy.sparse as sparse
+from sklearn.utils.sparsefuncs import mean_variance_axis
 
 
-def make_nonzero(a: np.ndarray) -> np.ndarray:
+def _find_redundant_components(factors: np.ndarray) -> List[int]:
+	n_factors = factors.shape[1]
+	(row, col) = np.where(np.corrcoef(factors.T) > 0.99)
+	g = sparse.coo_matrix((np.ones(len(row)), (row, col)), shape=(n_factors, n_factors))
+	(n_comps, comps) = sparse.csgraph.connected_components(g)
+	non_singleton_comps = np.where(np.bincount(comps) > 1)[0]
+	to_randomize: List[int] = []
+	for c in non_singleton_comps:
+		to_randomize += list(np.where(comps == c)[0][1:])
+	return sorted(to_randomize)
+
+
+def find_redundant_components(beta: np.ndarray, theta: np.ndarray) -> np.ndarray:
 	"""
-	Make the array nonzero in place, by replacing zeros with 1e-30
-
-	Returns:
-		a	The input array
+	Figure out which components are redundant (identical to another factor), and
+	return them as a sorted ndarray. For each set of redundant factors, all but the
+	first element is returned.
 	"""
-	a[a == 0.0] = 1e-30
-	return a
+	return np.intersect1d(_find_redundant_components(beta), _find_redundant_components(theta))
 
 
 class HPF:
@@ -29,7 +42,7 @@ class HPF:
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
 	"""
-	def __init__(self, k: int, a: float = 1, b: float = 5, c: float = 1, d: float = 5, max_iter: int = 1000, stop_interval: int = 10) -> None:
+	def __init__(self, k: int, a: float = 0.3, b: float = 1, c: float = 0.3, d: float = 1, max_iter: int = 1000, stop_interval: int = 10, epsilon: float = 0.001) -> None:
 		"""
 		Args:
 			k				Number of components
@@ -39,6 +52,7 @@ class HPF:
 			d				Hyperparameter c' in the paper
 			max_iter		Maximum number of iterations
 			stop_interval	Interval between calculating and reporting the log-likelihood
+			epsilon			Fraction improvement required to continue iterating
 		"""
 		self.k = k
 		self.a = a
@@ -47,9 +61,14 @@ class HPF:
 		self.d = d
 		self.max_iter = max_iter
 		self.stop_interval = stop_interval
+		self.epsilon = epsilon
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
+		self.eta: np.ndarray = None
+		self.xi: np.ndarray = None
+		self.redundant: np.ndarray = None
+		self.X_rep: np.ndarray = None
 
 		self.log_likelihoods: List[float] = []
 
@@ -72,28 +91,37 @@ class HPF:
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-		(beta, theta) = self._fit(X)
+		(beta, theta, eta, xi) = self._fit(X)
 
 		self.beta = beta
 		self.theta = theta
+		self.eta = eta
+		self.xi = xi
+		# Identify redundant components
+		self.redundant = find_redundant_components(beta, theta)
+		# Posterior predictive distribution
+		self.X_rep = theta @ beta.T
 		return self
 
-	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray]:
-		if type(X) is not sparse.coo_matrix:
-			raise TypeError("Input matrix must be in sparse.coo_matrix format")
-
+	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		# Create local variables for convenience
 		(n_users, n_items) = X.shape
-		(a, b, c, d) = (self.a, self.b, self.c, self.d)
 		k = self.k
-		# u and i are indices of the nonzero entries; y are the values of those entries
-		(u, i, y) = (X.row, X.col, X.data)
+		(u, i, y) = (X.row, X.col, X.data)  # u and i are indices of the nonzero entries; y are the values of those entries
+		(a, b, c, d) = (self.a, self.b, self.c, self.d)
 
-		# Initialize the variational parameters with priors
-		kappa_shape = np.full(n_users, a) + np.random.uniform(0, 0.1, n_users)
-		kappa_rate = np.full(n_users, b + k)
-		gamma_shape = np.full((n_users, k), a) + np.random.uniform(0, 0.1, (n_users, k))
-		gamma_rate = np.full((n_users, k), b) + np.random.uniform(0, 0.1, (n_users, k))
+		# Compute hyperparameters bp and dp
+		def mean_var_prior(X: np.ndarray, axis: int) -> float:
+			temp = X.sum(axis=axis)
+			return np.mean(temp) / np.var(temp)
+		bp = b * mean_var_prior(X, axis=1)
+		dp = d * mean_var_prior(X, axis=0)
+
+		# Initialize the variational parameters with priors and some randomness
+		kappa_shape = np.full(n_users, b + k * a)  # This is actually the first variational update, but needed only once
+		kappa_rate = np.random.uniform(0.5 * bp, 1.5 * bp, n_users)
+		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k))
+		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k))
 
 		if beta_precomputed:
 			tau_shape = self._tau_shape
@@ -101,20 +129,15 @@ class HPF:
 			lambda_shape = self._lambda_shape
 			lambda_rate = self._lambda_rate
 		else:
-			tau_shape = np.full(n_items, c) + np.random.uniform(0, 0.1, n_items)
-			tau_rate = np.full(n_items, d + k)
-			lambda_shape = np.full((n_items, k), c) + np.random.uniform(0, 0.1, (n_items, k))
-			lambda_rate = np.full((n_items, k), d) + np.random.uniform(0, 0.1, (n_items, k))
+			tau_shape = np.full(n_items, d + k * c)  # This is actually the first variational update, but needed only once
+			tau_rate = np.random.uniform(0.5 * dp, 1.5 * dp, n_items)
+			lambda_shape = np.random.uniform(0.5 * c, 1.5 * c, (n_items, k))
+			lambda_rate = np.random.uniform(0.5 * d, 1.5 * d, (n_items, k))
 
 		self.log_likelihoods = []
-		with trange(self.max_iter) as t:
+		with trange(self.max_iter + 1) as t:
 			t.set_description(f"HPF.fit(X.shape={X.shape})")
 			for n_iter in t:
-				make_nonzero(gamma_shape)
-				make_nonzero(gamma_rate)
-				make_nonzero(lambda_shape)
-				make_nonzero(lambda_rate)
-
 				# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 				# Shape of phi will be (nnz, k)
@@ -129,7 +152,7 @@ class HPF:
 					y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
 				gamma_shape = a + y_phi_sum_u
 				gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
-				kappa_rate = b + (gamma_shape / gamma_rate).sum(axis=1)
+				kappa_rate = (b / bp) + (gamma_shape / gamma_rate).sum(axis=1)
 
 				if not beta_precomputed:
 					# Upate the variational parameters corresponding to beta (the items)
@@ -139,13 +162,13 @@ class HPF:
 						y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
 					lambda_shape = c + y_phi_sum_i
 					lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
-					tau_rate = d + (lambda_shape / lambda_rate).sum(axis=1)
-
-				if (n_iter + 1) % self.stop_interval == 0:
+					tau_rate = (d / dp) + (lambda_shape / lambda_rate).sum(axis=1)
+				
+				if n_iter % self.stop_interval == 0:
 					# Compute the log likelihood and assess convergence
 					# Expectations
-					egamma = make_nonzero(gamma_shape / gamma_rate)
-					elambda = make_nonzero(lambda_shape / lambda_rate)
+					egamma = gamma_shape / gamma_rate
+					elambda = lambda_shape / lambda_rate
 					# Sum over k for the expectations
 					# This is really a dot product but we're only computing it for the nonzeros (indexed by u and i)
 					s = (egamma[u] * elambda[i]).sum(axis=1)
@@ -154,12 +177,12 @@ class HPF:
 					self.log_likelihoods.append(log_likelihood)
 
 					# Check for convergence
-					# TODO: allow for small fluctuations?
+					# TODO: allow for small fluctuations
 					if len(self.log_likelihoods) > 1:
 						prev_ll = self.log_likelihoods[-2]
-						diff = abs((log_likelihood - prev_ll) / prev_ll)
+						diff = (log_likelihood - prev_ll) / abs(prev_ll)
 						t.set_postfix(ll=log_likelihood, diff=diff)
-						if diff < 0.00001:
+						if diff < self.epsilon:
 							break
 					else:
 						t.set_postfix(ll=log_likelihood)
@@ -175,8 +198,9 @@ class HPF:
 		# Compute beta and theta, which are given by the expectations, i.e. shape / rate
 		beta = lambda_shape / lambda_rate
 		theta = gamma_shape / gamma_rate
-		return (beta, theta)
-
+		eta = tau_shape / tau_rate
+		xi = kappa_shape / kappa_rate
+		return (beta, theta, eta, xi)
 
 	def transform(self, X: sparse.coo_matrix) -> np.ndarray:
 		"""
@@ -191,6 +215,6 @@ class HPF:
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-		(beta, theta) = self._fit(X, beta_precomputed=True)
+		(_, theta, _, _) = self._fit(X, beta_precomputed=True)
 
 		return theta
