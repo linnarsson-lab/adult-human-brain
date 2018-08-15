@@ -65,10 +65,10 @@ class VelocityInference:
 		self.epochs(self.n_epochs)
 		return self
 
-	def epochs(self, n_epochs: int):
+	def epochs(self, n_epochs: int) -> Any:
 		m = self.model
 		loss_fn = torch.nn.MSELoss()
-		optimizer = torch.optim.SGD([m.a, m.b, m.g], lr=self.lr)
+		optimizer = torch.optim.SGD([m.a_latent, m.b, m.g], lr=self.lr)
 
 		for epoch in trange(n_epochs):
 			optimizer.zero_grad()
@@ -76,9 +76,9 @@ class VelocityInference:
 			loss_out = loss_fn(u_pred, m.uv)
 			loss_out.backward()
 			optimizer.step()
-			a_latent.data.clamp_(min=0)
-			b.data.clamp_(min=0)
-			g.data.clamp_(min=0)
+			m.a_latent.data.clamp_(min=0)
+			m.b.data.clamp_(min=0)
+			m.g.data.clamp_(min=0)
 
 		self.loss = float(loss_out)
 		self.a_latent = m.a_latent.detach().numpy()
