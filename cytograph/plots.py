@@ -59,7 +59,7 @@ def plot_knn(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.close()
 
 
-def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None) -> None:
+def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
@@ -67,10 +67,15 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None)
 	if "MKNN" in ds.list_edges(axis=1):
 		(a, b, w) = ds.get_edges("MKNN", axis=1)
 		has_edges = True
-	if "TSNE" in ds.ca:
-		pos = ds.ca.TSNE
+	if embedding == "TSNE":
+		if "TSNE" in ds.ca:
+			pos = ds.ca.TSNE
+		else:
+			pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
+	elif embedding in ds.ca:
+		pos = ds.ca[embedding]
 	else:
-		pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
+		raise ValueError("Embedding not found in the file")
 	labels = ds.col_attrs["Clusters"]
 	if "Outliers" in ds.col_attrs:
 		outliers = ds.col_attrs["Outliers"]

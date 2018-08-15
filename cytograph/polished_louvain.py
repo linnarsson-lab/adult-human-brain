@@ -88,7 +88,7 @@ class PolishedLouvain:
 		clusterer = DBSCAN(eps=epsilon, min_samples=round(min_pts * 0.5))
 		return clusterer.fit_predict(xy)
 
-	def fit_predict(self, ds: loompy.LoomConnection, graph: str = "MKNN") -> np.ndarray:
+	def fit_predict(self, ds: loompy.LoomConnection, graph: str = "MKNN", embedding: str = "TSNE") -> np.ndarray:
 		"""
 		Given a sparse adjacency matrix, perform Louvain clustering, then polish the result
 
@@ -100,12 +100,18 @@ class PolishedLouvain:
 			labels:	The cluster labels (where -1 indicates outliers)
 
 		"""
-		if "TSNE" in ds.ca:
-			embedding = ds.ca.TSNE
-		elif "_X" in ds.ca:
-			embedding = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
+		if embedding == "UMAP":
+			xy = ds.ca.UMAP
+		elif embedding == "TSNE":
+			if "TSNE" in ds.ca:
+				xy = ds.ca.TSNE
+			elif "_X" in ds.ca:
+				xy = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
+			else:
+				raise ValueError("The loom file has no TSNE embedding (TSNE or _X, _Y)")
 		else:
-			raise ValueError("The loom file has no embedding (TSNE or _X, _Y)")
+			raise ValueError("Invalid embedding (must be UMAP or TSNE)")
+			
 		knn = ds.col_graphs[graph]
 
 		logging.info("Louvain community detection")
@@ -122,18 +128,18 @@ class PolishedLouvain:
 		# Mark outliers using DBSCAN
 		logging.info("Using DBSCAN to mark outliers")
 		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(embedding)
+		nn.fit(xy)
 		knn = nn.kneighbors_graph(mode='distance')
 		k_radius = knn.max(axis=1).toarray()
 		epsilon = np.percentile(k_radius, 80)
 		clusterer = DBSCAN(eps=epsilon, min_samples=10)
-		outliers = (clusterer.fit_predict(embedding) == -1)
+		outliers = (clusterer.fit_predict(xy) == -1)
 		labels[outliers] = -1
 
 		# Mark outliers as cells in bad neighborhoods
 		logging.info("Using neighborhood to mark outliers")
 		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(embedding)
+		nn.fit(xy)
 		knn = nn.kneighbors_graph(mode='connectivity').tocoo()
 		temp = []
 		for ix in range(labels.shape[0]):
@@ -161,7 +167,7 @@ class PolishedLouvain:
 			cluster = labels == lbl
 			if cluster.sum() < 10:
 				continue
-			adjusted = self._break_cluster(embedding[cluster, :])
+			adjusted = self._break_cluster(xy[cluster, :])
 			new_labels = np.copy(adjusted)
 			for i in range(np.max(adjusted) + 1):
 				new_labels[adjusted == i] = i + max_label
@@ -172,7 +178,7 @@ class PolishedLouvain:
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
 		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(embedding)
+		nn.fit(xy)
 		knn = nn.kneighbors_graph(mode='connectivity').tocoo()
 		temp = []
 		for ix in range(labels.shape[0]):

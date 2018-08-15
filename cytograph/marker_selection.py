@@ -50,9 +50,9 @@ class MarkerSelection:
 				(_, q, _, _) = multipletests(pvals, self.alpha, method="fdr_bh")
 				qvals[:, ix] = q
 
-			return (selected, enrichment, qvals)
+			return (np.sort(selected), enrichment, qvals)
 		else:
-			return (selected, enrichment, None)
+			return (np.sort(selected), enrichment, None)
 
 	def _fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
 		"""
