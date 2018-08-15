@@ -16,9 +16,9 @@ import scipy.sparse as sparse
 from sklearn.utils.sparsefuncs import mean_variance_axis
 
 
-def _find_redundant_components(factors: np.ndarray) -> List[int]:
+def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
 	n_factors = factors.shape[1]
-	(row, col) = np.where(np.corrcoef(factors.T) > 0.99)
+	(row, col) = np.where(np.corrcoef(factors.T) > max_r)
 	g = sparse.coo_matrix((np.ones(len(row)), (row, col)), shape=(n_factors, n_factors))
 	(n_comps, comps) = sparse.csgraph.connected_components(g)
 	non_singleton_comps = np.where(np.bincount(comps) > 1)[0]
@@ -28,13 +28,13 @@ def _find_redundant_components(factors: np.ndarray) -> List[int]:
 	return sorted(to_randomize)
 
 
-def find_redundant_components(beta: np.ndarray, theta: np.ndarray) -> np.ndarray:
+def find_redundant_components(beta: np.ndarray, theta: np.ndarray, max_r: float) -> np.ndarray:
 	"""
 	Figure out which components are redundant (identical to another factor), and
 	return them as a sorted ndarray. For each set of redundant factors, all but the
 	first element is returned.
 	"""
-	return np.intersect1d(_find_redundant_components(beta), _find_redundant_components(theta))
+	return np.intersect1d(_find_redundant_components(beta, max_r), _find_redundant_components(theta, max_r))
 
 
 class HPF:
@@ -42,7 +42,7 @@ class HPF:
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
 	"""
-	def __init__(self, k: int, a: float = 0.3, b: float = 1, c: float = 0.3, d: float = 1, max_iter: int = 1000, stop_interval: int = 10, epsilon: float = 0.001) -> None:
+	def __init__(self, k: int, a: float = 0.3, b: float = 1, c: float = 0.3, d: float = 1, max_iter: int = 100, stop_interval: int = 10, epsilon: float = 0.001, max_r: float = 0.99, compute_X_ppv: bool = False) -> None:
 		"""
 		Args:
 			k				Number of components
@@ -53,6 +53,8 @@ class HPF:
 			max_iter		Maximum number of iterations
 			stop_interval	Interval between calculating and reporting the log-likelihood
 			epsilon			Fraction improvement required to continue iterating
+			max_r			Maximum Pearson's correlation coefficient allowed before a component is considered redundant
+			compute_X_ppv	If true, compute the posterior predictive values X_ppv (same shape as X)
 		"""
 		self.k = k
 		self.a = a
@@ -62,13 +64,15 @@ class HPF:
 		self.max_iter = max_iter
 		self.stop_interval = stop_interval
 		self.epsilon = epsilon
+		self.max_r = max_r
+		self.compute_X_ppv = compute_X_ppv
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
 		self.eta: np.ndarray = None
 		self.xi: np.ndarray = None
 		self.redundant: np.ndarray = None
-		self.X_rep: np.ndarray = None
+		self.X_ppv: np.ndarray = None
 
 		self.log_likelihoods: List[float] = []
 
@@ -98,9 +102,10 @@ class HPF:
 		self.eta = eta
 		self.xi = xi
 		# Identify redundant components
-		self.redundant = find_redundant_components(beta, theta)
+		self.redundant = find_redundant_components(beta, theta, self.max_r)
 		# Posterior predictive distribution
-		self.X_rep = theta @ beta.T
+		if self.compute_X_ppv:
+			self.X_ppv = theta @ beta.T
 		return self
 
 	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
