@@ -56,7 +56,7 @@ class FeatureSelection:
 		score = score * valid[ok]
 		self.genes = np.where(ok)[0][np.argsort(score)][-self.n_genes:]
 
-		return self.genes
+		return np.sort(self.genes)
 
 
 # This works on a matrix in memory
