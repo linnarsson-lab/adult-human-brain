@@ -129,7 +129,7 @@ class BalancedKNN:
     n_jobs : int  (default=4)
         parallelization of the standard KNN search preformed at initialization
     """
-    def __init__(self, k: int=50, sight_k: int=100, maxl: int=200, mode: str="distance", metric: str="euclidean", n_jobs: int=4) -> None:
+    def __init__(self, k: int=50, sight_k: int=100, maxl: int=200, mode: str="distance", metric: str="euclidean", minkowski_p: int = 20, n_jobs: int=4) -> None:
         self.k = k
         self.sight_k = sight_k
         self.maxl = maxl
@@ -138,6 +138,7 @@ class BalancedKNN:
         self.n_jobs = n_jobs
         self.dist_new = self.dsi_new = self.l = None  # type: np.ndarray
         self.bknn = None  # type: sparse.csr_matrix
+        self.minkowski_p = minkowski_p
 
     @property
     def n_samples(self) -> int:
@@ -158,9 +159,9 @@ class BalancedKNN:
         logging.debug(f"First search the {self.sight_k} nearest neighbours for {self.n_samples}")
         np.random.seed(13)
         if self.metric == "correlation":
-            self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, n_jobs=self.n_jobs, algorithm="brute")
+            self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, algorithm="brute")
         else:
-            self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, n_jobs=self.n_jobs, leaf_size=30)
+            self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, leaf_size=30)
         self.nn.fit(self.fitdata)
         return self
 
