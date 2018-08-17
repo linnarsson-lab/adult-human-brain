@@ -1,19 +1,10 @@
 from typing import *
-import tempfile
-import os
-from subprocess import Popen
 import numpy as np
-import logging
 import scipy.sparse as sparse
-from sklearn.model_selection import train_test_split
-from sklearn.exceptions import NotFittedError
-from scipy.special import gammaln, digamma, psi
 from scipy.misc import logsumexp
+from scipy.special import digamma, gammaln, psi
 from tqdm import trange
-import ctypes
-from sklearn.neighbors import DistanceMetric
-import scipy.sparse as sparse
-from sklearn.utils.sparsefuncs import mean_variance_axis
+from sklearn.model_selection import train_test_split
 
 
 def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
@@ -42,7 +33,21 @@ class HPF:
 	Bayesian Hierarchical Poisson Factorization
 	Implementation of https://arxiv.org/pdf/1311.1704.pdf
 	"""
-	def __init__(self, k: int, a: float = 0.3, b: float = 1, c: float = 0.3, d: float = 1, max_iter: int = 100, stop_interval: int = 10, epsilon: float = 0.001, max_r: float = 0.99, compute_X_ppv: bool = False) -> None:
+	def __init__(
+		self,
+		k: int, 
+		*,
+		a: float = 0.3,
+		b: float = 1,
+		c: float = 0.3,
+		d: float = 1,
+		min_iter: int = 10,
+		max_iter: int = 100,
+		stop_interval: int = 10,
+		epsilon: float = 0.001,
+		max_r: float = 0.99,
+		compute_X_ppv: bool = True,
+		validation_fraction: float = 0) -> None:
 		"""
 		Args:
 			k				Number of components
@@ -61,19 +66,22 @@ class HPF:
 		self.b = b
 		self.c = c
 		self.d = d
+		self.min_iter = min_iter
 		self.max_iter = max_iter
 		self.stop_interval = stop_interval
 		self.epsilon = epsilon
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
+		self.validation_fraction = validation_fraction
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
 		self.eta: np.ndarray = None
 		self.xi: np.ndarray = None
 		self.redundant: np.ndarray = None
-		self.X_ppv: np.ndarray = None
+		self.validation_data: sparse.coo_matrix = None
 
+		self.X_ppv: np.ndarray = None
 		self.log_likelihoods: List[float] = []
 
 		self._tau_rate: np.ndarray = None
@@ -122,11 +130,18 @@ class HPF:
 		bp = b * mean_var_prior(X, axis=1)
 		dp = d * mean_var_prior(X, axis=0)
 
+		# Create the validation dataset
+		if self.validation_fraction > 0:
+			(u, vu, i, vi, y, vy) = train_test_split(u, i, y, train_size=1 - self.validation_fraction)
+			self.validation_data = sparse.coo_matrix((vy, (vu, vi)), shape=X.shape)
+		else:
+			(vu, vi, vy) = (u, i, y)
+
 		# Initialize the variational parameters with priors and some randomness
-		kappa_shape = np.full(n_users, b + k * a)  # This is actually the first variational update, but needed only once
-		kappa_rate = np.random.uniform(0.5 * bp, 1.5 * bp, n_users)
-		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k))
-		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k))
+		kappa_shape = np.full(n_users, b + k * a, dtype='float32')  # This is actually the first variational update, but needed only once
+		kappa_rate = np.random.uniform(0.5 * bp, 1.5 * bp, n_users).astype('float32')
+		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k)).astype('float32')
+		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k)).astype('float32')
 
 		if beta_precomputed:
 			tau_shape = self._tau_shape
@@ -134,10 +149,10 @@ class HPF:
 			lambda_shape = self._lambda_shape
 			lambda_rate = self._lambda_rate
 		else:
-			tau_shape = np.full(n_items, d + k * c)  # This is actually the first variational update, but needed only once
-			tau_rate = np.random.uniform(0.5 * dp, 1.5 * dp, n_items)
-			lambda_shape = np.random.uniform(0.5 * c, 1.5 * c, (n_items, k))
-			lambda_rate = np.random.uniform(0.5 * d, 1.5 * d, (n_items, k))
+			tau_shape = np.full(n_items, d + k * c, dtype='float32')  # This is actually the first variational update, but needed only once
+			tau_rate = np.random.uniform(0.5 * dp, 1.5 * dp, n_items).astype('float32')
+			lambda_shape = np.random.uniform(0.5 * c, 1.5 * c, (n_items, k)).astype('float32')
+			lambda_rate = np.random.uniform(0.5 * d, 1.5 * d, (n_items, k)).astype('float32')
 
 		self.log_likelihoods = []
 		with trange(self.max_iter + 1) as t:
@@ -149,7 +164,7 @@ class HPF:
 				phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
 				# Multiply y by phi normalized (in log space) along the k axis
 				y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
-				
+
 				# Upate the variational parameters corresponding to theta (the users)
 				# Sum of y_phi over users, for each k
 				y_phi_sum_u = np.zeros((n_users, k))
@@ -168,7 +183,7 @@ class HPF:
 					lambda_shape = c + y_phi_sum_i
 					lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
 					tau_rate = (d / dp) + (lambda_shape / lambda_rate).sum(axis=1)
-				
+
 				if n_iter % self.stop_interval == 0:
 					# Compute the log likelihood and assess convergence
 					# Expectations
@@ -176,9 +191,9 @@ class HPF:
 					elambda = lambda_shape / lambda_rate
 					# Sum over k for the expectations
 					# This is really a dot product but we're only computing it for the nonzeros (indexed by u and i)
-					s = (egamma[u] * elambda[i]).sum(axis=1)
+					s = (egamma[vu] * elambda[vi]).sum(axis=1)
 					# We use gammaln to compute the log factorial, hence the "y + 1"
-					log_likelihood = np.sum(y * np.log(s) - s - gammaln(y + 1))
+					log_likelihood = np.sum(vy * np.log(s) - s - gammaln(vy + 1))
 					self.log_likelihoods.append(log_likelihood)
 
 					# Check for convergence
@@ -187,7 +202,7 @@ class HPF:
 						prev_ll = self.log_likelihoods[-2]
 						diff = (log_likelihood - prev_ll) / abs(prev_ll)
 						t.set_postfix(ll=log_likelihood, diff=diff)
-						if diff < self.epsilon:
+						if diff < self.epsilon and n_iter >= self.min_iter:
 							break
 					else:
 						t.set_postfix(ll=log_likelihood)
