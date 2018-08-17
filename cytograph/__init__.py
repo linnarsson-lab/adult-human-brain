@@ -19,7 +19,6 @@ from .TFs import TFs
 from .utils import cap_select, logging, colorize, colors75, div0
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
-from .manifold_learning_4 import ManifoldLearning4
 from .aggregator import Aggregator, aggregate_loom
 from .clustering import Clustering
 from .HPF import HPF

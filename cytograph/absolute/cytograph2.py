@@ -9,7 +9,6 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import normalize
 from typing import *
 import os
-import igraph
 
 
 class Cytograph2:

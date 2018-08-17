@@ -4,7 +4,10 @@ from shutil import copyfile
 import numpy as np
 import random
 import logging
-import igraph
+try:
+	import igraph
+except:
+	logging.info("ERROR: failed to import igraph; some clustering methods will not work")
 import cytograph as cg
 import loompy
 import logging

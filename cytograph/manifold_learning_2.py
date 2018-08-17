@@ -6,7 +6,6 @@ import random
 import logging
 import cytograph as cg
 import loompy
-import igraph
 
 
 class ManifoldLearning2:
