@@ -78,6 +78,10 @@ class HPF:
 		self.theta: np.ndarray = None
 		self.eta: np.ndarray = None
 		self.xi: np.ndarray = None
+		self.gamma_shape: np.ndarray = None
+		self.gamma_rate: np.ndarray = None
+		self.lambda_shape: np.ndarray = None
+		self.lambda_rate: np.ndarray = None
 		self.redundant: np.ndarray = None
 		self.validation_data: sparse.coo_matrix = None
 
@@ -103,12 +107,16 @@ class HPF:
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-		(beta, theta, eta, xi) = self._fit(X)
+		(beta, theta, eta, xi, gamma_shape, gamma_rate, lambda_shape, lambda_rate) = self._fit(X)
 
 		self.beta = beta
 		self.theta = theta
 		self.eta = eta
 		self.xi = xi
+		self.gamma_rate = gamma_rate
+		self.gamma_shape = gamma_shape
+		self.lambda_rate = lambda_rate
+		self.lambda_shape = lambda_shape
 		# Identify redundant components
 		self.redundant = find_redundant_components(beta, theta, self.max_r)
 		# Posterior predictive distribution
@@ -116,7 +124,7 @@ class HPF:
 			self.X_ppv = theta @ beta.T
 		return self
 
-	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		# Create local variables for convenience
 		(n_users, n_items) = X.shape
 		k = self.k
@@ -220,7 +228,7 @@ class HPF:
 		theta = gamma_shape / gamma_rate
 		eta = tau_shape / tau_rate
 		xi = kappa_shape / kappa_rate
-		return (beta, theta, eta, xi)
+		return (beta, theta, eta, xi, gamma_shape, gamma_rate, lambda_shape, lambda_rate)
 
 	def transform(self, X: sparse.coo_matrix) -> np.ndarray:
 		"""
@@ -235,6 +243,6 @@ class HPF:
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
 
-		(_, theta, _, _) = self._fit(X, beta_precomputed=True)
+		(_, theta, _, _, _, _, _, _) = self._fit(X, beta_precomputed=True)
 
 		return theta
