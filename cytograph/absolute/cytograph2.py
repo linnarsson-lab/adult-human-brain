@@ -12,19 +12,11 @@ import os
 
 
 class Cytograph2:
-	def __init__(self, accel: bool = False, log: bool = True, normalize: bool = True, n_genes: int = 1000, n_factors: int = 100, a: float = 1, b: float = 10, c: float = 1, d: float = 10, k: int = 10, k_smoothing: int = 100, max_iter: int = 200) -> None:
-		self.accel = accel
-		self.log = log
-		self.normalize = normalize
+	def __init__(self, n_genes: int = 1000, n_factors: int = 100, k: int = 10, k_smoothing: int = 100) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_smoothing = k_smoothing
 		self.k = k
-		self.a = a
-		self.b = b
-		self.c = c
-		self.d = d
-		self.max_iter = max_iter
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		# Select genes
@@ -37,21 +29,12 @@ class Cytograph2:
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		if self.accel:
-			hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
-		else:
-			hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200)
 		hpf.fit(data)
 
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
-		if self.log:
-			theta = np.log(hpf.theta)
-		else:
-			theta = hpf.theta
-		if self.normalize:
-			theta = (theta - theta.min(axis=0))
-			theta = theta / theta.max(axis=0)
+		theta = (hpf.xi * hpf.theta.T).T
 		hpfn = normalize(theta)  # This converts euclidean distances to cosine distances (ball_tree doesn't directly support cosine)
 		nn = NearestNeighbors(self.k_smoothing, algorithm="ball_tree", metric='euclidean', n_jobs=4)
 		nn.fit(hpfn)
@@ -84,33 +67,14 @@ class Cytograph2:
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		if self.accel:
-			hpf = cg.HPF_accel(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
-		else:
-			hpf = cg.HPF(a=self.a, b=self.b, c=self.c, d=self.d, k=self.n_factors, max_iter=self.max_iter)
+		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200)
 		hpf.fit(data)
 
 		logging.info(f"Saving normalized latent factors")
-		if self.log:
-			beta = np.log(hpf.beta)
-		else:
-			beta = hpf.beta
-		if self.normalize:
-			beta = (beta - beta.min(axis=0))
-			beta = beta / beta.max(axis=0)
-		beta_all = np.zeros((ds.shape[0], beta.shape[1]))
-		beta_all[genes] = beta
+		theta = (hpf.xi * hpf.theta.T).T
+		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
+		beta_all[genes] = hpf.beta
 		ds.ra.HPF = beta_all
-
-		if self.log:
-			theta = np.log(hpf.theta)
-		else:
-			theta = hpf.theta
-		if normalize:
-			theta = (theta - theta.min(axis=0))
-			theta = theta / theta.max(axis=0)
-		totals = ds.map([np.sum], axis=1)[0]
-		theta = (theta.T / totals).T * np.median(totals)
 		ds.ca.HPF = theta
 
 		logging.info(f"tSNE embedding from latent space")
