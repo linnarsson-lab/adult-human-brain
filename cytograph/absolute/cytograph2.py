@@ -34,11 +34,12 @@ class Cytograph2:
 
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
-		theta = (hpf.xi * hpf.theta.T).T
-		hpfn = normalize(theta)  # This converts euclidean distances to cosine distances (ball_tree doesn't directly support cosine)
-		nn = NearestNeighbors(self.k_smoothing, algorithm="ball_tree", metric='euclidean', n_jobs=4)
-		nn.fit(hpfn)
-		knn = nn.kneighbors_graph(hpfn, mode='connectivity')
+		theta = (hpf.theta.T / theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
+		logging.info("Fitting a ball tree index")
+		nn = cg.BalancedKNN(self.k_smoothing, metric=cg.jensen_shannon_distance, n_jobs=4)
+		nn.fit(theta)
+		logging.info("Finding nearest neighbors")
+		knn = nn.kneighbors_graph(theta, mode='connectivity')
 		knn.setdiag(1)
 
 		# Poisson smoothing (in place)
@@ -69,24 +70,26 @@ class Cytograph2:
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200)
 		hpf.fit(data)
-
-		logging.info(f"Saving normalized latent factors")
-		theta = (hpf.xi * hpf.theta.T).T
+		# Here we normalize so the sums over components are one, because JSD requires it
+		# and because the components will be exactly proportional to cell size
+		theta = (hpf.theta.T / theta.sum(axis=1)).T
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = hpf.beta
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
 		logging.info(f"tSNE embedding from latent space")
-		tsne = TSNE(metric="cosine").fit_transform(theta)
+		tsne = TSNE(n_components=2, metric=cg.jensen_shannon_distance).fit_transform(theta)
 		ds.ca.TSNE = tsne
 
 		logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
-		hpfn = normalize(theta)  # This makes euclidean distances equivalent to cosine distances (ball_tree doesn't support cosine)
-		bnn = cg.BalancedKNN(k=self.k, metric="euclidean", maxl=2 * self.k, sight_k=2 * self.k)
-		bnn.fit(hpfn)
-		knn = bnn.kneighbors_graph(mode='connectivity')
+		bnn = cg.BalancedKNN(k=self.k, metric=cg.jensen_shannon_distance, maxl=2 * self.k, sight_k=2 * self.k)
+		bnn.fit(theta)
+		knn = bnn.kneighbors_graph(mode='distance')
 		mknn = knn.minimum(knn.transpose())
+		# Convert distances to similarities
+		knn.data = 1 - knn.data
+		mknn.data = 1 - mknn.data
 		ds.col_graphs.KNN = knn
 		ds.col_graphs.MKNN = mknn
 
