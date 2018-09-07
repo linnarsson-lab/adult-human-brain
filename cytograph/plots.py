@@ -20,10 +20,10 @@ import community
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
-	mu = ds.row_attrs["_LogMean"]
-	cv = ds.row_attrs["_LogCV"]
-	selected = ds.row_attrs["_Selected"].astype('bool')
-	excluded = (1 - ds.row_attrs["_Valid"]).astype('bool')
+	mu = ds.ra["_LogMean", "LogMean"]
+	cv = ds.ra["_LogCV", "LogCV"]
+	selected = ds.ra["_Selected", "Selected"].astype('bool')
+	excluded = (1 - ds.ra["_Valid", "Valid"]).astype('bool')
 
 	fig = plt.figure(figsize=(8, 6))
 	ax1 = fig.add_subplot(111)
@@ -40,13 +40,13 @@ def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
 
 def plot_knn(ds: loompy.LoomConnection, out_file: str) -> None:
 	n_cells = ds.shape[1]
-	valid = ds.col_attrs["_Valid"].astype('bool')
+	valid = ds.ca["_Valid", "Valid"].astype('bool')
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
 	if "TSNE" in ds.ca:
 		xy = ds.ca.TSNE
 	else:
-		xy = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
+		xy = np.vstack((ds.ca["_X", "X"], ds.ca["_Y", "Y"])).transpose()[valid, :]
 
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(mknn)
@@ -62,7 +62,7 @@ def plot_knn(ds: loompy.LoomConnection, out_file: str) -> None:
 def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
-	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+	cells = np.where(ds.ca["_Valid", "Valid"] == 1)[0]
 	has_edges = False
 	if "MKNN" in ds.list_edges(axis=1):
 		(a, b, w) = ds.get_edges("MKNN", axis=1)
@@ -76,7 +76,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 		pos = ds.ca[embedding]
 	else:
 		raise ValueError("Embedding not found in the file")
-	labels = ds.col_attrs["Clusters"]
+	labels = ds.ca["Clusters", "ClusterID"]
 	if "Outliers" in ds.col_attrs:
 		outliers = ds.col_attrs["Outliers"]
 	else:
@@ -114,8 +114,8 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 		else:
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors75[np.mod(i, 75)], marker='.', lw=0, s=epsilon, alpha=0.75))
 			txt = str(i)
-			if "ClusterName" in ds.ca.keys():
-				txt = ds.ca.ClusterName[ds.ca.Clusters == i][0]
+			if "ClusterName" in ds.ca:
+				txt = ds.ca.ClusterName[ds.ca["Clusters", "ClusterID"] == i][0]
 			if tags is not None:
 				names.append(f"{txt}/n={n_cells} " + tags[i].replace("\n", " "))
 			else:
@@ -126,8 +126,8 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 	logging.info("Drawing cluster IDs")
 	for lbl in range(0, max(labels) + 1):
 		txt = str(lbl)
-		if "ClusterName" in ds.ca.keys():
-			txt = ds.ca.ClusterName[ds.ca.Clusters == lbl][0]
+		if "ClusterName" in ds.ca:
+			txt = ds.ca.ClusterName[ds.ca["Clusters", "ClusterID"] == lbl][0]
 		if np.all(outliers[labels == lbl] == 1):
 			continue
 		if np.sum(labels == lbl) == 0:
@@ -149,7 +149,7 @@ def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) ->
 		return amount
 	
 	n_cells = ds.shape[1]
-	valid = ds.col_attrs["_Valid"].astype('bool')
+	valid = ds.ca["_Valid", "Valid"].astype('bool')
 	
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
@@ -161,8 +161,8 @@ def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) ->
 	sfdp_original = sfdp.copy()  # still the draw_networkx_edges wants the sfd with respect of the graph `g`
 	# \it is shortcut to avoid resorting the graph
 	sfdp = sfdp[orderfin, :]
-	labels = ds.col_attrs["Clusters"][valid][orderfin]
-	age = np.fromiter(map(parse_age, ds.col_attrs["Age"]), dtype=float)[valid][orderfin]
+	labels = ds.col_attrs["Clusters", "ClusterID"][valid][orderfin]
+	age = np.fromiter(map(parse_age, ds.ca["Age"]), dtype=float)[valid][orderfin]
 
 	fig = plt.figure(figsize=(10, 10))
 	g = nx.from_scipy_sparse_matrix(mknn)
@@ -198,7 +198,7 @@ def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) ->
 
 def plot_classification(ds: loompy.LoomConnection, out_file: str) -> None:
 	n_cells = ds.shape[1]
-	valid = ds.col_attrs["_Valid"].astype('bool')
+	valid = ds.ca["_Valid", "Valid"].astype('bool')
 	(a, b, w) = ds.get_edges("MKNN", axis=1)
 	mknn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells)).tocsr()[valid, :][:, valid]
 	pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()[valid, :]
@@ -266,7 +266,7 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 		"Excluded": "black"
 	}
 	n_cells = ds.shape[1]
-	cells = np.where(ds.col_attrs["_Valid"] == 1)[0]
+	cells = np.where(ds.ca["_Valid", "Valid"] == 1)[0]
 	has_edges = False
 	if "MKNN" in ds.col_graphs:
 		g = ds.col_graphs.MKNN
@@ -332,22 +332,22 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
 	logging.info(ds.shape)
-	n_clusters = np.max(dsagg.col_attrs["Clusters"] + 1)
+	n_clusters = np.max(dsagg.ca["Clusters", "ClusterID"] + 1)
 	n_markers = n_markers_per_cluster * n_clusters
 	enrichment = dsagg.layer["enrichment"][:n_markers, :]
-	cells = ds.col_attrs["Clusters"] >= 0
+	cells = ds.ca["Clusters", "ClusterID"] >= 0
 	data = np.log(ds[:n_markers, :][:, cells] + 1)
 	agg = np.log(dsagg[:n_markers, :] + 1)
 
 	clusterborders = np.cumsum(dsagg.col_attrs["NCells"])
 	gene_pos = clusterborders[np.argmax(enrichment, axis=1)]
 	tissues: Set[str] = set()
-	if "Tissue" in ds.col_attrs:
+	if "Tissue" in ds.ca:
 		tissues = set(ds.col_attrs["Tissue"])
 	n_tissues = len(tissues)
 
 	classes = []
-	if "Subclass" in ds.ca.keys():
+	if "Subclass" in ds.ca:
 		classes = sorted(list(set(ds.col_attrs["Subclass"])))
 	n_classes = len(classes)
 
@@ -378,8 +378,8 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	ax.set_yticks([])
 
 	ax = fig.add_subplot(gs[2])
-	if "_Total" in ds.col_attrs:
-		ax.imshow(np.expand_dims(ds.col_attrs["_Total"][cells], axis=0), aspect='auto', cmap="Reds")
+	if "_Total" in ds.ca or "Total" in ds.ca:
+		ax.imshow(np.expand_dims(ds.ca["_Total", "Total"][cells], axis=0), aspect='auto', cmap="Reds")
 	plt.text(0.001, 0.9, "Number of molecules", horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=9, color="black")
 	ax.set_frame_on(False)
 	ax.set_xticks([])
@@ -387,7 +387,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, t in enumerate(tissues):
 		ax = fig.add_subplot(gs[3 + ix])
-		ax.imshow(np.expand_dims((ds.col_attrs["Tissue"][cells] == t).astype('int'), axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
+		ax.imshow(np.expand_dims((ds.ca["Tissue"][cells] == t).astype('int'), axis=0), aspect='auto', cmap="bone", vmin=0, vmax=1)
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
@@ -396,7 +396,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	for ix, cls in enumerate(classes):
 		ax = fig.add_subplot(gs[3 + n_tissues + ix])
-		ax.imshow(np.expand_dims((ds.col_attrs["Subclass"] == cls).astype('int')[cells], axis=0), aspect='auto', cmap="binary_r", vmin=0, vmax=1)
+		ax.imshow(np.expand_dims((ds.ca["Subclass"] == cls).astype('int')[cells], axis=0), aspect='auto', cmap="binary_r", vmin=0, vmax=1)
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
@@ -441,7 +441,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	# Cluster IDs
 	labels = ["#" + str(x) for x in np.arange(n_clusters)]
-	if "ClusterName" in ds.ca.keys():
+	if "ClusterName" in ds.ca:
 		labels = dsagg.ca.ClusterName
 	for ix in range(0, clusterborders.shape[0]):
 		left = 0 if ix == 0 else clusterborders[ix - 1]
