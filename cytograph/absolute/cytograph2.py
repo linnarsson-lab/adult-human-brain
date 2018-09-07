@@ -34,7 +34,7 @@ class Cytograph2:
 
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
-		theta = (hpf.theta.T / theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
+		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 		logging.info("Fitting a ball tree index")
 		nn = cg.BalancedKNN(self.k_smoothing, metric=cg.jensen_shannon_distance, n_jobs=4)
 		nn.fit(theta)
@@ -72,7 +72,7 @@ class Cytograph2:
 		hpf.fit(data)
 		# Here we normalize so the sums over components are one, because JSD requires it
 		# and because the components will be exactly proportional to cell size
-		theta = (hpf.theta.T / theta.sum(axis=1)).T
+		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = hpf.beta
 		ds.ra.HPF = beta_all
