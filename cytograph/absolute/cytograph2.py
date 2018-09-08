@@ -36,7 +36,7 @@ class Cytograph2:
 		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 		logging.info("Fitting a ball tree index")
-		nn = cg.BalancedKNN(self.k_smoothing, metric=cg.jensen_shannon_distance, n_jobs=4)
+		nn = cg.BalancedKNN(self.k_smoothing, metric=cg.jensen_shannon_distance)
 		nn.fit(theta)
 		logging.info("Finding nearest neighbors")
 		knn = nn.kneighbors_graph(theta, mode='connectivity')

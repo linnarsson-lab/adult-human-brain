@@ -52,7 +52,7 @@ def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	return (Dpm + Dqm) / 2
 
 
-@numba.jit("float32(float64[:], float64[:])", nopython=True, parallel=True, nogil=True)
+@numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
 def jensen_shannon_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	"""
 	Remarks:
