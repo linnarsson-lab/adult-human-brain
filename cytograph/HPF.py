@@ -5,6 +5,7 @@ from scipy.misc import logsumexp
 from scipy.special import digamma, gammaln, psi
 from tqdm import trange
 from sklearn.model_selection import train_test_split
+import logging
 
 
 def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
@@ -130,6 +131,7 @@ class HPF:
 		k = self.k
 		(u, i, y) = (X.row, X.col, X.data)  # u and i are indices of the nonzero entries; y are the values of those entries
 		(a, b, c, d) = (self.a, self.b, self.c, self.d)
+		logging.info(f"nnz={len(u)}")
 
 		# Compute hyperparameters bp and dp
 		def mean_var_prior(X: np.ndarray, axis: int) -> float:
