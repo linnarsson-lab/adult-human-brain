@@ -171,6 +171,8 @@ class HPF:
 				# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 				# Shape of phi will be (nnz, k)
+				# TODO: rewrite in numba so as to calculate each nnz (and sum over k) without materializing the whole phi matrix
+				# TODO: maybe parallelize too?
 				phi = (digamma(gamma_shape) - np.log(gamma_rate))[u, :] + (digamma(lambda_shape) - np.log(lambda_rate))[i, :]
 				# Multiply y by phi normalized (in log space) along the k axis
 				y_phi = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
