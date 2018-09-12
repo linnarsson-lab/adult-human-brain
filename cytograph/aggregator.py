@@ -140,7 +140,9 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			func = aggr_ca_by[key]
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
-					val = str(val).replace("/", "-")
+					if np.issubdtype(type(val), np.str_):
+						val = val.replace("/", "-")  # Slashes are not allowed in attribute names
+						val = val.replace(".", "_")  # Nor are periods
 					ca[key + "_" + str(val)] = npg.aggregate(zero_strt_sort_noholes_lbls, (ds.col_attrs[key] == val).astype('int'), func="sum", fill_value=0)
 			elif func == "mode":
 				def mode(x):
@@ -159,4 +161,4 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 	if return_matrix:
 		return m
 
-	loompy.create_append(out_file, m, ds.ra, ca, fill_values="auto")
+	loompy.create(out_file, m, ds.ra, ca)
