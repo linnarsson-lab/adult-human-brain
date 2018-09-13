@@ -109,7 +109,12 @@ class HPF:
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
-		self.n_threads = n_threads if n_threads > 0 else os.cpu_count() / 2
+		self.n_threads = n_threads
+		if n_threads > 0:
+			if os.cpu_count() is not None:
+				self.n_threads = max(os.cpu_count() // 2, 1)  # type: ignore
+			else:
+				self.n_threads = 1
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
@@ -216,7 +221,7 @@ class HPF:
 				def u_sum_for_ix(ix: int) -> None:
 					y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
 					
-				with ThreadPoolExecutor(max_workers=self.n_threads) as tx:				
+				with ThreadPoolExecutor(max_workers=self.n_threads) as tx:
 					tx.map(u_sum_for_ix, range(k))
 
 				gamma_shape = a + y_phi_sum_u
@@ -231,7 +236,7 @@ class HPF:
 					def i_sum_for_ix(ix: int) -> None:
 						y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
 
-					with ThreadPoolExecutor(max_workers=self.n_threads) as tx:				
+					with ThreadPoolExecutor(max_workers=self.n_threads) as tx:
 						tx.map(i_sum_for_ix, range(k))
 
 					lambda_shape = c + y_phi_sum_i
