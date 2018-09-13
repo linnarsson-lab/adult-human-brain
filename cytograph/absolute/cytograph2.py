@@ -29,7 +29,7 @@ class Cytograph2:
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200)
+		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 
 		# KNN in HPF space
@@ -68,7 +68,7 @@ class Cytograph2:
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200)
+		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		# Here we normalize so the sums over components are one, because JSD requires it
 		# and because the components will be exactly proportional to cell size
