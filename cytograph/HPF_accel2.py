@@ -110,7 +110,7 @@ class HPF:
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
 		self.n_threads = n_threads
-		if n_threads > 0:
+		if n_threads == 0:
 			if os.cpu_count() is not None:
 				self.n_threads = max(os.cpu_count() // 2, 1)  # type: ignore
 			else:
