@@ -44,7 +44,7 @@ def compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n
 	i_logdiff = (digamma(lambda_shape) - np.log(lambda_rate))
 
 	with ThreadPoolExecutor(max_workers=n_threads) as tx:
-		batch_size = nnz // n_threads
+		batch_size = int(nnz // n_threads)
 		start = 0
 		while start < nnz:
 			u_batch = u[start:start + batch_size]
