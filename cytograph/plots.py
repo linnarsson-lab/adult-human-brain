@@ -482,6 +482,50 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], vmax=np.percentile(beta[:, nnc][cells],95), c=beta[:, nnc][cells],marker='.',alpha=0.5,s=10,cmap=cmap,lw=0)
 			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-theta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
 			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes)
-		plt.savefig(base_name + f"{offset}.png")
+		plt.savefig(base_name + f"{offset}.png", dpi=144)
 		offset += 16
 	plt.close()
+
+
+def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
+	xy = ds.ca.TSNE
+	labels = ds.ca["Clusters"]
+	cellcycle = {
+		"G1": ["SLBP", "CDCA7", "UNG"],
+		"G1/S": ["ORC1", "PCNA"],
+		"S": ["E2F8", "RRM2"],
+		"G2": ["CDK1", "HJURP", "TOP2A", "KIF23"],
+		"M": ["AURKA", "TPX2"]
+	}
+	plt.figure(figsize=(10,10))
+	ix = 1
+	for phase in cellcycle.keys():
+		for g in cellcycle[phase]:
+			expr = ds[ds.ra.Gene == g, :][0]
+			ax = plt.subplot(4,4,ix)
+			ax.axis("off")
+			plt.title(phase + ": " + g)
+			plt.scatter(xy[:, 0], xy[:, 1], c="lightgrey", marker='.', lw=0, s=20)
+			cells = expr > 0
+			plt.scatter(xy[:, 0][cells], xy[:, 1][cells], c=expr[cells], marker='.', lw=0, s=20, cmap="viridis")
+			ix += 1
+	ax = plt.subplot(4, 4, ix)
+	ax.axis("off")
+	plt.title("ACTB")
+	plt.scatter(xy[:, 0], xy[:, 1], c=ds[ds.ra.Gene == "ACTB", :][0], marker='.', lw=0, s=10, cmap="viridis")
+	ix += 1
+	ax = plt.subplot(4, 4, ix)
+	ax.axis("off")
+	plt.title("Clusters")
+	plt.scatter(xy[:, 0], xy[:, 1], c=cg.colorize(ds.ca.Clusters),marker='.',lw=0,s=10)
+	ix += 1
+	ax = plt.subplot(4, 4, ix)
+	ax.axis("off")
+	plt.title("G1/S vs. G2/M")
+	g1 = ds[ds.ra.Gene == "SLBP", :][0] + ds[ds.ra.Gene == "CDCA7", :][0] + ds[ds.ra.Gene == "UNG", :][0] + ds[ds.ra.Gene == "ORC1", :][0] + ds[ds.ra.Gene == "PCNA", :][0] + ds[ds.ra.Gene == "E2F8", :][0] + ds[ds.ra.Gene == "RRM2", :][0]
+	g2 = ds[ds.ra.Gene == "CDK1", :][0] + ds[ds.ra.Gene == "HJURP", :][0] + ds[ds.ra.Gene == "TOP2A", :][0] + ds[ds.ra.Gene == "KIF23", :][0] + ds[ds.ra.Gene == "AURKA", :][0] + ds[ds.ra.Gene == "TPX2", :][0]
+	g1 = np.log2(g1 + np.random.uniform(1, 1.8, size=g1.shape))
+	g2 = np.log2(g2 + np.random.uniform(1, 1.8, size=g2.shape))
+	ordering = np.random.permutation(g1.shape[0])
+	plt.scatter(x=g2[ordering], y=g1[ordering], c=cg.colorize(ds.ca.Clusters)[ordering], marker='.', lw=0, s=10)
+	plt.savefig(out_file, format="png", dpi=144)

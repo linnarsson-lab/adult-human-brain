@@ -12,11 +12,12 @@ import os
 
 
 class Cytograph2:
-	def __init__(self, n_genes: int = 1000, n_factors: int = 100, k: int = 10, k_smoothing: int = 100) -> None:
+	def __init__(self, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_smoothing: int = 5, outliers: bool = False) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_smoothing = k_smoothing
 		self.k = k
+		self.outliers = outliers
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		# Select genes
@@ -26,6 +27,7 @@ class Cytograph2:
 		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
+		n_samples = data.shape[0]
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
@@ -35,11 +37,13 @@ class Cytograph2:
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_smoothing}) in latent space")
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
-		logging.info("Fitting a ball tree index")
-		nn = cg.BalancedKNN(self.k_smoothing, metric=cg.jensen_shannon_distance, maxl=2 * self.k_smoothing, sight_k=2 * self.k_smoothing)
-		nn.fit(theta)
-		logging.info("Finding nearest neighbors")
-		knn = nn.kneighbors_graph(theta, mode='connectivity')
+		nn = cg.BallTreeJS(data=theta)
+		(distances, indices) = nn.query(theta, k=self.k_smoothing)
+		# Note: we convert distances to similarities here, to support Poisson smoothing below
+		knn = sparse.csr_matrix(
+			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])),
+			(theta.shape[0], theta.shape[0])
+		)
 		knn.setdiag(1)
 
 		# Poisson smoothing (in place)
@@ -57,7 +61,7 @@ class Cytograph2:
 				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
 		# Select genes
-		logging.info(f"Selecting {self.n_genes} genes")
+		logging.info(f"Selecting {self.n_genes} genes after smoothing")
 		normalizer = cg.Normalizer(False, layer="smoothened")
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes, layer="smoothened").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
@@ -71,19 +75,19 @@ class Cytograph2:
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		# Here we normalize so the sums over components are one, because JSD requires it
-		# and because the components will be exactly proportional to cell size
+		# and because otherwise the components will be exactly proportional to cell size
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-		beta_all[genes] = hpf.beta
+		beta_all[genes] = (hpf.beta.T / hpf.beta.sum(axis=1)).T
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
 		logging.info(f"tSNE embedding from latent space")
-		tsne = TSNE(n_components=2, metric=cg.jensen_shannon_distance).fit_transform(theta)
+		tsne = cg.tsne_js(theta)
 		ds.ca.TSNE = tsne
 
 		logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
-		bnn = cg.BalancedKNN(k=self.k, metric=cg.jensen_shannon_distance, maxl=2 * self.k, sight_k=2 * self.k)
+		bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
 		bnn.fit(theta)
 		knn = bnn.kneighbors_graph(mode='distance')
 		mknn = knn.minimum(knn.transpose())
@@ -94,8 +98,8 @@ class Cytograph2:
 		ds.col_graphs.MKNN = mknn
 
 		logging.info("Clustering by polished Louvain")
-		pl = cg.PolishedLouvain()
+		pl = cg.PolishedLouvain(outliers=self.outliers)
 		labels = pl.fit_predict(ds, "KNN")
-		ds.ca.Clusters = labels + 1
+		ds.ca.Clusters = labels + min(labels)
 		ds.ca.Outliers = (labels == -1).astype('int')
 		logging.info(f"Found {labels.max() + 1} clusters")

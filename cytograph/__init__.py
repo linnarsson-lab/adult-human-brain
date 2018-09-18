@@ -12,7 +12,7 @@ from .classifier import Classifier
 from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer, load_trinaries, credible_discordance
 from .pool_spec import PoolSpec
-from .plots import plot_cv_mean, plot_knn, plot_graph, plot_louvain, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap, plot_factors
+from .plots import plot_cv_mean, plot_knn, plot_graph, plot_louvain, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap, plot_factors, plot_cellcycle
 from .magic import magic_imputation
 from .marker_selection import MarkerSelection
 from .TFs import TFs
@@ -32,3 +32,5 @@ from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidenc
 from .vbgmm_clustering import VbgmmClustering
 from .cluster_validator import ClusterValidator
 from .absolute import *
+from .ball_tree_js import BallTreeJS
+from .tsne_js import tsne_js

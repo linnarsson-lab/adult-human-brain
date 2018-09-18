@@ -48,8 +48,9 @@ def is_outlier(points, thresh=3.5):
 
 
 class PolishedLouvain:
-	def __init__(self, resolution: float = 1.0) -> None:
+	def __init__(self, resolution: float = 1.0, outliers: bool = True) -> None:
 		self.resolution = resolution
+		self.outliers = outliers
 
 	def _break_cluster(self, embedding: np.ndarray) -> np.ndarray:
 		"""
@@ -190,5 +191,12 @@ class PolishedLouvain:
 		retain = sorted(list(set(labels)))
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
+
+		if not self.outliers:
+			# Assign each outlier to the same cluster as the nearest non-outlier
+			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
+			nn.fit(xy[labels >= 0])
+			nearest = nn.kneighbors(xy[labels == -1], n_neighbors=1, return_distance=False)
+			labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
 
 		return labels

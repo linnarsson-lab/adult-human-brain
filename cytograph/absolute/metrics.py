@@ -30,7 +30,7 @@ def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	m = (pk + qk) / 2
 
 	vec = np.zeros(N)
-	for i in numba.prange(N):
+	for i in range(N):
 		if pk[i] > 0 and m[i] > 0:
 			vec[i] = pk[i] * np.log(pk[i] / m[i])
 		elif pk[i] == 0 and m[i] >= 0:
@@ -40,7 +40,7 @@ def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	Dpm = np.sum(vec) / np.log(2)
 
 	vec = np.zeros(N)
-	for i in numba.prange(N):
+	for i in range(N):
 		if qk[i] > 0 and m[i] > 0:
 			vec[i] = qk[i] * np.log(qk[i] / m[i])
 		elif qk[i] == 0 and m[i] >= 0:
@@ -56,7 +56,7 @@ def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 def jensen_shannon_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	"""
 	Remarks:
-		pk and qk must already be normalized so that np.sum(pk) == 1
+		pk and qk must already be normalized so that np.sum(pk) == np.sum(qk) == 1
 	"""
 	N = pk.shape[0]
 #	pk = pk / np.sum(pk)
