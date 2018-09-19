@@ -47,28 +47,28 @@ class Cytograph2:
 		knn.setdiag(1)
 
 		# Poisson smoothing (in place)
-		logging.info(f"Poisson smoothing")
-		ds["smoothened"] = 'int32'
+		logging.info(f"Poisson pooling")
+		ds["pooled"] = 'int32'
 		if "spliced" in ds.layers:
-			ds["spliced_ps"] = 'int32'
-			ds["unspliced_ps"] = 'int32'
+			ds["spliced_pp"] = 'int32'
+			ds["unspliced_pp"] = 'int32'
 		for (ix, indexes, view) in ds.scan(axis=0):
 			if "spliced" in ds.layers:
-				ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
-				ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
-				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = ds["spliced_ps"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_ps"][indexes.min(): indexes.max() + 1, :]
+				ds["spliced_pp"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
+				ds["unspliced_pp"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
+				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced_pp"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_pp"][indexes.min(): indexes.max() + 1, :]
 			else:
-				ds["smoothened"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes after smoothing")
-		normalizer = cg.Normalizer(False, layer="smoothened")
+		normalizer = cg.Normalizer(False, layer="pooled")
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes, layer="smoothened").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		genes = cg.FeatureSelection(self.n_genes, layer="pooled").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
-		data = ds["smoothened"].sparse(rows=genes).T
+		data = ds["pooled"].sparse(rows=genes).T
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
@@ -81,6 +81,22 @@ class Cytograph2:
 		beta_all[genes] = (hpf.beta.T / hpf.beta.sum(axis=1)).T
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
+
+		# Expected values
+		# TODO: Calculate expectations for spliced and unspliced too
+		logging.info(f"Computing expected values")
+		ds["expected"] = 'float32'  # Create a layer of floats
+		start = 0
+		batch_size = 6400
+		temp = np.zeros((ds.shape[0], batch_size))
+		while start < n_samples:
+			# Compute PPV for the genes that were used for HPF, and slot them into the full gene list
+			if hpf.theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
+				temp = np.zeros((ds.shape[0], hpf.theta.shape[0] - start))
+			temp[genes] = (hpf.theta[start: start + batch_size, :] @ hpf.beta.T).T
+			# Assign the batch to the full matrix at the right slot
+			ds["expected"][:, start: start + batch_size] = temp
+			start += batch_size
 
 		logging.info(f"tSNE embedding from latent space")
 		tsne = cg.tsne_js(theta)

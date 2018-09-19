@@ -488,8 +488,8 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 
 
 def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
+	layer = ds["pooled"]
 	xy = ds.ca.TSNE
-	labels = ds.ca["Clusters"]
 	cellcycle = {
 		"G1": ["SLBP", "CDCA7", "UNG"],
 		"G1/S": ["ORC1", "PCNA"],
@@ -497,12 +497,12 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 		"G2": ["CDK1", "HJURP", "TOP2A", "KIF23"],
 		"M": ["AURKA", "TPX2"]
 	}
-	plt.figure(figsize=(10,10))
+	plt.figure(figsize=(10, 10))
 	ix = 1
 	for phase in cellcycle.keys():
 		for g in cellcycle[phase]:
-			expr = ds[ds.ra.Gene == g, :][0]
-			ax = plt.subplot(4,4,ix)
+			expr = layer[ds.ra.Gene == g, :][0]
+			ax = plt.subplot(4, 4, ix)
 			ax.axis("off")
 			plt.title(phase + ": " + g)
 			plt.scatter(xy[:, 0], xy[:, 1], c="lightgrey", marker='.', lw=0, s=20)
@@ -512,18 +512,18 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
 	plt.title("ACTB")
-	plt.scatter(xy[:, 0], xy[:, 1], c=ds[ds.ra.Gene == "ACTB", :][0], marker='.', lw=0, s=10, cmap="viridis")
+	plt.scatter(xy[:, 0], xy[:, 1], c=layer[ds.ra.Gene == "ACTB", :][0], marker='.', lw=0, s=10, cmap="viridis")
 	ix += 1
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
 	plt.title("Clusters")
-	plt.scatter(xy[:, 0], xy[:, 1], c=cg.colorize(ds.ca.Clusters),marker='.',lw=0,s=10)
+	plt.scatter(xy[:, 0], xy[:, 1], c=cg.colorize(ds.ca.Clusters), marker='.', lw=0, s=10)
 	ix += 1
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
 	plt.title("G1/S vs. G2/M")
-	g1 = ds[ds.ra.Gene == "SLBP", :][0] + ds[ds.ra.Gene == "CDCA7", :][0] + ds[ds.ra.Gene == "UNG", :][0] + ds[ds.ra.Gene == "ORC1", :][0] + ds[ds.ra.Gene == "PCNA", :][0] + ds[ds.ra.Gene == "E2F8", :][0] + ds[ds.ra.Gene == "RRM2", :][0]
-	g2 = ds[ds.ra.Gene == "CDK1", :][0] + ds[ds.ra.Gene == "HJURP", :][0] + ds[ds.ra.Gene == "TOP2A", :][0] + ds[ds.ra.Gene == "KIF23", :][0] + ds[ds.ra.Gene == "AURKA", :][0] + ds[ds.ra.Gene == "TPX2", :][0]
+	g1 = layer[ds.ra.Gene == "SLBP", :][0] + layer[ds.ra.Gene == "CDCA7", :][0] + layer[ds.ra.Gene == "UNG", :][0] + layer[ds.ra.Gene == "ORC1", :][0] + layer[ds.ra.Gene == "PCNA", :][0] + layer[ds.ra.Gene == "E2F8", :][0] + layer[ds.ra.Gene == "RRM2", :][0]
+	g2 = layer[ds.ra.Gene == "CDK1", :][0] + layer[ds.ra.Gene == "HJURP", :][0] + layer[ds.ra.Gene == "TOP2A", :][0] + layer[ds.ra.Gene == "KIF23", :][0] + layer[ds.ra.Gene == "AURKA", :][0] + layer[ds.ra.Gene == "TPX2", :][0]
 	g1 = np.log2(g1 + np.random.uniform(1, 1.8, size=g1.shape))
 	g2 = np.log2(g2 + np.random.uniform(1, 1.8, size=g2.shape))
 	ordering = np.random.permutation(g1.shape[0])
