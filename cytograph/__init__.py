@@ -12,7 +12,7 @@ from .classifier import Classifier
 from .enrichment import MarkerEnrichment
 from .trinarizer import Trinarizer, load_trinaries, credible_discordance
 from .pool_spec import PoolSpec
-from .plots import plot_cv_mean, plot_knn, plot_graph, plot_louvain, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap, plot_factors, plot_cellcycle
+from .plots import plot_cv_mean, plot_knn, plot_graph, plot_louvain, plot_graph_age, plot_classes, plot_classification, plot_markerheatmap, plot_factors, plot_cellcycle, plot_markers
 from .magic import magic_imputation
 from .marker_selection import MarkerSelection
 from .TFs import TFs
