@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import BallTree, NearestNeighbors
 import logging
 from sklearn.manifold import TSNE
+from umap import UMAP
 from sklearn.preprocessing import normalize
 from typing import *
 import os
@@ -17,12 +18,13 @@ def mkl_bug() -> None:
 
 
 class Cytograph2:
-	def __init__(self, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_pooling: int = 5, outliers: bool = False) -> None:
+	def __init__(self, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_pooling: int = 5, outliers: bool = False, required_genes: str = None) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
 		self.k = k
 		self.outliers = outliers
+		self.required_genes = required_genes
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		mkl_bug()
@@ -55,17 +57,14 @@ class Cytograph2:
 		knn.setdiag(1)
 
 		mkl_bug()
-		# Poisson smoothing (in place)
+		# Poisson smoothing (in place, except the main layer)
 		logging.info(f"Poisson pooling")
 		ds["pooled"] = 'int32'
-		if "spliced" in ds.layers:
-			ds["spliced_pp"] = 'int32'
-			ds["unspliced_pp"] = 'int32'
 		for (ix, indexes, view) in ds.scan(axis=0):
 			if "spliced" in ds.layers:
-				ds["spliced_pp"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
-				ds["unspliced_pp"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
-				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced_pp"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_pp"][indexes.min(): indexes.max() + 1, :]
+				ds["spliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
+				ds["unspliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
+				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced"][indexes.min(): indexes.max() + 1, :] + ds["unspliced"][indexes.min(): indexes.max() + 1, :]
 			else:
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
@@ -75,6 +74,8 @@ class Cytograph2:
 		normalizer = cg.Normalizer(False, layer="pooled")
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes, layer="pooled").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		# Make sure to include these genes
+		genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
@@ -93,27 +94,37 @@ class Cytograph2:
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
-		# mkl_bug()
-		# # Expected values
-		# # TODO: Calculate expectations for spliced and unspliced too
-		# logging.info(f"Computing expected values")
-		# ds["expected"] = 'float32'  # Create a layer of floats
-		# start = 0
-		# batch_size = 6400
-		# temp = np.zeros((ds.shape[0], batch_size))
-		# while start < n_samples:
-		# 	# Compute PPV for the genes that were used for HPF, and slot them into the full gene list
-		# 	if hpf.theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
-		# 		temp = np.zeros((ds.shape[0], hpf.theta.shape[0] - start))
-		# 	temp[genes] = (hpf.theta[start: start + batch_size, :] @ hpf.beta.T).T
-		# 	# Assign the batch to the full matrix at the right slot
-		# 	ds["expected"][:, start: start + batch_size] = temp
-		# 	start += batch_size
+		mkl_bug()
+		# Expected values
+		# TODO: Calculate expectations for spliced and unspliced too
+		logging.info(f"Computing expected values")
+		ds["expected"] = 'float32'  # Create a layer of floats
+		start = 0
+		batch_size = 6400
+		temp = np.zeros((ds.shape[0], batch_size))
+		while start < n_samples:
+			# Compute PPV for the genes that were used for HPF, and slot them into the full gene list
+			if hpf.theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
+				temp = np.zeros((ds.shape[0], hpf.theta.shape[0] - start))
+			temp[genes] = (hpf.theta[start: start + batch_size, :] @ hpf.beta.T).T
+			# Assign the batch to the full matrix at the right slot
+			ds["expected"][:, start: start + batch_size] = temp
+			start += batch_size
 
 		mkl_bug()
 		logging.info(f"tSNE embedding from latent space")
 		tsne = cg.tsne_js(theta)
 		ds.ca.TSNE = tsne
+
+		mkl_bug()
+		logging.info(f"UMAP embedding from latent space")
+		umap = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=2).fit_transform(theta)
+		ds.ca.UMAP = umap
+
+		mkl_bug()
+		logging.info(f"UMAP embedding to 3D from latent space")
+		umap3d = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=3).fit_transform(theta)
+		ds.ca.UMAP3D = umap3d
 
 		mkl_bug()
 		logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
@@ -130,8 +141,9 @@ class Cytograph2:
 		mkl_bug()
 		logging.info("Clustering by polished Louvain")
 		pl = cg.PolishedLouvain(outliers=self.outliers)
-		labels = pl.fit_predict(ds, "KNN")
+		labels = pl.fit_predict(ds, graph="MKNN", embedding="HPF")
 		ds.ca.Clusters = labels + min(labels)
+		ds.ca.ClusterID = labels + min(labels)
 		ds.ca.Outliers = (labels == -1).astype('int')
 		logging.info(f"Found {labels.max() + 1} clusters")
 		mkl_bug()

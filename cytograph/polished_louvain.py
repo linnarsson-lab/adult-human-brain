@@ -110,8 +110,10 @@ class PolishedLouvain:
 				xy = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
 			else:
 				raise ValueError("The loom file has no TSNE embedding (TSNE or _X, _Y)")
+		elif embedding in ds.ca:
+			xy = ds.ca[embedding]
 		else:
-			raise ValueError("Invalid embedding (must be UMAP or TSNE)")
+			raise ValueError("Invalid embedding (did you mean UMAP or TSNE?)")
 			
 		knn = ds.col_graphs[graph]
 

@@ -7,6 +7,8 @@ from tqdm import trange
 from scipy.stats import linregress
 from typing import *
 from types import SimpleNamespace
+import loompy
+import logging
 
 
 class VelocityInference:
@@ -20,69 +22,61 @@ class VelocityInference:
 		self.b: np.ndarray = None
 		self.g: np.ndarray = None
 
-	def fit(self, s: np.ndarray, u: np.ndarray, knn: sparse.coo_matrix, g_init: np.ndarray = None) -> Any:
+	def fit(self, ds: loompy.LoomConnection, g_init: np.ndarray = None) -> Any:
 		"""
 		Args:
 			s      (n_genes, n_cells)
 			u      (n_genes, n_cells)
-			ds_du  (n_genes, n_cells)
 		"""
-		n_cells = s.shape[1]
-		n_genes = s.shape[0]
-
-		self.ds_du = np.zeros((n_genes, n_cells))
-		for i in trange(n_cells):
-			cells = (knn[i, :].A[0] > 0)
-			sc = s[:, cells]
-			uc = u[:, cells]
-			for j in range(n_genes):
-				if sc[j, :].sum() == 0 and uc[j, :].sum() == 0:
-					self.ds_du[j, i] = 0
-				else:
-					with np.errstate(divide='ignore', invalid='ignore'):
-						self.ds_du[j, i] = linregress(sc[j, :], uc[j, :]).slope
-		self.ds_du = np.nan_to_num(self.ds_du, False)
-
-		# Calculate the PCA transformation
-		self.pca = PCA(n_components=self.n_components).fit(s)
-
+		n_cells = ds.shape[1]
+		logging.info("Determining selected genes")
+		selected = (ds.ra.Selected == 1)
+		n_genes = selected.sum()
+		n_components = ds.ca.HPF.shape[1]
+		logging.info("Loading spliced")
+		s_data = ds["spliced"][:,:][selected, :].astype("float")
+		logging.info("Loading unspliced")
+		u_data = ds["unspliced"][:,:][selected, :].astype("float")
+		logging.info("Loading HPF")
+		m_data = ds.ra.HPF[selected, :]
+		
 		# Set up the optimization problem
+		logging.info("Setting up the optimization problem")
 		dt = torch.float
 		if g_init is not None:
 			g = Variable(torch.tensor(g_init, dtype=dt), requires_grad=True)
 		else:
 			g = Variable(0.1 * torch.ones(n_genes, dtype=dt), requires_grad=True)
 		self.model = SimpleNamespace(
-			sv=Variable(torch.tensor(s, dtype=dt)),
-			uv=Variable(torch.tensor(u, dtype=dt)),
-			k=Variable(torch.tensor(self.ds_du, dtype=dt)),
-			pca_components=Variable(torch.tensor(self.pca.components_, dtype=dt)),
-			pca_means=Variable(torch.tensor(self.pca.mean_, dtype=dt)),
-			a_latent=Variable(torch.tensor(np.random.gamma(1, 1, size=(n_genes, self.n_components)), dtype=dt), requires_grad=True),
+			s=Variable(torch.tensor(s_data, dtype=dt)),
+			u=Variable(torch.tensor(u_data, dtype=dt)),
+			m=Variable(torch.tensor(m_data, dtype=dt)),
+			v=Variable(torch.tensor(np.random.normal(0, 1, size=(n_components, n_cells)), dtype=dt), requires_grad=True),
 			b=Variable(torch.ones(n_genes, dtype=dt), requires_grad=True),
 			g=g
 		)
+		logging.info("Optimizing")
 		self.epochs(self.n_epochs)
 		return self
 
 	def epochs(self, n_epochs: int) -> Any:
 		m = self.model
 		loss_fn = torch.nn.MSELoss()
-		optimizer = torch.optim.SGD([m.a_latent, m.b, m.g], lr=self.lr)
+		optimizer = torch.optim.SGD([m.v, m.b, m.g], lr=self.lr)
 
 		for epoch in trange(n_epochs):
 			optimizer.zero_grad()
-			u_pred = (m.a_latent @ m.pca_components + m.pca_means + m.g.unsqueeze(1) * m.k * m.sv) / (m.b.unsqueeze(1) * m.k + m.b.unsqueeze(1))
-			loss_out = loss_fn(u_pred, m.uv)
+			left = m.m @ m.v
+			right = m.b.unsqueeze(1) * m.u - m.g.unsqueeze(1) * m.s - m.m @ m.v
+			loss_out = loss_fn(left, right)
 			loss_out.backward()
 			optimizer.step()
-			m.a_latent.data.clamp_(min=0)
 			m.b.data.clamp_(min=0)
 			m.g.data.clamp_(min=0)
 
 		self.loss = float(loss_out)
-		self.a_latent = m.a_latent.detach().numpy()
-		self.a = (m.a_latent @ m.pca_components + m.pca_means).detach().numpy()
+		self.v = m.v.detach().numpy()
 		self.b = m.b.detach().numpy()
 		self.g = m.g.detach().numpy()
 		return self
+

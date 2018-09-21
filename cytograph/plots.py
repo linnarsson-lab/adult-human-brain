@@ -76,7 +76,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 		pos = ds.ca[embedding]
 	else:
 		raise ValueError("Embedding not found in the file")
-	labels = ds.ca["Clusters", "ClusterID"]
+	labels = ds.ca["Clusters"]
 	if "Outliers" in ds.col_attrs:
 		outliers = ds.col_attrs["Outliers"]
 	else:
@@ -115,7 +115,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors75[np.mod(i, 75)], marker='.', lw=0, s=epsilon, alpha=0.75))
 			txt = str(i)
 			if "ClusterName" in ds.ca:
-				txt = ds.ca.ClusterName[ds.ca["Clusters", "ClusterID"] == i][0]
+				txt = ds.ca.ClusterName[ds.ca["Clusters"] == i][0]
 			if tags is not None:
 				names.append(f"{txt}/n={n_cells} " + tags[i].replace("\n", " "))
 			else:
@@ -127,7 +127,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 	for lbl in range(0, max(labels) + 1):
 		txt = str(lbl)
 		if "ClusterName" in ds.ca:
-			txt = ds.ca.ClusterName[ds.ca["Clusters", "ClusterID"] == lbl][0]
+			txt = ds.ca.ClusterName[ds.ca["Clusters"] == lbl][0]
 		if np.all(outliers[labels == lbl] == 1):
 			continue
 		if np.sum(labels == lbl) == 0:
@@ -161,7 +161,7 @@ def plot_graph_age(ds: loompy.LoomConnection, out_file: str, tags: List[str]) ->
 	sfdp_original = sfdp.copy()  # still the draw_networkx_edges wants the sfd with respect of the graph `g`
 	# \it is shortcut to avoid resorting the graph
 	sfdp = sfdp[orderfin, :]
-	labels = ds.col_attrs["Clusters", "ClusterID"][valid][orderfin]
+	labels = ds.col_attrs["Clusters"][valid][orderfin]
 	age = np.fromiter(map(parse_age, ds.ca["Age"]), dtype=float)[valid][orderfin]
 
 	fig = plt.figure(figsize=(10, 10))
@@ -332,10 +332,10 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
 	logging.info(ds.shape)
-	n_clusters = np.max(dsagg.ca["Clusters", "ClusterID"] + 1)
+	n_clusters = np.max(dsagg.ca["Clusters"] + 1)
 	n_markers = n_markers_per_cluster * n_clusters
 	enrichment = dsagg.layer["enrichment"][:n_markers, :]
-	cells = ds.ca["Clusters", "ClusterID"] >= 0
+	cells = ds.ca["Clusters"] >= 0
 	data = np.log(ds[:n_markers, :][:, cells] + 1)
 	agg = np.log(dsagg[:n_markers, :] + 1)
 
@@ -354,12 +354,13 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
 	n_probclasses = len(probclasses)
 
-	genes = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
-	genes = [g for g in genes if g in ds.ra.Gene]
+	gene_names = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	genes = [g for g in gene_names if g in ds.ra.Gene]
 	n_genes = len(genes)
 	if n_genes < 3:
-		genes = [g.toupper() for g in genes]
-		genes = [g for g in genes if g in ds.ra.Gene]
+		gene_names = [g.upper() for g in gene_names]
+		genes = [g for g in gene_names if g in ds.ra.Gene]
+		n_genes = len(genes)
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1
 	# colormax = np.max(data, axis=1)
@@ -529,3 +530,50 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	ordering = np.random.permutation(g1.shape[0])
 	plt.scatter(x=g2[ordering], y=g1[ordering], c=cg.colorize(ds.ca.Clusters)[ordering], marker='.', lw=0, s=10)
 	plt.savefig(out_file, format="png", dpi=144)
+
+
+def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
+	xy = ds.ca.TSNE
+	labels = ds.ca.Clusters
+	layer = ds["pooled"]
+	markers = {
+		"Neuron": ["RBFOX1", "RBFOX3", "MEG3"],
+		"Epen": ["CCDC153", "FOXJ1"],
+		"Choroid": ["TTR"],
+		"Astro": ["GJA1", "AQP4"],
+		"Rgl": ["FABP7", "HOPX"],
+		"Nblast": ["IGFBPL1", "EOMES"],
+		"Endo": ["CLDN5"],
+		"Immune": ["AIF1", "HEXB", "MRC1"],
+		"OPC": ["PDGFRA", "CSPG4"],
+		"Oligo": ["SOX10", "MOG"],
+		"VLMC": ["LUM", "DCN", "COL1A1"],
+		"Pericyte": ["VTN"],
+		"VSM": ["ACTA2"]
+	}
+	plt.figure(figsize=(10, 10))
+	ix = 1
+	for celltype in markers.keys():
+		for g in markers[celltype]:
+			expr = layer[ds.ra.Gene == g, :][0]
+			ax = plt.subplot(5, 5, ix)
+			ax.axis("off")
+			plt.title(celltype + ": " + g)
+			plt.scatter(xy[:, 0], xy[:, 1], c="lightgrey", marker='.',lw=0, s=20)
+			cells = expr > 0
+			plt.scatter(xy[:, 0][cells], xy[:, 1][cells], c=expr[cells], marker='.', lw=0, s=20, cmap="viridis")
+			ix += 1
+	plt.savefig(out_file, format="png", dpi=144)
+
+
+# class Heatmap:
+# 	def __init__(self, ds: loompy.LoomConnection, *, width: float = 10, n_genes: int = None) -> None:
+# 		self.ds = ds
+# 		self.width = width
+# 		self.n_genes = n_genes if n_genes is not None else ds.ca.ClusterID.max() + 1
+
+# 		Heatmap(ds, [
+# 			HeatTrack("Total", cmap="viridis"),
+# 			HeatTrack("ClusterID", cmap="cat_colors", labels="ClusterName"),
+# 			ScatterTrack("Actb", c)
+# 		])
