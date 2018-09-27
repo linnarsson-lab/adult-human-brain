@@ -112,7 +112,7 @@ class HPF:
 		self.n_threads = n_threads
 		if n_threads == 0:
 			if os.cpu_count() is not None:
-				self.n_threads = max(os.cpu_count() // 2, 1)  # type: ignore
+				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
 			else:
 				self.n_threads = 1
 
