@@ -559,9 +559,9 @@ def plot_markers_file(markers_file_path: str,
 
 	
 def replace(it1, it2):
-    if len(it1) != len(it2):
-        raise ValueError("Lengths of iterables are different")
-    return zip(it1, it2)
+	if len(it1) != len(it2):
+		raise ValueError("Lengths of iterables are different")
+	return zip(it1, it2)
 
 color_alphabet = np.array([
     [240,163,255],[0,117,220],[153,63,0],[76,0,92],[0,92,49],[43,206,72],[255,204,153],[128,128,128],[148,255,181],[143,124,0],[157,204,0],[194,0,136],[0,51,128],[255,164,5],[255,168,187],[66,102,0],[255,0,16],[94,241,242],[0,153,143],[224,255,102],[116,10,255],[153,0,0],[255,255,128],[255,255,0],[255,80,5]
@@ -576,3 +576,24 @@ def colorize(x, *, bgval = None):
 	if bgval is not None:
 		colors[x == bgval, :] = np.array([0.8, 0.8, 0.8])
 	return colors
+
+
+def species(ds: loompy.LoomConnection) -> str:
+	if "Gene" not in ds.ra:
+		return "Unknown"
+	for gene, species in {
+		"NOTCH2NL": "Homo sapiens",
+		"Tspy1": "Rattus norvegicus",
+		"Actb": "Mus musculus",  # Note must come after rat, because rat has the same gene name
+		"actb1": "Danio rerio",
+		"Act5C": "Drosophila melanogaster",
+		"ACT1": "Saccharomyces cerevisiae",
+		"act1": "Schizosaccharomyces pombe",
+		"act-1": "Caenorhabditis elegans",
+		"ACT12": "Arabidopsis thaliana",
+		"AFTTAS": "Gallus gallus"
+	}.items():
+		if gene in ds.ra.Gene:
+			return species
+	return "Unknown"
+

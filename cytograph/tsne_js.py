@@ -6,9 +6,9 @@ from typing import *
 import numpy as np
 
 
-def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None) -> np.ndarray:
+def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None, radius: float = 0.2) -> np.ndarray:
 	"""
-	Exploit the internals of sklearn TSNE to efficiently compute TSNE with Jensen-Shannon 
+	Exploit the internals of sklearn TSNE to efficiently compute TSNE with Jensen-Shannon
 	distance metric. This will make use of multiple cores for the nearest-neighbor search.
 
 	Args:
@@ -18,6 +18,7 @@ def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: i
 		perplexity			Perplexity
 		distances_nn		Precomputed nearest-neighbor distances (or None)
 		neighbors_nn		Precomputed nearest-neighbor indices (or None)
+		radius				Max distance
 	
 	Remarks:
 		If distances_nn and neighbors_nn are given, they will be used as-is to calculate the t-SNE P matrix
@@ -30,6 +31,7 @@ def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: i
 		knn = cg.BallTreeJS(X)
 		distances_nn, neighbors_nn = knn.query(None, k=k)
 
+	distances_nn[distances_nn > radius] = 1
 	P = _joint_probabilities_nn(distances_nn, neighbors_nn, perplexity, False)
 	
 	pca = PCA(n_components=n_components, svd_solver='randomized')

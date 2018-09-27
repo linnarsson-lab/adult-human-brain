@@ -10,6 +10,7 @@ from umap import UMAP
 from sklearn.preprocessing import normalize
 from typing import *
 import os
+from .velocity_inference import fit_gamma
 
 
 def mkl_bug() -> None:
@@ -18,13 +19,15 @@ def mkl_bug() -> None:
 
 
 class Cytograph2:
-	def __init__(self, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_pooling: int = 5, outliers: bool = False, required_genes: str = None) -> None:
+	def __init__(self, *, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_pooling: int = 5, outliers: bool = False, radius: float = 0.8, required_genes: str = None, timestep: float = 1) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
 		self.k = k
 		self.outliers = outliers
+		self.radius = radius
 		self.required_genes = required_genes
+		self.timestep = timestep
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		mkl_bug()
@@ -95,6 +98,18 @@ class Cytograph2:
 		ds.ca.HPF = theta
 
 		mkl_bug()
+		# HPF factorization of spliced/unspliced
+		if "spliced" in ds.layers:
+			logging.info(f"HPF of spliced molecules")
+			data_spliced = ds["spliced"].sparse(rows=genes).T
+			theta_spliced = hpf.transform(data_spliced)
+			theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
+			logging.info(f"HPF of unspliced molecules")
+			data_unspliced = ds["unspliced"].sparse(rows=genes).T
+			theta_unspliced = hpf.transform(data_unspliced)
+			theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
+
+		mkl_bug()
 		# Expected values
 		# TODO: Calculate expectations for spliced and unspliced too
 		logging.info(f"Computing expected values")
@@ -102,27 +117,45 @@ class Cytograph2:
 		start = 0
 		batch_size = 6400
 		temp = np.zeros((ds.shape[0], batch_size))
+		if "spliced" in ds.layers:
+			ds["spliced_exp"] = 'float32'
+			ds['unspliced_exp'] = 'float32'
+			temp_spliced = np.zeros((ds.shape[0], batch_size))
+			temp_unspliced = np.zeros((ds.shape[0], batch_size))
 		while start < n_samples:
 			# Compute PPV for the genes that were used for HPF, and slot them into the full gene list
-			if hpf.theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
-				temp = np.zeros((ds.shape[0], hpf.theta.shape[0] - start))
-			temp[genes] = (hpf.theta[start: start + batch_size, :] @ hpf.beta.T).T
-			# Assign the batch to the full matrix at the right slot
+			if theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
+				temp = np.zeros((ds.shape[0], theta.shape[0] - start))
+				temp_spliced = np.zeros((ds.shape[0], theta.shape[0] - start))
+				temp_unspliced = np.zeros((ds.shape[0], theta.shape[0] - start))
+			# Cumpute and assign the batch to the full matrix at the right slot
+			temp[genes] = (theta[start: start + batch_size, :] @ hpf.beta.T).T
 			ds["expected"][:, start: start + batch_size] = temp
+			if "spliced" in ds.layers:
+				temp_spliced[genes] = (theta_spliced[start: start + batch_size, :] @ hpf.beta.T).T
+				ds["spliced_exp"][:, start: start + batch_size] = temp
+				temp_unspliced[genes] = (theta_unspliced[start: start + batch_size, :] @ hpf.beta.T).T
+				ds["unspliced_exp"][:, start: start + batch_size] = temp				
 			start += batch_size
 
 		mkl_bug()
-		logging.info(f"tSNE embedding from latent space")
-		tsne = cg.tsne_js(theta)
+		logging.info(f"2D tSNE embedding from latent space")
+		tsne = cg.tsne_js(theta, radius=1 - self.radius)
 		ds.ca.TSNE = tsne
 
 		mkl_bug()
-		logging.info(f"UMAP embedding from latent space")
-		umap = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=2).fit_transform(theta)
+		logging.info(f"3D tSNE embedding from latent space")
+		tsne = cg.tsne_js(theta, n_components=3, radius=1 - self.radius)  # Note: tsne_js is defined in terms of distance, not similarity
+		ds.ca.TSNE3D = tsne
+
+		mkl_bug()
+		logging.info(f"2D UMAP embedding from latent space")
+		umap_embedder = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=2)
+		umap = umap_embedder.fit_transform(theta)
 		ds.ca.UMAP = umap
 
 		mkl_bug()
-		logging.info(f"UMAP embedding to 3D from latent space")
+		logging.info(f"3D UMAP embedding from latent space")
 		umap3d = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=3).fit_transform(theta)
 		ds.ca.UMAP3D = umap3d
 
@@ -137,13 +170,38 @@ class Cytograph2:
 		mknn.data = 1 - mknn.data
 		ds.col_graphs.KNN = knn
 		ds.col_graphs.MKNN = mknn
+		knn.setdiag(0)
+		knn = knn.tocoo()
+		inside = knn.data > self.radius
+		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
+		ds.col_graphs.RNN = rnn
 
 		mkl_bug()
 		logging.info("Clustering by polished Louvain")
 		pl = cg.PolishedLouvain(outliers=self.outliers)
-		labels = pl.fit_predict(ds, graph="MKNN", embedding="HPF")
+		labels = pl.fit_predict(ds, graph="RNN", embedding="HPF")
 		ds.ca.Clusters = labels + min(labels)
-		ds.ca.ClusterID = labels + min(labels)
 		ds.ca.Outliers = (labels == -1).astype('int')
 		logging.info(f"Found {labels.max() + 1} clusters")
 		mkl_bug()
+
+		logging.info("Fitting gamma for velocity inference")
+		selected = ds.ra.Selected == 1
+		n_genes = ds.shape[0]
+		s = ds["spliced"][selected, :]
+		u = ds["unspliced"][selected, :]
+		gamma = fit_gamma(s, u)
+		gamma_all = np.zeros(n_genes)
+		gamma_all[selected] = gamma
+		ds.ra.Gamma = gamma_all
+
+		logging.info("Extrapolating future expression")
+		velocity = u + gamma[:, None] * s
+		future = s + velocity * self.timestep
+		np.clip(future, 0, None, out=future)
+		future = np.random.poisson(future)
+		future_theta = hpf.transform(sparse.coo_matrix(future.T))
+		ds.ca.UMAP_future = umap_embedder.transform(future_theta)
+
+# TODO: evaluate if it was better to use normalized theta than hpf.theta, and what about beta vs hpf.beta?
+# TODO: evaluate it it is better to use expected values for S and U vs poisson pooled values

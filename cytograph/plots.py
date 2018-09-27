@@ -17,6 +17,7 @@ from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
+from .utils import species
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -247,7 +248,7 @@ def plot_louvain(ds: loompy.LoomConnection, out_file: str) -> None:
 		g = nx.from_scipy_sparse_matrix(ds.col_graphs.MKNN)
 		partitions = community.best_partition(g, resolution=res)
 		labels = np.array([partitions[key] for key in range(ds.shape[1])])
-		plt.scatter(ds.ca._X, ds.ca._Y, c=labels, cmap="prism", marker='.',alpha=0.5)
+		plt.scatter(ds.ca._X, ds.ca._Y, c=labels, cmap="prism", marker='.', alpha=0.5)
 		plt.title(f"res={res}")	
 	plt.savefig(out_file, format="png", dpi=300)
 	plt.close()
@@ -354,13 +355,13 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	probclasses = [x for x in ds.col_attrs.keys() if x.startswith("ClassProbability_")]
 	n_probclasses = len(probclasses)
 
-	gene_names = ["Cdk1", "Top2a", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	gene_names: List[str] = []
+	if species(ds) == "Mus musculus":
+		gene_names = ["Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+	elif species(ds) == "Homo sapiens":
+		gene_names = ["CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "MEG3", "STMN2", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ"]
 	genes = [g for g in gene_names if g in ds.ra.Gene]
 	n_genes = len(genes)
-	if n_genes < 3:
-		gene_names = [g.upper() for g in gene_names]
-		genes = [g for g in gene_names if g in ds.ra.Gene]
-		n_genes = len(genes)
 
 	colormax = np.percentile(data, 99, axis=1) + 0.1
 	# colormax = np.max(data, axis=1)
@@ -491,13 +492,28 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	layer = ds["pooled"]
 	xy = ds.ca.TSNE
-	cellcycle = {
-		"G1": ["SLBP", "CDCA7", "UNG"],
-		"G1/S": ["ORC1", "PCNA"],
-		"S": ["E2F8", "RRM2"],
-		"G2": ["CDK1", "HJURP", "TOP2A", "KIF23"],
-		"M": ["AURKA", "TPX2"]
-	}
+	cellcycle: Dict[str, List[str]] = {}
+	if species(ds) == "Homo sapiens":
+		actin = "ACTB"
+		cellcycle = {
+			"G1": ["SLBP", "CDCA7", "UNG"],
+			"G1/S": ["ORC1", "PCNA"],
+			"S": ["E2F8", "RRM2"],
+			"G2": ["CDK1", "HJURP", "TOP2A", "KIF23"],
+			"M": ["AURKA", "TPX2"]
+		}
+	elif species(ds) == "Mus musculus":
+		actin = "Actb"
+		cellcycle = {
+			"G1": ["Slbp", "Cdca7", "Ung"],
+			"G1/S": ["Orc1", "Pcna"],
+			"S": ["E2f8", "Rrm2"],
+			"G2": ["Cdk1", "Hjurp", "Top2a", "Kif23"],
+			"M": ["Aurka", "Tpx2"]
+		}
+	else:
+		return
+
 	plt.figure(figsize=(10, 10))
 	ix = 1
 	for phase in cellcycle.keys():
@@ -512,8 +528,8 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 			ix += 1
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
-	plt.title("ACTB")
-	plt.scatter(xy[:, 0], xy[:, 1], c=layer[ds.ra.Gene == "ACTB", :][0], marker='.', lw=0, s=10, cmap="viridis")
+	plt.title(actin)
+	plt.scatter(xy[:, 0], xy[:, 1], c=layer[ds.ra.Gene == actin, :][0], marker='.', lw=0, s=10, cmap="viridis")
 	ix += 1
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
@@ -523,11 +539,21 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(4, 4, ix)
 	ax.axis("off")
 	plt.title("G1/S vs. G2/M")
-	g1 = layer[ds.ra.Gene == "SLBP", :][0] + layer[ds.ra.Gene == "CDCA7", :][0] + layer[ds.ra.Gene == "UNG", :][0] + layer[ds.ra.Gene == "ORC1", :][0] + layer[ds.ra.Gene == "PCNA", :][0] + layer[ds.ra.Gene == "E2F8", :][0] + layer[ds.ra.Gene == "RRM2", :][0]
-	g2 = layer[ds.ra.Gene == "CDK1", :][0] + layer[ds.ra.Gene == "HJURP", :][0] + layer[ds.ra.Gene == "TOP2A", :][0] + layer[ds.ra.Gene == "KIF23", :][0] + layer[ds.ra.Gene == "AURKA", :][0] + layer[ds.ra.Gene == "TPX2", :][0]
-	g1 = np.log2(g1 + np.random.uniform(1, 1.8, size=g1.shape))
-	g2 = np.log2(g2 + np.random.uniform(1, 1.8, size=g2.shape))
-	ordering = np.random.permutation(g1.shape[0])
+	g1 = np.zeros(ds.shape[1])
+	for g in cellcycle["G1"] + cellcycle["G1/S"] + cellcycle["S"]:
+		t = layer[ds.ra.Gene == g, :][0]
+		t = t - t.min()
+		t = t / t.max()
+		g1 += t
+	g2 = np.zeros(ds.shape[1])
+	for g in cellcycle["G2"] + cellcycle["M"]:
+		t = layer[ds.ra.Gene == g, :][0]
+		t = t - t.min()
+		t = t / t.max()
+		g2 += t
+	g1 = np.log2(g1 + np.random.uniform(1, 1.1, size=g1.shape))
+	g2 = np.log2(g2 + np.random.uniform(1, 1.1, size=g2.shape))
+	ordering = np.random.permutation(g1.shape[0])  # randomize the ordering so that the plot is not misleading because of cluster order
 	plt.scatter(x=g2[ordering], y=g1[ordering], c=cg.colorize(ds.ca.Clusters)[ordering], marker='.', lw=0, s=10)
 	plt.savefig(out_file, format="png", dpi=144)
 
@@ -536,21 +562,41 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 	xy = ds.ca.TSNE
 	labels = ds.ca.Clusters
 	layer = ds["pooled"]
-	markers = {
-		"Neuron": ["RBFOX1", "RBFOX3", "MEG3"],
-		"Epen": ["CCDC153", "FOXJ1"],
-		"Choroid": ["TTR"],
-		"Astro": ["GJA1", "AQP4"],
-		"Rgl": ["FABP7", "HOPX"],
-		"Nblast": ["IGFBPL1", "EOMES"],
-		"Endo": ["CLDN5"],
-		"Immune": ["AIF1", "HEXB", "MRC1"],
-		"OPC": ["PDGFRA", "CSPG4"],
-		"Oligo": ["SOX10", "MOG"],
-		"VLMC": ["LUM", "DCN", "COL1A1"],
-		"Pericyte": ["VTN"],
-		"VSM": ["ACTA2"]
-	}
+	markers: Dict[str, List[str]] = {}
+	if species(ds) == "Homo sapiens":
+		markers = {
+			"Neuron": ["RBFOX1", "RBFOX3", "MEG3"],
+			"Epen": ["CCDC153", "FOXJ1"],
+			"Choroid": ["TTR"],
+			"Astro": ["GJA1", "AQP4"],
+			"Rgl": ["FABP7", "HOPX"],
+			"Nblast": ["IGFBPL1", "EOMES"],
+			"Endo": ["CLDN5"],
+			"Immune": ["AIF1", "HEXB", "MRC1"],
+			"OPC": ["PDGFRA", "CSPG4"],
+			"Oligo": ["SOX10", "MOG"],
+			"VLMC": ["LUM", "DCN", "COL1A1"],
+			"Pericyte": ["VTN"],
+			"VSM": ["ACTA2"]
+		}
+	elif species(ds) == "Mus musculus":
+		markers = {
+			"Neuron": ["Rbfox1", "Rbfox3", "Meg3"],
+			"Epen": ["Ccdc153", "Foxj1"],
+			"Choroid": ["Ttr"],
+			"Astro": ["Gja1", "Aqp4"],
+			"Rgl": ["Fabp7", "Hopx"],
+			"Nblast": ["Igfbpl1", "Eomes"],
+			"Endo": ["Cldn5"],
+			"Immune": ["Aif1", "Hexb", "Mrc1"],
+			"OPC": ["Pdgfra", "Cspg4"],
+			"Oligo": ["Sox10", "Mog"],
+			"VLMC": ["Lum", "Dcn", "Col1a1"],
+			"Pericyte": ["Vtn"],
+			"VSM": ["Acta2"]
+		}
+	else:
+		return
 	plt.figure(figsize=(10, 10))
 	ix = 1
 	for celltype in markers.keys():
@@ -559,21 +605,112 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 			ax = plt.subplot(5, 5, ix)
 			ax.axis("off")
 			plt.title(celltype + ": " + g)
-			plt.scatter(xy[:, 0], xy[:, 1], c="lightgrey", marker='.',lw=0, s=20)
+			plt.scatter(xy[:, 0], xy[:, 1], c="lightgrey", marker='.', lw=0, s=20)
 			cells = expr > 0
 			plt.scatter(xy[:, 0][cells], xy[:, 1][cells], c=expr[cells], marker='.', lw=0, s=20, cmap="viridis")
 			ix += 1
 	plt.savefig(out_file, format="png", dpi=144)
 
 
-# class Heatmap:
-# 	def __init__(self, ds: loompy.LoomConnection, *, width: float = 10, n_genes: int = None) -> None:
-# 		self.ds = ds
-# 		self.width = width
-# 		self.n_genes = n_genes if n_genes is not None else ds.ca.ClusterID.max() + 1
+def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str) -> None:
+	knn = ds.col_graphs.KNN
+	knn.setdiag(0)
+	dmax = knn.max(axis=1).toarray()[:, 0]
+	xy = ds.ca.TSNE
 
-# 		Heatmap(ds, [
-# 			HeatTrack("Total", cmap="viridis"),
-# 			HeatTrack("ClusterID", cmap="cat_colors", labels="ClusterName"),
-# 			ScatterTrack("Actb", c)
-# 		])
+	radius = 0.8
+	cells = dmax > radius
+	n_cells_inside = cells.sum()
+	n_cells = dmax.shape[0]
+	cells_pct = int(100 - 100 * (n_cells_inside / n_cells))
+	n_edges_inside = (knn.data > radius).sum()
+	n_edges = (knn.data > 0).sum()
+	edges_pct = int(100 * (n_edges_inside / n_edges))
+
+	plt.figure(figsize=(12, 12))
+	plt.suptitle(f"Neighborhood characteristics (radius = {radius})\n{n_cells - n_cells_inside} of {n_cells} cells lack neighbors ({cells_pct}%)\n{n_edges_inside} of {n_edges} edges retained ({edges_pct}%)", fontsize=14)
+
+	ax = plt.subplot(221)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
+	cax = ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=dmax[cells], vmin=radius, vmax=0.95, cmap="viridis", s=1)
+	plt.colorbar(cax)
+	plt.title("Farthest neighbor similarity")
+
+	ax = plt.subplot(222)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
+	ax.scatter(xy[:, 0][~cells], xy[:, 1][~cells], c="red", s=1)
+	plt.title("Cells with no neighbors")
+
+	ax = plt.subplot(223)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
+	subset = np.random.choice(np.sum(knn.data > radius), size=500)
+	lc = LineCollection(zip(xy[knn.row[knn.data > radius]][subset], xy[knn.col[knn.data > radius]][subset]), linewidths=0.5, color="red")
+	ax.add_collection(lc)
+	plt.title("Edges inside radius (500 samples)")
+
+	ax = plt.subplot(224)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
+	subset = np.random.choice(np.sum(knn.data < radius), size=500)
+	lc = LineCollection(zip(xy[knn.row[knn.data < radius]][subset], xy[knn.col[knn.data < radius]][subset]), linewidths=0.5, color="red")
+	ax.add_collection(lc)
+	plt.title("Edges outside radius (500 samples)")
+	
+	plt.savefig(out_file, format="png", dpi=144)
+
+
+def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
+	xy = ds.ca.TSNE
+	plt.figure(figsize=(12,12))
+	labels = ds.ca.Tissue
+	ax = plt.subplot(221)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+	ax.legend()
+	plt.title("Tissue")
+
+	labels = ds.ca.Age
+	ax = plt.subplot(222)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+	ax.legend()
+	plt.title("Age")
+	
+	ax = plt.subplot(223)
+	xist = ds[ds.ra.Gene == "XIST", :][0]
+	cells = xist > 0
+	ax.scatter(xy[:,0], xy[:,1],c='lightgrey',lw=0,s=10)
+	ax.scatter(xy[:,0][cells], xy[:,1][cells],c=xist[cells],lw=0,s=10)
+	plt.title("Sex (XIST)")
+
+	labels = ds.ca.ChipID
+	ax = plt.subplot(224)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+	ax.legend()
+	plt.title("ChipID")
+
+	plt.savefig(out_file, dpi=144)
+
+
+def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
+	plt.figure(figsize=(12,4))
+	plt.subplot(121)
+	for chip in np.unique(ds.ca.ChipID):
+		cells = ds.ca.ChipID == chip
+		plt.hist(np.log10(ds.ca.TotalRNA[cells]), bins=100, label=chip, alpha=0.5)
+		plt.title("UMI distribution")
+		plt.ylabel("Number of cells")
+		plt.xlabel("Log10(Number of UMIs)")
+	plt.legend()
+	plt.subplot(122)
+	for chip in np.unique(ds.ca.ChipID):
+		cells = ds.ca.ChipID == chip
+		plt.hist(np.log10(ds.ca.NGenes[cells]), bins=100, label=chip, alpha=0.5)
+		plt.title("Gene count distribution")
+		plt.ylabel("Number of cells")
+		plt.xlabel("Log10(Number of genes)")
+	plt.legend()
+	plt.savefig(out_file, dpi=144)
