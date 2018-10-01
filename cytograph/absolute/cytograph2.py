@@ -149,13 +149,13 @@ class Cytograph2:
 				temp_spliced = np.zeros((ds.shape[0], theta.shape[0] - start))
 				temp_unspliced = np.zeros((ds.shape[0], theta.shape[0] - start))
 			# Cumpute and assign the batch to the full matrix at the right slot
-			temp[genes] = (theta[start: start + batch_size, :] @ hpf.beta.T).T
+			temp[genes] = (theta[start: start + batch_size, :] @ beta.T).T
 			ds["expected"][:, start: start + batch_size] = temp
 			if "spliced" in ds.layers:
 				temp_spliced[genes] = (theta_spliced[start: start + batch_size, :] @ beta.T).T
 				ds["spliced_exp"][:, start: start + batch_size] = temp
 				temp_unspliced[genes] = (theta_unspliced[start: start + batch_size, :] @ beta.T).T
-				ds["unspliced_exp"][:, start: start + batch_size] = temp				
+				ds["unspliced_exp"][:, start: start + batch_size] = temp
 			start += batch_size
 
 		mkl_bug()
