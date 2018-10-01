@@ -11,6 +11,7 @@ from sklearn.preprocessing import normalize
 from typing import *
 import os
 from .velocity_inference import fit_gamma
+from .identify_technical_factors import identify_technical_factors
 
 
 def mkl_bug() -> None:
@@ -30,6 +31,7 @@ class Cytograph2:
 		self.timestep = timestep
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
+		
 		mkl_bug()
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes")
@@ -45,11 +47,18 @@ class Cytograph2:
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
+		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
+
+		if "Batch" in ds.ca and "Replicate" in ds.ca:
+			technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
+			logging.info(f"Removing {technical.sum()} technical factors")
+			theta = theta[:, ~technical]
+		else:
+			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
 
 		mkl_bug()
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
-		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 		nn = cg.BallTreeJS(data=theta)
 		(distances, indices) = nn.query(theta, k=self.k_pooling)
 		# Note: we convert distances to similarities here, to support Poisson smoothing below
@@ -73,7 +82,7 @@ class Cytograph2:
 
 		mkl_bug()
 		# Select genes
-		logging.info(f"Selecting {self.n_genes} genes after smoothing")
+		logging.info(f"Selecting {self.n_genes} genes after pooling")
 		normalizer = cg.Normalizer(False, layer="pooled")
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes, layer="pooled").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
@@ -92,8 +101,17 @@ class Cytograph2:
 		# Here we normalize so the sums over components are one, because JSD requires it
 		# and because otherwise the components will be exactly proportional to cell size
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
+		beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
-		beta_all[genes] = (hpf.beta.T / hpf.beta.sum(axis=1)).T
+		beta_all[genes] = beta
+		if "Batch" in ds.ca and "Replicate" in ds.ca:
+			technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
+			logging.info(f"Removing {technical.sum()} technical factors")
+			theta = theta[:, ~technical]
+			beta = beta[:, ~technical]
+			beta_all = beta_all[:, ~technical]
+		else:
+			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
@@ -104,10 +122,12 @@ class Cytograph2:
 			data_spliced = ds["spliced"].sparse(rows=genes).T
 			theta_spliced = hpf.transform(data_spliced)
 			theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
+			theta_spliced = theta_spliced[:, ~technical]
 			logging.info(f"HPF of unspliced molecules")
 			data_unspliced = ds["unspliced"].sparse(rows=genes).T
 			theta_unspliced = hpf.transform(data_unspliced)
 			theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
+			theta_unspliced = theta_unspliced[:, ~technical]
 
 		mkl_bug()
 		# Expected values
@@ -132,9 +152,9 @@ class Cytograph2:
 			temp[genes] = (theta[start: start + batch_size, :] @ hpf.beta.T).T
 			ds["expected"][:, start: start + batch_size] = temp
 			if "spliced" in ds.layers:
-				temp_spliced[genes] = (theta_spliced[start: start + batch_size, :] @ hpf.beta.T).T
+				temp_spliced[genes] = (theta_spliced[start: start + batch_size, :] @ beta.T).T
 				ds["spliced_exp"][:, start: start + batch_size] = temp
-				temp_unspliced[genes] = (theta_unspliced[start: start + batch_size, :] @ hpf.beta.T).T
+				temp_unspliced[genes] = (theta_unspliced[start: start + batch_size, :] @ beta.T).T
 				ds["unspliced_exp"][:, start: start + batch_size] = temp				
 			start += batch_size
 
@@ -185,23 +205,24 @@ class Cytograph2:
 		logging.info(f"Found {labels.max() + 1} clusters")
 		mkl_bug()
 
-		logging.info("Fitting gamma for velocity inference")
-		selected = ds.ra.Selected == 1
-		n_genes = ds.shape[0]
-		s = ds["spliced"][selected, :]
-		u = ds["unspliced"][selected, :]
-		gamma = fit_gamma(s, u)
-		gamma_all = np.zeros(n_genes)
-		gamma_all[selected] = gamma
-		ds.ra.Gamma = gamma_all
+		if "spliced" in ds.layers:
+			logging.info("Fitting gamma for velocity inference")
+			selected = ds.ra.Selected == 1
+			n_genes = ds.shape[0]
+			s = ds["spliced_exp"][selected, :]
+			u = ds["unspliced_exp"][selected, :]
+			gamma = fit_gamma(s, u)
+			gamma_all = np.zeros(n_genes)
+			gamma_all[selected] = gamma
+			ds.ra.Gamma = gamma_all
 
-		logging.info("Extrapolating future expression")
-		velocity = u + gamma[:, None] * s
-		future = s + velocity * self.timestep
-		np.clip(future, 0, None, out=future)
-		future = np.random.poisson(future)
-		future_theta = hpf.transform(sparse.coo_matrix(future.T))
-		ds.ca.UMAP_future = umap_embedder.transform(future_theta)
+			logging.info("Extrapolating future expression")
+			velocity = u + gamma[:, None] * s
+			future = s + velocity * self.timestep
+			np.clip(future, 0, None, out=future)
+			future = np.random.poisson(future)
+			future_theta = hpf.transform(sparse.coo_matrix(future.T))
+			ds.ca.UMAP_future = umap_embedder.transform(future_theta)
 
 # TODO: evaluate if it was better to use normalized theta than hpf.theta, and what about beta vs hpf.beta?
 # TODO: evaluate it it is better to use expected values for S and U vs poisson pooled values

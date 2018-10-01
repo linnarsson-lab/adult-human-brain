@@ -684,13 +684,13 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax.scatter(xy[:,0][cells], xy[:,1][cells],c=xist[cells],lw=0,s=10)
 	plt.title("Sex (XIST)")
 
-	labels = ds.ca.ChipID
+	labels = ds.ca.SampleID
 	ax = plt.subplot(224)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
 		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
 	ax.legend()
-	plt.title("ChipID")
+	plt.title("SampleID")
 
 	plt.savefig(out_file, dpi=144)
 
@@ -698,16 +698,16 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.figure(figsize=(12,4))
 	plt.subplot(121)
-	for chip in np.unique(ds.ca.ChipID):
-		cells = ds.ca.ChipID == chip
+	for chip in np.unique(ds.ca.SampleID):
+		cells = ds.ca.SampleID == chip
 		plt.hist(np.log10(ds.ca.TotalRNA[cells]), bins=100, label=chip, alpha=0.5)
 		plt.title("UMI distribution")
 		plt.ylabel("Number of cells")
 		plt.xlabel("Log10(Number of UMIs)")
 	plt.legend()
 	plt.subplot(122)
-	for chip in np.unique(ds.ca.ChipID):
-		cells = ds.ca.ChipID == chip
+	for chip in np.unique(ds.ca.SampleID):
+		cells = ds.ca.SampleID == chip
 		plt.hist(np.log10(ds.ca.NGenes[cells]), bins=100, label=chip, alpha=0.5)
 		plt.title("Gene count distribution")
 		plt.ylabel("Number of cells")
