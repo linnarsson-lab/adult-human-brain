@@ -674,7 +674,7 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 		ax.legend()
 		plt.title("Tissue")
 
-	if "Age" in ds.ca and np.all(np.isfinite(ds.ca.Age)):
+	if "Age" in ds.ca:
 		labels = ds.ca.Age
 		ax = plt.subplot(222)
 		for lbl in np.unique(labels):
