@@ -5,6 +5,8 @@ from scipy import sparse
 import logging
 from typing import *
 import cytograph as cg
+from .absolute.metrics import jensen_shannon_distance
+from pynndescent import NNDescent
 
 
 # Mutual KNN functions
@@ -164,7 +166,8 @@ class BalancedKNN:
 			self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, algorithm="brute")
 			self.nn.fit(self.fitdata)
 		elif self.metric == "js":
-			self.nn = cg.BallTreeJS(data=self.fitdata, leaf_size=10)
+			# self.nn = cg.BallTreeJS(data=self.fitdata, leaf_size=10)
+			self.nn = NNDescent(data=self.fitdata, metric=jensen_shannon_distance)
 		else:
 			self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, leaf_size=30)
 			self.nn.fit(self.fitdata)
@@ -207,12 +210,12 @@ class BalancedKNN:
 			self.maxl = maxl
 		if mode == "distance":
 			if self.metric == "js":
-				self.dist, self.dsi = self.nn.query(self.data, self.sight_k + 1)
+				self.dsi, self.dist = self.nn.query(self.data, k=self.sight_k + 1)
 			else:
 				self.dist, self.dsi = self.nn.kneighbors(self.data, return_distance=True)
 		else:
 			if self.metric == "js":
-				_, self.dsi = self.nn.query(self.data, self.sight_k + 1)
+				self.dsi, _ = self.nn.query(self.data, k=self.sight_k + 1)
 			else:
 				self.dsi = self.nn.kneighbors(self.data, return_distance=False)
 			self.dist = np.ones_like(self.dsi, dtype='float64')

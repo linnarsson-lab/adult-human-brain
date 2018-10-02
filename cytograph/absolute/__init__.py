@@ -1,6 +1,6 @@
 from .absolute_manifold import AbsoluteManifold, poisson_distance_cosine_expectation, poisson_distance_model_selection
 from .cytograph2 import Cytograph2
-from .velocity_inference import VelocityInference, fit_gamma
+from .velocity_inference import fit_gamma
 from .neighborhood_enrichment import NeighborhoodEnrichment
 from .metrics import kullback_leibler, jensen_shannon_distance, jensen_shannon_divergence, stabilized_minkowski, minkowski10
 from .identify_technical_factors import identify_technical_factors

@@ -11,7 +11,7 @@ from numba import jit
 from concurrent.futures import ThreadPoolExecutor
 
 ##
-## This is intended to be a drop-inreplacement for HPF.py that uses multithreding and a little bit
+## This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
 ## of JIT precompilation through Numba, to accelerate the computation and make use of all available cores
 ##
 

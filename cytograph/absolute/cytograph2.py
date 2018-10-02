@@ -7,11 +7,13 @@ from sklearn.neighbors import BallTree, NearestNeighbors
 import logging
 from sklearn.manifold import TSNE
 from umap import UMAP
+from pynndescent import NNDescent
 from sklearn.preprocessing import normalize
 from typing import *
 import os
 from .velocity_inference import fit_gamma
 from .identify_technical_factors import identify_technical_factors
+from .metrics import jensen_shannon_distance
 
 
 def mkl_bug() -> None:
@@ -59,8 +61,8 @@ class Cytograph2:
 		mkl_bug()
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
-		nn = cg.BallTreeJS(data=theta)
-		(distances, indices) = nn.query(theta, k=self.k_pooling)
+		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
+		indices, distances = nn.query(theta, k=self.k_pooling)
 		# Note: we convert distances to similarities here, to support Poisson smoothing below
 		knn = sparse.csr_matrix(
 			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])),

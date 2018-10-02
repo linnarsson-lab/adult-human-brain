@@ -22,7 +22,7 @@ def kullback_leibler(pk: np.ndarray, qk: np.ndarray) -> float:
 	return S
 
 
-@numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
+@numba.jit(["float32(float64[:], float64[:])", "float32(float32[:], float32[:])"], nopython=True, cache=True)
 def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	N = pk.shape[0]
 #	pk = pk / np.sum(pk)
@@ -52,7 +52,7 @@ def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	return (Dpm + Dqm) / 2
 
 
-@numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
+@numba.jit(["float32(float64[:], float64[:])", "float32(float32[:], float32[:])"], nopython=True, cache=True)
 def jensen_shannon_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	"""
 	Remarks:

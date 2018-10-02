@@ -664,36 +664,41 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str) -> Non
 def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	xy = ds.ca.TSNE
 	plt.figure(figsize=(12, 12))
-	labels = ds.ca.Tissue
-	ax = plt.subplot(221)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
-	plt.title("Tissue")
 
-	labels = ds.ca.Age
-	ax = plt.subplot(222)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
-	plt.title("Age")
+	if "Tissue" in ds.ca:
+		labels = ds.ca.Tissue
+		ax = plt.subplot(221)
+		for lbl in np.unique(labels):
+			cells = labels == lbl
+			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+		ax.legend()
+		plt.title("Tissue")
+
+	if "Age" in ds.ca and np.all(np.isfinite(ds.ca.Age)):
+		labels = ds.ca.Age
+		ax = plt.subplot(222)
+		for lbl in np.unique(labels):
+			cells = labels == lbl
+			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+		ax.legend()
+		plt.title("Age")
 	
-	ax = plt.subplot(223)
-	xist = ds[ds.ra.Gene == "XIST", :][0]
-	cells = xist > 0
-	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
-	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
-	plt.title("Sex (XIST)")
+	if "XIST" in ds.ra.Gene:
+		ax = plt.subplot(223)
+		xist = ds[ds.ra.Gene == "XIST", :][0]
+		cells = xist > 0
+		ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
+		plt.title("Sex (XIST)")
 
-	labels = ds.ca.SampleID
-	ax = plt.subplot(224)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
-	plt.title("SampleID")
+	if "SampleID" in ds.ca:
+		labels = ds.ca.SampleID
+		ax = plt.subplot(224)
+		for lbl in np.unique(labels):
+			cells = labels == lbl
+			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+		ax.legend()
+		plt.title("SampleID")
 
 	plt.savefig(out_file, dpi=144)
 
