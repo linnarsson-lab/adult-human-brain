@@ -65,7 +65,10 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 	n_cells = ds.shape[1]
 	cells = np.where(ds.ca["_Valid", "Valid"] == 1)[0]
 	has_edges = False
-	if "MKNN" in ds.list_edges(axis=1):
+	if "RNN" in ds.list_edges(axis=1):
+		(a, b, w) = ds.get_edges("RNN", axis=1)
+		has_edges = True
+	elif "MKNN" in ds.list_edges(axis=1):
 		(a, b, w) = ds.get_edges("MKNN", axis=1)
 		has_edges = True
 	if embedding == "TSNE":
@@ -660,12 +663,12 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str) -> Non
 
 def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	xy = ds.ca.TSNE
-	plt.figure(figsize=(12,12))
+	plt.figure(figsize=(12, 12))
 	labels = ds.ca.Tissue
 	ax = plt.subplot(221)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
 	ax.legend()
 	plt.title("Tissue")
 
@@ -673,22 +676,22 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(222)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
 	ax.legend()
 	plt.title("Age")
 	
 	ax = plt.subplot(223)
 	xist = ds[ds.ra.Gene == "XIST", :][0]
 	cells = xist > 0
-	ax.scatter(xy[:,0], xy[:,1],c='lightgrey',lw=0,s=10)
-	ax.scatter(xy[:,0][cells], xy[:,1][cells],c=xist[cells],lw=0,s=10)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
+	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
 	plt.title("Sex (XIST)")
 
 	labels = ds.ca.SampleID
 	ax = plt.subplot(224)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:,0][cells], xy[:,1][cells],c=cg.colorize(labels)[cells], label=lbl,lw=0,s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
 	ax.legend()
 	plt.title("SampleID")
 
@@ -696,7 +699,7 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 
 
 def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
-	plt.figure(figsize=(12,4))
+	plt.figure(figsize=(12, 4))
 	plt.subplot(121)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
