@@ -4,6 +4,8 @@ from sklearn.decomposition import PCA
 from sklearn.manifold.t_sne import _joint_probabilities_nn
 from typing import *
 import numpy as np
+from pynndescent import NNDescent
+from .absolute.metrics import jensen_shannon_distance
 
 
 def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None, radius: float = 0.2) -> np.ndarray:
@@ -28,15 +30,17 @@ def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: i
 
 	if distances_nn is None or neighbors_nn is None:
 		k = min(n_samples - 1, int(3. * perplexity + 1))
-		knn = cg.BallTreeJS(X)
-		distances_nn, neighbors_nn = knn.query(None, k=k)
+		nn = NNDescent(data=X, metric=jensen_shannon_distance)
+		indices_nn, distances_nn = nn.query(X, k=k)
+		indices_nn = indices_nn[:, 1:]
+		distances_nn = distances_nn[:, 1:]
 
 	distances_nn[distances_nn > radius] = 1
-	P = _joint_probabilities_nn(distances_nn, neighbors_nn, perplexity, False)
+	P = _joint_probabilities_nn(distances_nn, indices_nn, perplexity, False)
 	
 	pca = PCA(n_components=n_components, svd_solver='randomized')
 	X_embedded = pca.fit_transform(X).astype(np.float32, copy=False)
 
 	tsne = TSNE(n_components=n_components, perplexity=perplexity)
 	degrees_of_freedom = max(n_components - 1, 1)
-	return tsne._tsne(P, degrees_of_freedom, n_samples, X_embedded=X_embedded, neighbors=neighbors_nn, skip_num_points=0)
+	return tsne._tsne(P, degrees_of_freedom, n_samples, X_embedded=X_embedded, neighbors=indices_nn, skip_num_points=0)

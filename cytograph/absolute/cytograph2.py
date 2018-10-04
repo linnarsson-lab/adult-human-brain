@@ -172,13 +172,13 @@ class Cytograph2:
 
 		mkl_bug()
 		logging.info(f"2D UMAP embedding from latent space")
-		umap_embedder = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=2)
+		umap_embedder = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=2)
 		umap = umap_embedder.fit_transform(theta)
 		ds.ca.UMAP = umap
 
 		mkl_bug()
 		logging.info(f"3D UMAP embedding from latent space")
-		umap3d = UMAP(metric="cosine", spread=2, repulsion_strength=2, n_neighbors=50, n_components=3).fit_transform(theta)
+		umap3d = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=3).fit_transform(theta)
 		ds.ca.UMAP3D = umap3d
 
 		mkl_bug()
@@ -224,7 +224,13 @@ class Cytograph2:
 			np.clip(future, 0, None, out=future)
 			future = np.random.poisson(future)
 			future_theta = hpf.transform(sparse.coo_matrix(future.T))
-			ds.ca.UMAP_future = umap_embedder.transform(future_theta)
+			future_theta = (future_theta.T / future_theta.sum(axis=1)).T
+			ds.ca.HPF_future = future_theta
 
-# TODO: evaluate if it was better to use normalized theta than hpf.theta, and what about beta vs hpf.beta?
-# TODO: evaluate it it is better to use expected values for S and U vs poisson pooled values
+			logging.info("Placing extrapolated states in TSNE embedding")
+			n_cells = theta.shape[0]
+			tsne = cg.tsne_js(np.vstack([theta, future_theta]), radius=1 - self.radius)
+			ds.ca.TSNE = tsne[:n_cells, :]
+			ds.ca.TSNE_future = tsne[n_cells:, :]
+			logging.info("Placing extrapolated states in UMAP embedding")
+			ds.ca.UMAP_future = umap.transform(future_theta)
