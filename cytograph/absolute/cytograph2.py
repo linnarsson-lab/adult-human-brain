@@ -227,10 +227,10 @@ class Cytograph2:
 			future_theta = (future_theta.T / future_theta.sum(axis=1)).T
 			ds.ca.HPF_future = future_theta
 
-			logging.info("Placing extrapolated states in TSNE embedding")
-			n_cells = theta.shape[0]
-			tsne = cg.tsne_js(np.vstack([theta, future_theta]), radius=1 - self.radius)
-			ds.ca.TSNE = tsne[:n_cells, :]
-			ds.ca.TSNE_future = tsne[n_cells:, :]
-			logging.info("Placing extrapolated states in UMAP embedding")
-			ds.ca.UMAP_future = umap.transform(future_theta)
+			# logging.info("Placing extrapolated states in TSNE embedding")
+			# n_cells = theta.shape[0]
+			# tsne = cg.tsne_js(np.vstack([theta, future_theta]), radius=1 - self.radius)
+			# ds.ca.TSNE = tsne[:n_cells, :]
+			# ds.ca.TSNE_future = tsne[n_cells:, :]
+			# logging.info("Placing extrapolated states in UMAP embedding")
+			# ds.ca.UMAP_future = umap_embedder.transform(future_theta)

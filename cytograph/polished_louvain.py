@@ -194,6 +194,10 @@ class PolishedLouvain:
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
 
+		if np.all(labels < 0):
+			logging.warn("All cells were determined to be outliers!")
+			return np.zeros_like(labels)
+
 		if not self.outliers:
 			# Assign each outlier to the same cluster as the nearest non-outlier
 			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
