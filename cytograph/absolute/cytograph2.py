@@ -124,12 +124,13 @@ class Cytograph2:
 			data_spliced = ds["spliced"].sparse(rows=genes).T
 			theta_spliced = hpf.transform(data_spliced)
 			theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
-			theta_spliced = theta_spliced[:, ~technical]
 			logging.info(f"HPF of unspliced molecules")
 			data_unspliced = ds["unspliced"].sparse(rows=genes).T
 			theta_unspliced = hpf.transform(data_unspliced)
 			theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
-			theta_unspliced = theta_unspliced[:, ~technical]
+			if "Batch" in ds.ca and "Replicate" in ds.ca:
+				theta_spliced = theta_spliced[:, ~technical]
+				theta_unspliced = theta_unspliced[:, ~technical]
 
 		mkl_bug()
 		# Expected values
