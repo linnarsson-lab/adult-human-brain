@@ -22,7 +22,7 @@ def mkl_bug() -> None:
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 8000, n_factors: int = 64, k: int = 25, k_pooling: int = 5, outliers: bool = False, radius: float = 0.8, required_genes: str = None, timestep: float = 1) -> None:
+	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, radius: float = 0.4, required_genes: str = None, timestep: float = 1) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
@@ -44,7 +44,18 @@ class Cytograph2:
 		data = ds.sparse(rows=genes).T
 		n_samples = data.shape[0]
 
-		mkl_bug()		
+		# Subsample to 1000 UMIs
+		# TODO: figure out how to do this without making the data matrix dense
+		logging.info(f"Subsampling to 1000 UMIs")
+		if "TotalRNA" not in ds.ca:
+			(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
+		totals = ds.ca.TotalRNA
+		temp = data.toarray()
+		for c in range(temp.shape[0]):
+			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), 1000 / totals[c])
+		data = sparse.coo_matrix(temp)
+
+		mkl_bug()
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
@@ -124,51 +135,42 @@ class Cytograph2:
 			data_spliced = ds["spliced"].sparse(rows=genes).T
 			theta_spliced = hpf.transform(data_spliced)
 			theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
+			if "Batch" in ds.ca and "Replicate" in ds.ca:
+				theta_spliced = theta_spliced[:, ~technical]
+			ds.ca.HPF_spliced = theta_spliced
 			logging.info(f"HPF of unspliced molecules")
 			data_unspliced = ds["unspliced"].sparse(rows=genes).T
 			theta_unspliced = hpf.transform(data_unspliced)
 			theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
 			if "Batch" in ds.ca and "Replicate" in ds.ca:
-				theta_spliced = theta_spliced[:, ~technical]
 				theta_unspliced = theta_unspliced[:, ~technical]
+			ds.ca.HPF_unspliced = theta_unspliced
 
 		mkl_bug()
 		# Expected values
-		# TODO: Calculate expectations for spliced and unspliced too
 		logging.info(f"Computing expected values")
 		ds["expected"] = 'float32'  # Create a layer of floats
 		start = 0
 		batch_size = 6400
-		temp = np.zeros((ds.shape[0], batch_size))
 		if "spliced" in ds.layers:
 			ds["spliced_exp"] = 'float32'
 			ds['unspliced_exp'] = 'float32'
-			temp_spliced = np.zeros((ds.shape[0], batch_size))
-			temp_unspliced = np.zeros((ds.shape[0], batch_size))
 		while start < n_samples:
-			# Compute PPV for the genes that were used for HPF, and slot them into the full gene list
-			if theta.shape[0] - start < batch_size:  # For the last window, temp needs to be a little smaller
-				temp = np.zeros((ds.shape[0], theta.shape[0] - start))
-				temp_spliced = np.zeros((ds.shape[0], theta.shape[0] - start))
-				temp_unspliced = np.zeros((ds.shape[0], theta.shape[0] - start))
-			# Cumpute and assign the batch to the full matrix at the right slot
-			temp[genes] = (theta[start: start + batch_size, :] @ beta.T).T
-			ds["expected"][:, start: start + batch_size] = temp
+			# Compute PPV
+			ds["expected"][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
 			if "spliced" in ds.layers:
-				temp_spliced[genes] = (theta_spliced[start: start + batch_size, :] @ beta.T).T
-				ds["spliced_exp"][:, start: start + batch_size] = temp
-				temp_unspliced[genes] = (theta_unspliced[start: start + batch_size, :] @ beta.T).T
-				ds["unspliced_exp"][:, start: start + batch_size] = temp
+				ds["spliced_exp"][:, start: start + batch_size] = beta_all @ theta_spliced[start: start + batch_size, :].T
+				ds["unspliced_exp"][:, start: start + batch_size] = beta_all @ theta_unspliced[start: start + batch_size, :].T
 			start += batch_size
 
 		mkl_bug()
 		logging.info(f"2D tSNE embedding from latent space")
-		tsne = cg.tsne_js(theta, radius=1 - self.radius)
+		tsne = cg.tsne_js(theta, radius=self.radius)
 		ds.ca.TSNE = tsne
 
 		mkl_bug()
 		logging.info(f"3D tSNE embedding from latent space")
-		tsne = cg.tsne_js(theta, n_components=3, radius=1 - self.radius)  # Note: tsne_js is defined in terms of distance, not similarity
+		tsne = cg.tsne_js(theta, n_components=3, radius=self.radius)  # Note: tsne_js is defined in terms of distance, not similarity
 		ds.ca.TSNE3D = tsne
 
 		mkl_bug()
@@ -195,7 +197,7 @@ class Cytograph2:
 		ds.col_graphs.MKNN = mknn
 		knn.setdiag(0)
 		knn = knn.tocoo()
-		inside = knn.data > self.radius
+		inside = knn.data > 1 - self.radius
 		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
 		ds.col_graphs.RNN = rnn
 
@@ -227,11 +229,3 @@ class Cytograph2:
 			future_theta = hpf.transform(sparse.coo_matrix(future.T))
 			future_theta = (future_theta.T / future_theta.sum(axis=1)).T
 			ds.ca.HPF_future = future_theta
-
-			# logging.info("Placing extrapolated states in TSNE embedding")
-			# n_cells = theta.shape[0]
-			# tsne = cg.tsne_js(np.vstack([theta, future_theta]), radius=1 - self.radius)
-			# ds.ca.TSNE = tsne[:n_cells, :]
-			# ds.ca.TSNE_future = tsne[n_cells:, :]
-			# logging.info("Placing extrapolated states in UMAP embedding")
-			# ds.ca.UMAP_future = umap_embedder.transform(future_theta)

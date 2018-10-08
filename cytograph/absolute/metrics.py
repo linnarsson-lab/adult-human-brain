@@ -58,15 +58,7 @@ def jensen_shannon_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	Remarks:
 		pk and qk must already be normalized so that np.sum(pk) == np.sum(qk) == 1
 	"""
-	N = pk.shape[0]
-#	pk = pk / np.sum(pk)
-#	qk = qk / np.sum(qk)
-	m = (pk + qk) / 2
-
-	Dpm = jensen_shannon_divergence(pk, m)
-	Dqm = jensen_shannon_divergence(qk, m)
-
-	return np.sqrt((Dpm + Dqm) / 2)
+	return np.sqrt(jensen_shannon_divergence(pk, qk))
 
 
 def kldiv_gamma(p_shape: np.ndarray, p_rate: np.ndarray, q_shape: np.ndarray, q_rate: np.ndarray) -> float:

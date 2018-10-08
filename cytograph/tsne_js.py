@@ -6,9 +6,10 @@ from typing import *
 import numpy as np
 from pynndescent import NNDescent
 from .absolute.metrics import jensen_shannon_distance
+import logging
 
 
-def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None, radius: float = 0.2) -> np.ndarray:
+def tsne_js(X: np.ndarray, *, n_components: int = 2, dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None, radius: float = 0.4) -> np.ndarray:
 	"""
 	Exploit the internals of sklearn TSNE to efficiently compute TSNE with Jensen-Shannon
 	distance metric. This will make use of multiple cores for the nearest-neighbor search.

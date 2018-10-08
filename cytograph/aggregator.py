@@ -54,9 +54,8 @@ class Aggregator:
 				dsout.layers["trinaries"] = trinaries
 
 			logging.info("Computing cluster gene enrichment scores")
-			(markers, enrichment, qvals) = cg.MarkerSelection(self.n_markers).fit(ds)
+			(markers, enrichment, qvals) = cg.MarkerSelection(self.n_markers, findq=False).fit(ds)
 			dsout.layers["enrichment"] = enrichment
-			dsout.layers["enrichment_q"] = qvals
 
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 

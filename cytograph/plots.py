@@ -615,13 +615,13 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.savefig(out_file, format="png", dpi=144)
 
 
-def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str) -> None:
+def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius: float = 0.4) -> None:
 	knn = ds.col_graphs.KNN
 	knn.setdiag(0)
 	dmax = knn.max(axis=1).toarray()[:, 0]
 	xy = ds.ca.TSNE
 
-	radius = 0.8
+	radius = 1 - radius  # since KNn uses similarity, not distanxe
 	cells = dmax > radius
 	n_cells_inside = cells.sum()
 	n_cells = dmax.shape[0]
