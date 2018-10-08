@@ -101,7 +101,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 	# Draw edges
 	if has_edges:
 		logging.info("Drawing edges")
-		lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='grey', alpha=0.1)
+		lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
 		ax.add_collection(lc)
 
 	# Draw nodes
@@ -116,7 +116,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors=edgecolor, alpha=0.1, s=epsilon))
 			names.append(f"{i}/n={n_cells}  (outliers)")
 		else:
-			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors75[np.mod(i, 75)], marker='.', lw=0, s=epsilon, alpha=0.75))
+			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=cg.colors75[np.mod(i, 75)], marker='.', lw=0, s=epsilon, alpha=0.5))
 			txt = str(i)
 			if "ClusterName" in ds.ca:
 				txt = ds.ca.ClusterName[ds.ca["Clusters"] == i][0]
@@ -138,6 +138,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 			continue
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
 		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
+	plt.axis("off")
 	logging.info("Saving to file")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
 	plt.close()
@@ -360,9 +361,9 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	gene_names: List[str] = []
 	if species(ds) == "Mus musculus":
-		gene_names = ["Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+		gene_names = ["Pcna", "Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Meg3", "Stmn2", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
 	elif species(ds) == "Homo sapiens":
-		gene_names = ["CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "MEG3", "STMN2", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ"]
+		gene_names = ["PCNA", "CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "MEG3", "STMN2", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ"]
 	genes = [g for g in gene_names if g in ds.ra.Gene]
 	n_genes = len(genes)
 
@@ -618,15 +619,14 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius: float = 0.4) -> None:
 	knn = ds.col_graphs.KNN
 	knn.setdiag(0)
-	dmax = knn.max(axis=1).toarray()[:, 0]
+	dmax = 1 - knn.max(axis=1).toarray()[:, 0]  # Convert to distance since KNN uses similarities
 	xy = ds.ca.TSNE
 
-	radius = 1 - radius  # since KNn uses similarity, not distanxe
-	cells = dmax > radius
+	cells = dmax < radius
 	n_cells_inside = cells.sum()
 	n_cells = dmax.shape[0]
 	cells_pct = int(100 - 100 * (n_cells_inside / n_cells))
-	n_edges_inside = (knn.data > radius).sum()
+	n_edges_inside = (knn.data < radius).sum()
 	n_edges = (knn.data > 0).sum()
 	edges_pct = int(100 * (n_edges_inside / n_edges))
 
@@ -635,9 +635,9 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius
 
 	ax = plt.subplot(221)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
-	cax = ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=dmax[cells], vmin=radius, vmax=0.95, cmap="viridis", s=1)
+	cax = ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=dmax[cells], vmax=radius, cmap="viridis_r", s=1)
 	plt.colorbar(cax)
-	plt.title("Farthest neighbor similarity")
+	plt.title("Distance to farthest neighbor")
 
 	ax = plt.subplot(222)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
@@ -645,16 +645,16 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius
 	plt.title("Cells with no neighbors")
 
 	ax = plt.subplot(223)
-	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
-	subset = np.random.choice(np.sum(knn.data > radius), size=500)
-	lc = LineCollection(zip(xy[knn.row[knn.data > radius]][subset], xy[knn.col[knn.data > radius]][subset]), linewidths=0.5, color="red")
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
+	subset = np.random.choice(np.sum(knn.data > 1 - radius), size=500)
+	lc = LineCollection(zip(xy[knn.row[knn.data > 1 - radius]][subset], xy[knn.col[knn.data > 1 - radius]][subset]), linewidths=0.5, color="red")
 	ax.add_collection(lc)
 	plt.title("Edges inside radius (500 samples)")
 
 	ax = plt.subplot(224)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
-	subset = np.random.choice(np.sum(knn.data < radius), size=500)
-	lc = LineCollection(zip(xy[knn.row[knn.data < radius]][subset], xy[knn.col[knn.data < radius]][subset]), linewidths=0.5, color="red")
+	subset = np.random.choice(np.sum(knn.data < 1 - radius), size=500)
+	lc = LineCollection(zip(xy[knn.row[knn.data < 1 - radius]][subset], xy[knn.col[knn.data < 1 - radius]][subset]), linewidths=0.5, color="red")
 	ax.add_collection(lc)
 	plt.title("Edges outside radius (500 samples)")
 	

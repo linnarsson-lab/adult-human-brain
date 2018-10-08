@@ -63,6 +63,8 @@ class Aggregator:
 			logging.info("Renumbering clusters by similarity, and permuting columns")
 			if "_Selected" in ds.ra:
 				genes = (ds.ra._Selected == 1)
+			elif "Selected" in ds.ra:
+				genes = (ds.ra.Selected == 1)
 			else:
 				logging.info("Normalization")
 				normalizer = cg.Normalizer(False)
