@@ -169,11 +169,6 @@ class Cytograph2:
 		ds.ca.TSNE = tsne
 
 		mkl_bug()
-		logging.info(f"3D tSNE embedding from latent space")
-		tsne = cg.tsne_js(theta, n_components=3, radius=self.radius)  # Note: tsne_js is defined in terms of distance, not similarity
-		ds.ca.TSNE3D = tsne
-
-		mkl_bug()
 		logging.info(f"2D UMAP embedding from latent space")
 		umap_embedder = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=2)
 		umap = umap_embedder.fit_transform(theta)
