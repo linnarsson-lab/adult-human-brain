@@ -35,9 +35,9 @@ class VelocityInference:
 		n_genes = selected.sum()
 		n_components = ds.ca.HPF.shape[1]
 		logging.info("Loading spliced")
-		s_data = ds["spliced"][:,:][selected, :].astype("float")
+		s_data = ds["spliced"][:, :][selected, :].astype("float")
 		logging.info("Loading unspliced")
-		u_data = ds["unspliced"][:,:][selected, :].astype("float")
+		u_data = ds["unspliced"][:, :][selected, :].astype("float")
 		logging.info("Loading HPF")
 		m_data = ds.ra.HPF[selected, :]
 		
@@ -68,7 +68,7 @@ class VelocityInference:
 		for epoch in trange(n_epochs):
 			optimizer.zero_grad()
 			left = m.m @ m.v
-			right = m.b.unsqueeze(1) * m.u - m.g.unsqueeze(1) * m.s - m.m @ m.v
+			right = m.b.unsqueeze(1) * m.u - m.g.unsqueeze(1) * m.s
 			loss_out = loss_fn(left, right)
 			loss_out.backward()
 			optimizer.step()
@@ -82,7 +82,7 @@ class VelocityInference:
 		return self
 
 
-def _fit1_slope_weighted(y: np.ndarray, x: np.ndarray, w: np.ndarray, limit_gamma: bool=False, bounds: Tuple[float, float]=(0, 20)) -> float:
+def _fit1_slope_weighted(y: np.ndarray, x: np.ndarray, w: np.ndarray, limit_gamma: bool = False, bounds: Tuple[float, float] = (0, 20)) -> float:
 	"""Simple function that fit a weighted linear regression model without intercept
 	"""
 	if not np.any(x):
@@ -132,9 +132,3 @@ def fit_gamma(S: np.ndarray, U: np.ndarray, limit_gamma: bool = False, bounds: T
 		m = _fit1_slope_weighted(U[i, :], S[i, :], W[i, :], limit_gamma)
 		slopes[i] = m
 	return slopes
-
-
-# with loompy.connect("/Users/stelin/dh_20170213/L1_Subcortex.loom") as ds:
-# 	s = ds["spliced"][ds.ra.Selected == 1, :]
-# 	u = ds["unspliced"][ds.ra.Selected == 1, :]
-# 	gammas = fit_slope_weighted(s,u)
