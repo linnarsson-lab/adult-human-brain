@@ -10,7 +10,6 @@ import scipy.cluster.hierarchy as hierarchy
 import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
-from polo import optimal_leaf_ordering
 import scipy.stats
 from sklearn.preprocessing import binarize
 import matplotlib.pyplot as plt
@@ -54,11 +53,10 @@ class Merger:
 			mask[outlier_cluster] = False
 	
 		data = trinaries[markers, :][:, mask].T
-		Z = hc.linkage(data, 'complete', metric=discordance_distance)
+		Z = hc.linkage(data, 'complete', metric=discordance_distance, optimal_ordering=True)
 		D = pdist(data, discordance_distance)
-		optimal_Z = optimal_leaf_ordering(Z, D)
-		ordering = hc.leaves_list(optimal_Z)
-		merged = hc.fcluster(optimal_Z, self.min_distance, criterion='distance') - 1
+		ordering = hc.leaves_list(Z)
+		merged = hc.fcluster(Z, self.min_distance, criterion='distance') - 1
 
 		# Renumber the clusters
 		d: Dict[int, int] = {}

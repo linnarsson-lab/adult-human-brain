@@ -10,7 +10,6 @@ import scipy.cluster.hierarchy as hierarchy
 import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
-from polo import optimal_leaf_ordering
 import scipy.stats
 from sklearn.preprocessing import binarize
 import matplotlib.pyplot as plt
@@ -74,9 +73,8 @@ class Aggregator:
 
 			data = np.log(dsout[:, :] + 1)[genes, :].T
 			D = pdist(data, 'euclidean')
-			Z = hc.linkage(D, 'ward')
-			optimal_Z = optimal_leaf_ordering(Z, D)
-			ordering = hc.leaves_list(optimal_Z)
+			Z = hc.linkage(D, 'ward', optimal_ordering=True)
+			ordering = hc.leaves_list(Z)
 
 			# Permute the aggregated file, and renumber
 			dsout.permute(ordering, axis=1)
