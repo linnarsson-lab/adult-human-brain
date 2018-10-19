@@ -46,13 +46,13 @@ class Cytograph2:
 
 		# Subsample to 1000 UMIs
 		# TODO: figure out how to do this without making the data matrix dense
-		logging.info(f"Subsampling to 1000 UMIs")
+		logging.info(f"Subsampling to 2000 UMIs")
 		if "TotalRNA" not in ds.ca:
 			(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
 		totals = ds.ca.TotalRNA
 		temp = data.toarray()
 		for c in range(temp.shape[0]):
-			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), 1000 / totals[c])
+			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), 2000 / totals[c])
 		data = sparse.coo_matrix(temp)
 
 		mkl_bug()
