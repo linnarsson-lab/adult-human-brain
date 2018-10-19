@@ -55,11 +55,28 @@ def compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n
 	return y_phi
 
 
-@jit('void(double[:,:], int32, double[:, :], double[:, :], double[:, :], double[:, :], double[:, :])')
+@jit(nogil=True, nopython=True)
+def max_axis1(x):
+	max_vals = np.empty(x.shape[0])
+	for i in range(x.shape[0]):
+		max_vals[i] = np.max(x[i, :])
+	return max_vals
+
+
+@jit(nogil=True, nopython=True)
+def logsumexp_axis1(x):
+	max_x = max_axis1(x)
+	y = (x.T - max_x).T
+	sum_of_exps = np.exp(y).sum(axis=1)
+	return max_x + np.log(sum_of_exps)
+
+
+@jit # (nogil=True, nopython=True)  # NOTE: doesn't work with nogil or nopython
 def compute_y_phi_batch(y_phi, start, u_logdiff, i_logdiff, u, i, y):
 	phi = u_logdiff[u, :] + i_logdiff[i, :]
+
 	# Multiply y by phi normalized (in log space) along the k axis
-	y_phi[start: start + u.shape[0], :] = y[:, None] * np.exp(phi - logsumexp(phi, axis=1)[:, None])
+	y_phi[start: start + u.shape[0], :] = y[:, None] * np.exp(phi - logsumexp_axis1(phi)[:, None])
 
 
 class HPF:

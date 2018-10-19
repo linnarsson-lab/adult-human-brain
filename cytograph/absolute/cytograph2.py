@@ -111,11 +111,15 @@ class Cytograph2:
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
+		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
+		beta_all[genes] = hpf.beta
+		# Save the unnormalized factors
+		ds.ra.HPF_beta = beta_all
+		ds.ca.HPF_theta = theta
 		# Here we normalize so the sums over components are one, because JSD requires it
 		# and because otherwise the components will be exactly proportional to cell size
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 		beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
-		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = beta
 		if "Batch" in ds.ca and "Replicate" in ds.ca:
 			technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
@@ -125,6 +129,7 @@ class Cytograph2:
 			beta_all = beta_all[:, ~technical]
 		else:
 			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
+		# Save the normalized factors
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
@@ -211,16 +216,11 @@ class Cytograph2:
 			n_genes = ds.shape[0]
 			s = ds["spliced_exp"][selected, :]
 			u = ds["unspliced_exp"][selected, :]
-			gamma = fit_gamma(s, u)
+			gamma, _ = fit_gamma(s, u)
 			gamma_all = np.zeros(n_genes)
 			gamma_all[selected] = gamma
 			ds.ra.Gamma = gamma_all
 
-			logging.info("Extrapolating future expression")
+			logging.info("Computing velocity")
 			velocity = u + gamma[:, None] * s
-			future = s + velocity * self.timestep
-			np.clip(future, 0, None, out=future)
-			future = np.random.poisson(future)
-			future_theta = hpf.transform(sparse.coo_matrix(future.T))
-			future_theta = (future_theta.T / future_theta.sum(axis=1)).T
-			ds.ca.HPF_future = future_theta
+			ds["velocity"] = velocity
