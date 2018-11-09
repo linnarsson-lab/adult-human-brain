@@ -11,6 +11,8 @@ from pynndescent import NNDescent
 from sklearn.preprocessing import normalize
 from typing import *
 import os
+import community
+import networkx as nx
 from .velocity_inference import fit_gamma
 from .identify_technical_factors import identify_technical_factors
 from .metrics import jensen_shannon_distance
@@ -22,19 +24,19 @@ def mkl_bug() -> None:
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, radius: float = 0.4, required_genes: str = None, timestep: float = 1) -> None:
+	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None, poisson_pooling: bool = True) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
 		self.k = k
 		self.outliers = outliers
-		self.radius = radius
 		self.required_genes = required_genes
-		self.timestep = timestep
+		self.poisson_pooling = poisson_pooling
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
-		
-		mkl_bug()
+		logging.info(f"Running cytograph on {ds.shape[1]} cells")
+		n_samples = ds.shape[1]
+
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes")
 		normalizer = cg.Normalizer(False)
@@ -42,9 +44,8 @@ class Cytograph2:
 		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
-		n_samples = data.shape[0]
 
-		# Subsample to 1000 UMIs
+		# Subsample to 2000 UMIs
 		# TODO: figure out how to do this without making the data matrix dense
 		logging.info(f"Subsampling to 2000 UMIs")
 		if "TotalRNA" not in ds.ca:
@@ -55,7 +56,6 @@ class Cytograph2:
 			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), 2000 / totals[c])
 		data = sparse.coo_matrix(temp)
 
-		mkl_bug()
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
@@ -69,7 +69,6 @@ class Cytograph2:
 		else:
 			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
 
-		mkl_bug()
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
 		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
@@ -81,8 +80,7 @@ class Cytograph2:
 		)
 		knn.setdiag(1)
 
-		mkl_bug()
-		# Poisson smoothing (in place, except the main layer)
+		# Poisson pooling (in place, except the main layer)
 		logging.info(f"Poisson pooling")
 		ds["pooled"] = 'int32'
 		for (ix, indexes, view) in ds.scan(axis=0):
@@ -93,10 +91,9 @@ class Cytograph2:
 			else:
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
-		mkl_bug()
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes after pooling")
-		normalizer = cg.Normalizer(False, layer="pooled")
+		normalizer = cg.Normalizer(False, layer="pooled" if self.poisson_pooling else "")
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes, layer="pooled").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		# Make sure to include these genes
@@ -104,9 +101,8 @@ class Cytograph2:
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
-		data = ds["pooled"].sparse(rows=genes).T
+		data = ds["pooled" if self.poisson_pooling else ""].sparse(rows=genes).T
 
-		mkl_bug()
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
 		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
@@ -115,7 +111,7 @@ class Cytograph2:
 		beta_all[genes] = hpf.beta
 		# Save the unnormalized factors
 		ds.ra.HPF_beta = beta_all
-		ds.ca.HPF_theta = theta
+		ds.ca.HPF_theta = hpf.theta
 		# Here we normalize so the sums over components are one, because JSD requires it
 		# and because otherwise the components will be exactly proportional to cell size
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
@@ -133,7 +129,6 @@ class Cytograph2:
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
 
-		mkl_bug()
 		# HPF factorization of spliced/unspliced
 		if "spliced" in ds.layers:
 			logging.info(f"HPF of spliced molecules")
@@ -151,7 +146,6 @@ class Cytograph2:
 				theta_unspliced = theta_unspliced[:, ~technical]
 			ds.ca.HPF_unspliced = theta_unspliced
 
-		mkl_bug()
 		# Expected values
 		logging.info(f"Computing expected values")
 		ds["expected"] = 'float32'  # Create a layer of floats
@@ -168,23 +162,6 @@ class Cytograph2:
 				ds["unspliced_exp"][:, start: start + batch_size] = beta_all @ theta_unspliced[start: start + batch_size, :].T
 			start += batch_size
 
-		mkl_bug()
-		logging.info(f"2D tSNE embedding from latent space")
-		tsne = cg.tsne_js(theta, radius=self.radius)
-		ds.ca.TSNE = tsne
-
-		mkl_bug()
-		logging.info(f"2D UMAP embedding from latent space")
-		umap_embedder = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=2)
-		umap = umap_embedder.fit_transform(theta)
-		ds.ca.UMAP = umap
-
-		mkl_bug()
-		logging.info(f"3D UMAP embedding from latent space")
-		umap3d = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=3).fit_transform(theta)
-		ds.ca.UMAP3D = umap3d
-
-		mkl_bug()
 		logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
 		bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
 		bnn.fit(theta)
@@ -195,20 +172,37 @@ class Cytograph2:
 		mknn.data = 1 - mknn.data
 		ds.col_graphs.KNN = knn
 		ds.col_graphs.MKNN = mknn
+		# Compute the effective resolution
+		d = 1 - knn.data
+		d = d[d < 1]
+		radius = np.percentile(d, 90)
+		logging.info(f"Found effective radius {radius:.02}")
+		ds.attrs.radius = radius
 		knn.setdiag(0)
 		knn = knn.tocoo()
-		inside = knn.data > 1 - self.radius
+		inside = knn.data > 1 - radius
 		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
 		ds.col_graphs.RNN = rnn
 
-		mkl_bug()
+		logging.info(f"2D tSNE embedding from latent space")
+		tsne = cg.tsne_js(theta, radius=radius)
+		ds.ca.TSNE = tsne
+
+		logging.info(f"2D UMAP embedding from latent space")
+		umap_embedder = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=2)
+		umap = umap_embedder.fit_transform(theta)
+		ds.ca.UMAP = umap
+
+		logging.info(f"3D UMAP embedding from latent space")
+		umap3d = UMAP(metric=jensen_shannon_distance, spread=2, repulsion_strength=2, n_neighbors=self.k, n_components=3).fit_transform(theta)
+		ds.ca.UMAP3D = umap3d
+
 		logging.info("Clustering by polished Louvain")
 		pl = cg.PolishedLouvain(outliers=self.outliers)
 		labels = pl.fit_predict(ds, graph="RNN", embedding="HPF")
 		ds.ca.Clusters = labels + min(labels)
 		ds.ca.Outliers = (labels == -1).astype('int')
 		logging.info(f"Found {labels.max() + 1} clusters")
-		mkl_bug()
 
 		if "spliced" in ds.layers:
 			logging.info("Fitting gamma for velocity inference")
@@ -222,5 +216,7 @@ class Cytograph2:
 			ds.ra.Gamma = gamma_all
 
 			logging.info("Computing velocity")
-			velocity = u + gamma[:, None] * s
-			ds["velocity"] = velocity
+			velocity = u - gamma[:, None] * s
+			ds["velocity"] = "float32"
+			ds["velocity"][selected, :] = velocity
+

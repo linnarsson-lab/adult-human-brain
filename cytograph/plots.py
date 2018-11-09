@@ -18,6 +18,7 @@ from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
 from .utils import species
+from matplotlib.colors import Normalize
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -468,11 +469,11 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 	# Plots
 	logging.info(f"Plotting factors")
 	offset = 0
-	beta = ds.ca.HPF
-	theta = ds.ra.HPF
-	n_factors = beta.shape[1]
+	theta = ds.ca.HPF
+	beta = ds.ra.HPF
+	n_factors = theta.shape[1]
 	while offset < n_factors:
-		fig = plt.figure(figsize=(10, 10))
+		fig = plt.figure(figsize=(15, 15))
 		fig.subplots_adjust(hspace=0, wspace=0)
 		for nnc in range(offset, offset + 16):
 			if nnc >= n_factors:
@@ -480,13 +481,13 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			ax = plt.subplot(4, 4, nnc + 1 - offset)
 			plt.xticks(())
 			plt.yticks(())
-			plt.scatter(x=ds.ca.TSNE[:, 0], y=ds.ca.TSNE[:, 1], c='lightgrey', marker='.', alpha=0.5,s=10,lw=0)
-			cells = beta[:, nnc] > np.percentile(beta[:, nnc],99) * 0.25
+			plt.scatter(x=ds.ca.TSNE[:, 0], y=ds.ca.TSNE[:, 1], c='lightgrey', marker='.', alpha=0.5, s=60, lw=0)
+			cells = theta[:, nnc] > np.percentile(theta[:, nnc], 99) * 0.25
 			cmap = "viridis"
 			if cells.sum() > ds.shape[1] * 0.5:
 				cmap = "autumn"
-			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], vmax=np.percentile(beta[:, nnc][cells],95), c=beta[:, nnc][cells],marker='.',alpha=0.5,s=10,cmap=cmap,lw=0)
-			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-theta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
+			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], vmax=np.percentile(theta[:, nnc][cells], 95), c=theta[:, nnc][cells], marker='.', alpha=0.5, s=60, cmap=cmap, lw=0)
+			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-beta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
 			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes)
 		plt.savefig(base_name + f"{offset}.png", dpi=144)
 		offset += 16
@@ -616,13 +617,22 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.savefig(out_file, format="png", dpi=144)
 
 
-def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius: float = 0.4) -> None:
+def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> None:
+	radius = 0.4
+	if "radius" in ds.attrs:
+		radius = ds.attrs.radius
 	knn = ds.col_graphs.KNN
 	knn.setdiag(0)
-	dmax = 1 - knn.max(axis=1).toarray()[:, 0]  # Convert to distance since KNN uses similarities
+	dmin = 1 - knn.max(axis=1).toarray()[:, 0]  # Convert to distance since KNN uses similarities
+	knn = sparse.coo_matrix((1 - knn.data, (knn.row, knn.col)), shape=knn.shape)
+	knn.setdiag(0)
+	dmax = knn.max(axis=1).toarray()[:, 0]
+	knn = ds.col_graphs.KNN
+	knn.setdiag(0)
+
 	xy = ds.ca.TSNE
 
-	cells = dmax < radius
+	cells = dmin < radius
 	n_cells_inside = cells.sum()
 	n_cells = dmax.shape[0]
 	cells_pct = int(100 - 100 * (n_cells_inside / n_cells))
@@ -631,34 +641,53 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str, radius
 	edges_pct = int(100 * (n_edges_outside / n_edges))
 
 	plt.figure(figsize=(12, 12))
-	plt.suptitle(f"Neighborhood characteristics (radius = {radius})\n{n_cells - n_cells_inside} of {n_cells} cells lack neighbors ({cells_pct}%)\n{n_edges_outside} of {n_edges} edges removed ({edges_pct}%)", fontsize=14)
+	plt.suptitle(f"Neighborhood characteristics (radius = {radius:.02})\n{n_cells - n_cells_inside} of {n_cells} cells lack neighbors ({cells_pct}%)\n{n_edges_outside} of {n_edges} edges removed ({edges_pct}%)", fontsize=14)
 
-	ax = plt.subplot(221)
+	ax = plt.subplot(321)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
 	cax = ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=dmax[cells], vmax=radius, cmap="viridis_r", s=1)
 	plt.colorbar(cax)
 	plt.title("Distance to farthest neighbor")
 
-	ax = plt.subplot(222)
+	ax = plt.subplot(322)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
 	ax.scatter(xy[:, 0][~cells], xy[:, 1][~cells], c="red", s=1)
-	plt.title("Cells with no neighbors")
+	plt.title("Cells with no neighbors inside radius")
 
-	ax = plt.subplot(223)
+	ax = plt.subplot(323)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
 	subset = np.random.choice(np.sum(knn.data > 1 - radius), size=500)
 	lc = LineCollection(zip(xy[knn.row[knn.data > 1 - radius]][subset], xy[knn.col[knn.data > 1 - radius]][subset]), linewidths=0.5, color="red")
 	ax.add_collection(lc)
 	plt.title("Edges inside radius (500 samples)")
 
-	ax = plt.subplot(224)
+	ax = plt.subplot(324)
 	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
 	subset = np.random.choice(np.sum(knn.data < 1 - radius), size=500)
 	lc = LineCollection(zip(xy[knn.row[knn.data < 1 - radius]][subset], xy[knn.col[knn.data < 1 - radius]][subset]), linewidths=0.5, color="red")
 	ax.add_collection(lc)
 	plt.title("Edges outside radius (500 samples)")
-	
-	plt.savefig(out_file, format="png", dpi=144)
+
+	ax = plt.subplot(325)
+	knn = ds.col_graphs.KNN
+	d = 1 - knn.data
+	d = d[d < 1]
+	hist = plt.hist(d, bins=200)
+	plt.ylabel("Number of cells")
+	plt.xlabel("Jensen-Shannon distance to neighbors")
+	plt.title(f"90th percentile JSD={radius:.2}")
+	plt.plot([radius, radius], [0, hist[0].max()], "r--")
+
+	plt.subplot(326)
+	hist2 = plt.hist(dmax, bins=100, range=(0, 1), alpha=0.5)
+	hist3 = plt.hist(dmin, bins=100, range=(0, 1), alpha=0.5)
+	plt.title("Distance to nearest and farthest neighbors")
+	plt.plot([radius, radius], [0, max(hist2[0].max(), hist3[0].max())], "r--")
+	plt.ylabel("Number of cells")
+	plt.xlabel("Jensen-Shannon distance to neighbors")
+
+	if out_file is not None:
+		plt.savefig(out_file, format="png", dpi=144)
 
 
 def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -708,17 +737,61 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.subplot(121)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
-		plt.hist(np.log10(ds.ca.TotalRNA[cells]), bins=100, label=chip, alpha=0.5)
+		plt.hist(ds.ca.TotalRNA[cells], bins=100, label=chip, alpha=0.5, range=(0,10000))
 		plt.title("UMI distribution")
 		plt.ylabel("Number of cells")
-		plt.xlabel("Log10(Number of UMIs)")
+		plt.xlabel("Number of UMIs")
 	plt.legend()
 	plt.subplot(122)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
-		plt.hist(np.log10(ds.ca.NGenes[cells]), bins=100, label=chip, alpha=0.5)
+		plt.hist(ds.ca.NGenes[cells], bins=100, label=chip, alpha=0.5, range=(0,10000))
 		plt.title("Gene count distribution")
 		plt.ylabel("Number of cells")
-		plt.xlabel("Log10(Number of genes)")
+		plt.xlabel("Number of genes")
 	plt.legend()
 	plt.savefig(out_file, dpi=144)
+
+
+class MidpointNormalize(Normalize):
+	def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+		self.midpoint = midpoint
+		Normalize.__init__(self, vmin, vmax, clip)
+
+	def __call__(self, value, clip=None):
+		x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+		return np.ma.masked_array(np.interp(value, x, y))
+
+
+def plot_gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = None) -> None:
+	genes = ds.ra.Gene[ds.ra.Selected == 1]
+	g = ds.gamma[ds.ra.Gene == gene]
+	s = ds["spliced_exp"][ds.ra.Gene == gene, :][0]
+	u = ds["unspliced_exp"][ds.ra.Gene == gene, :][0]
+	v = ds["velocity"][ds.ra.Gene == gene, :][0]
+	c = ds.ca.Clusters
+	vcmap = plt.colors.LinearSegmentedColormap.from_list("", ["red", "whitesmoke", "green"])
+
+	plt.figure(figsize=(16, 4))
+	plt.suptitle(gene)
+	plt.subplot(141)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=cg.colorize(c), marker='.', s=10)
+	plt.title("Clusters")
+	plt.axis("off")
+	plt.subplot(142)
+	norm = MidpointNormalize(midpoint=0)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=v, norm=norm, cmap=vcmap, marker='.', s=10)
+	plt.title("Velocity")
+	plt.axis("off")
+	plt.subplot(143)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=s, cmap="viridis", marker='.',s=10)
+	plt.title("Expression")
+	plt.axis("off")
+	plt.subplot(144)
+	plt.scatter(s, u, c=cg.colorize(c), marker='.', s=10)
+	maxs = np.max(s)
+	plt.plot([0, maxs], [0, maxs * g], 'r--', color='b')
+	plt.title("Phase portrait")		
+	
+	if out_file is not None:
+		plt.savefig(out_file, dpi=144)

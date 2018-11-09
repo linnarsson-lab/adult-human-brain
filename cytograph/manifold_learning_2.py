@@ -38,7 +38,7 @@ class ManifoldLearning2:
 		"""
 		n_cells = ds.shape[1]
 		logging.info("Processing all %d cells", n_cells)
-		logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["_Valid"] == 1), ds.shape[0])
+		logging.info("%d of %d genes were valid", np.sum(ds.row_attrs["Valid"] == 1), ds.shape[0])
 
 		logging.info("Normalization")
 		normalizer = cg.Normalizer(False)
@@ -102,7 +102,7 @@ class ManifoldLearning2:
 
 		temp = np.zeros(ds.shape[0], dtype='bool')
 		temp[genes] = True
-		ds.ra._Selected = temp.astype('int')
+		ds.ra.Selected = temp.astype('int')
 		logging.info("%d genes selected", temp.sum())
 
 		if self.genes is None:
