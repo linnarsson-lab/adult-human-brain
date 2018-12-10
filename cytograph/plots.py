@@ -696,38 +696,48 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 
 	if "Tissue" in ds.ca:
 		labels = ds.ca.Tissue
-		ax = plt.subplot(221)
-		for lbl in np.unique(labels):
-			cells = labels == lbl
-			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-		ax.legend()
-		plt.title("Tissue")
+	else:
+		labels = np.array(["(unknown)"] * ds.shape[1])
+	ax = plt.subplot(221)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+	ax.legend()
+	plt.title("Tissue")
 
 	if "Age" in ds.ca:
 		labels = ds.ca.Age
-		ax = plt.subplot(222)
-		for lbl in np.unique(labels):
-			cells = labels == lbl
-			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-		ax.legend()
-		plt.title("Age")
+	else:
+		labels = np.array(["(unknown)"] * ds.shape[1])
+	ax = plt.subplot(222)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+	ax.legend()
+	plt.title("Age")
 	
 	if "XIST" in ds.ra.Gene:
-		ax = plt.subplot(223)
 		xist = ds[ds.ra.Gene == "XIST", :][0]
-		cells = xist > 0
-		ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
-		plt.title("Sex (XIST)")
+	elif "Xist" in ds.ra.Gene:
+		xist = ds[ds.ra.Gene == "Xist", :][0]
+	else:
+		xist = np.array([0] * ds.shape[1])
+	ax = plt.subplot(223)
+	cells = xist > 0
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
+	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
+	plt.title("Sex (XIST)")
 
 	if "SampleID" in ds.ca:
 		labels = ds.ca.SampleID
-		ax = plt.subplot(224)
-		for lbl in np.unique(labels):
-			cells = labels == lbl
-			ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-		ax.legend()
-		plt.title("SampleID")
+	else:
+		labels = np.array(["(unknown)"] * ds.shape[1])
+	ax = plt.subplot(224)
+	for lbl in np.unique(labels):
+		cells = labels == lbl
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+	ax.legend()
+	plt.title("SampleID")
 
 	plt.savefig(out_file, dpi=144)
 
@@ -737,7 +747,7 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.subplot(121)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
-		plt.hist(ds.ca.TotalRNA[cells], bins=100, label=chip, alpha=0.5, range=(0,10000))
+		plt.hist(ds.ca.TotalRNA[cells], bins=100, label=chip, alpha=0.5, range=(0, 30000))
 		plt.title("UMI distribution")
 		plt.ylabel("Number of cells")
 		plt.xlabel("Number of UMIs")
@@ -745,7 +755,7 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.subplot(122)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
-		plt.hist(ds.ca.NGenes[cells], bins=100, label=chip, alpha=0.5, range=(0,10000))
+		plt.hist(ds.ca.NGenes[cells], bins=100, label=chip, alpha=0.5, range=(0, 10000))
 		plt.title("Gene count distribution")
 		plt.ylabel("Number of cells")
 		plt.xlabel("Number of genes")

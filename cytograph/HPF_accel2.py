@@ -165,7 +165,6 @@ class HPF:
 		"""
 		if type(X) is not sparse.coo_matrix:
 			raise TypeError("Input matrix must be in sparse.coo_matrix format")
-
 		(beta, theta, eta, xi, gamma_shape, gamma_rate, lambda_shape, lambda_rate) = self._fit(X)
 
 		self.beta = beta

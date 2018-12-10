@@ -18,11 +18,6 @@ from .identify_technical_factors import identify_technical_factors
 from .metrics import jensen_shannon_distance
 
 
-def mkl_bug() -> None:
-	x = np.arange(1000000).reshape(1000, 1000)
-	assert np.std(x, axis=1)[0] == np.std(x[0, :]), "Numpy is broken (MKL parallel bug)"
-
-
 class Cytograph2:
 	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None, poisson_pooling: bool = True) -> None:
 		self.n_genes = n_genes
@@ -75,8 +70,7 @@ class Cytograph2:
 		indices, distances = nn.query(theta, k=self.k_pooling)
 		# Note: we convert distances to similarities here, to support Poisson smoothing below
 		knn = sparse.csr_matrix(
-			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])),
-			(theta.shape[0], theta.shape[0])
+			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), 		(theta.shape[0], theta.shape[0])
 		)
 		knn.setdiag(1)
 
@@ -219,4 +213,3 @@ class Cytograph2:
 			velocity = u - gamma[:, None] * s
 			ds["velocity"] = "float32"
 			ds["velocity"][selected, :] = velocity
-
