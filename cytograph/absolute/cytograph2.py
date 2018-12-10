@@ -40,15 +40,16 @@ class Cytograph2:
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
 
-		# Subsample to 2000 UMIs
+		# Subsample to lowest number of UMIs
 		# TODO: figure out how to do this without making the data matrix dense
-		logging.info(f"Subsampling to 2000 UMIs")
 		if "TotalRNA" not in ds.ca:
 			(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
 		totals = ds.ca.TotalRNA
+		min_umis = np.min(totals)
+		logging.info(f"Subsampling to {min_umis} UMIs")
 		temp = data.toarray()
 		for c in range(temp.shape[0]):
-			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), 2000 / totals[c])
+			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), min_umis / totals[c])
 		data = sparse.coo_matrix(temp)
 
 		# HPF factorization
