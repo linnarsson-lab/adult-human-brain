@@ -179,6 +179,20 @@ class Cytograph2:
 		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
 		ds.col_graphs.RNN = rnn
 
+		logging.info(f"Computing balanced KNN (k = {10 * self.k}) in latent space")
+		# This stage computes an RNN with ten times as many neighbors, but still using the same radius
+		# This will expand the neighborhoods in regions of high density, without causing it to bleed outside regions of low density
+		bnn = cg.BalancedKNN(k=10 * self.k, metric="js", maxl=2 * self.k, sight_k=20 * self.k, n_jobs=-1)
+		bnn.fit(theta)
+		knn = bnn.kneighbors_graph(mode='distance')
+		# Convert distances to similarities
+		knn.data = 1 - knn.data
+		knn.setdiag(0)
+		knn = knn.tocoo()
+		inside = knn.data > 1 - radius
+		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
+		ds.col_graphs.RNN10X = rnn
+
 		logging.info(f"2D tSNE embedding from latent space")
 		tsne = cg.tsne_js(theta, radius=radius)
 		ds.ca.TSNE = tsne

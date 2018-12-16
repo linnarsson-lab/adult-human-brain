@@ -41,7 +41,6 @@ def find_redundant_components(beta: np.ndarray, theta: np.ndarray, max_r: float)
 def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
 	k = gamma_shape.shape[1]
 	nnz = u.shape[0]
-	memory = MemoryUsage()
 	u_logdiff = (digamma(gamma_shape) - np.log(gamma_rate))
 	i_logdiff = (digamma(lambda_shape) - np.log(lambda_rate))
 
