@@ -159,7 +159,7 @@ class Cytograph2:
 
 		logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
 		bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
-		bnn.fit(theta)
+		bnn.fit(theta.astype("float64"))  # Not sure why, but with float32 BalancedKNN throws *** Error in `/home/sten/anaconda3/bin/python': double free or corruption (out): 0x00005648e27189c0 ***
 		knn = bnn.kneighbors_graph(mode='distance')
 		mknn = knn.minimum(knn.transpose())
 		# Convert distances to similarities
@@ -183,7 +183,7 @@ class Cytograph2:
 		# This stage computes an RNN with ten times as many neighbors, but still using the same radius
 		# This will expand the neighborhoods in regions of high density, without causing it to bleed outside regions of low density
 		bnn = cg.BalancedKNN(k=10 * self.k, metric="js", maxl=2 * self.k, sight_k=20 * self.k, n_jobs=-1)
-		bnn.fit(theta)
+		bnn.fit(theta.astype("float64"))
 		knn = bnn.kneighbors_graph(mode='distance')
 		# Convert distances to similarities
 		knn.data = 1 - knn.data
