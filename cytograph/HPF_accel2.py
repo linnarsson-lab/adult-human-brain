@@ -212,7 +212,7 @@ class HPF:
 		kappa_rate = np.random.uniform(0.5 * bp, 1.5 * bp, n_users).astype('float32')
 		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k)).astype('float32')
 		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k)).astype('float32')
-		y_phi = np.zeros_like(y)
+		y_phi = np.zeros_like(y, dtype="float32")
 
 		if beta_precomputed:
 			tau_shape = self._tau_shape
