@@ -160,7 +160,10 @@ class Cytograph2:
 		# KNN in HPF space
 		logging.info(f"Computing KNN (k={self.k}) in latent space")
 		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
-		indices, distances = nn.query(theta, k=self.k)
+		indices, distances = nn.query(theta, k=self.k + 1)
+		# Remove the diagonal elements
+		indices = indices[1:, :]
+		distances = distances[1:, :]
 		knn = sparse.csr_matrix(
 			(np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (theta.shape[0], theta.shape[0])
 		)
