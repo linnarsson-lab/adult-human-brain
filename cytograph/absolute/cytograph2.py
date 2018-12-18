@@ -161,13 +161,12 @@ class Cytograph2:
 		logging.info(f"Computing KNN (k={self.k}) in latent space")
 		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
 		indices, distances = nn.query(theta, k=self.k + 1)
-		# Remove the diagonal elements
-		indices = indices[1:, :]
-		distances = distances[1:, :]
 		knn = sparse.csr_matrix(
 			(np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (theta.shape[0], theta.shape[0])
 		)
-
+		# Remove the diagonal elements
+		knn.setdiag(0)
+		knn.eliminate_zeros()
 		# logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
 		# bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
 		# bnn.fit(theta.astype("float64"))  # Not sure why, but with float32 BalancedKNN throws *** Error in `/home/sten/anaconda3/bin/python': double free or corruption (out): 0x00005648e27189c0 ***
