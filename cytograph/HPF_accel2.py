@@ -233,7 +233,6 @@ class HPF:
 				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 				# Shape of phi will be (nnz, k)
 				compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
-				logging.info(f"y_phi.dtype = {y_phi.dtype}")
 
 				# Upate the variational parameters corresponding to theta (the users)
 				# Sum of y_phi over users, for each k
