@@ -10,12 +10,10 @@ import logging
 from numba import jit
 from concurrent.futures import ThreadPoolExecutor
 
-
 ##
 ## This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
 ## of JIT precompilation through Numba, to accelerate the computation and make use of all available cores
 ##
-
 
 def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
 	n_factors = factors.shape[1]
@@ -38,9 +36,10 @@ def find_redundant_components(beta: np.ndarray, theta: np.ndarray, max_r: float)
 	return np.intersect1d(_find_redundant_components(beta, max_r), _find_redundant_components(theta, max_r))
 
 
-def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
+def compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
 	k = gamma_shape.shape[1]
 	nnz = u.shape[0]
+	y_phi = np.empty((nnz, k), dtype="float32")
 	u_logdiff = (digamma(gamma_shape) - np.log(gamma_rate))
 	i_logdiff = (digamma(lambda_shape) - np.log(lambda_rate))
 
@@ -53,7 +52,6 @@ def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, 
 			y_batch = y[start:start + batch_size]
 			tx.submit(compute_y_phi_batch, y_phi, start, u_logdiff, i_logdiff, u_batch, i_batch, y_batch)
 			start += batch_size
-
 	return y_phi
 
 
@@ -185,7 +183,6 @@ class HPF:
 		return self
 
 	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-
 		# Create local variables for convenience
 		(n_users, n_items) = X.shape
 		k = self.k
@@ -212,7 +209,6 @@ class HPF:
 		kappa_rate = np.random.uniform(0.5 * bp, 1.5 * bp, n_users).astype('float32')
 		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k)).astype('float32')
 		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k)).astype('float32')
-		y_phi = np.zeros_like(y, dtype="float32")
 
 		if beta_precomputed:
 			tau_shape = self._tau_shape
@@ -232,7 +228,7 @@ class HPF:
 				# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 				# Shape of phi will be (nnz, k)
-				compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
+				y_phi = compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
 
 				# Upate the variational parameters corresponding to theta (the users)
 				# Sum of y_phi over users, for each k
