@@ -158,13 +158,12 @@ class Cytograph2:
 			start += batch_size
 
 		# KNN in HPF space
-		logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
+		logging.info(f"Computing KNN (k={self.k}) in latent space")
 		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
-		indices, distances = nn.query(theta, k=self.k_pooling)
+		indices, distances = nn.query(theta, k=self.k)
 		knn = sparse.csr_matrix(
 			(np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (theta.shape[0], theta.shape[0])
 		)
-		knn.setdiag(1)
 
 		# logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
 		# bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
