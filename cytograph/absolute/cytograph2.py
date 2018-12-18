@@ -185,13 +185,20 @@ class Cytograph2:
 		bnn = cg.BalancedKNN(k=10 * self.k, metric="js", maxl=2 * self.k, sight_k=20 * self.k, n_jobs=-1)
 		bnn.fit(theta.astype("float64"))
 		knn = bnn.kneighbors_graph(mode='distance')
+		logging.info("3")
 		# Convert distances to similarities
 		knn.data = 1 - knn.data
+		logging.info("4")
 		knn.setdiag(0)
+		logging.info("5")
 		knn = knn.tocoo()
+		logging.info("6")
 		inside = knn.data > 1 - radius
+		logging.info("7")
 		rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
+		logging.info("8")
 		ds.col_graphs.RNN10X = rnn
+		logging.info("9")
 
 		logging.info(f"2D tSNE embedding from latent space")
 		tsne = cg.tsne_js(theta, radius=radius)

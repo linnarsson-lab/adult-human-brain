@@ -255,6 +255,7 @@ class BalancedKNN:
 									   np.arange(0, dist_new.shape[0] * dist_new.shape[1] + 1, dist_new.shape[1])),
 									  (self.n_samples,
 									   self.n_samples))
+		logging.debug("Returning sparse matrix 2")
 		return self.bknn
 
 	def smooth_data(self, data_to_smooth: np.ndarray, X: np.ndarray=None, maxl: int=None,
