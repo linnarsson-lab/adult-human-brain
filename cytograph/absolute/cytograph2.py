@@ -172,7 +172,7 @@ class Cytograph2:
 		d = 1 - knn.data
 		d = d[d < 1]
 		radius = np.percentile(d, 90)
-		logging.info(f"Found effective radius {radius:.02}")
+		logging.info(f"90th percentile radius: {radius:.02}")
 		ds.attrs.radius = radius
 		knn.setdiag(0)
 		knn = knn.tocoo()
