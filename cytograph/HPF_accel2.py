@@ -36,10 +36,9 @@ def find_redundant_components(beta: np.ndarray, theta: np.ndarray, max_r: float)
 	return np.intersect1d(_find_redundant_components(beta, max_r), _find_redundant_components(theta, max_r))
 
 
-def compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
+def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
 	k = gamma_shape.shape[1]
 	nnz = u.shape[0]
-	y_phi = np.empty((nnz, k), dtype="float32")
 	u_logdiff = (digamma(gamma_shape) - np.log(gamma_rate))
 	i_logdiff = (digamma(lambda_shape) - np.log(lambda_rate))
 
@@ -203,6 +202,7 @@ class HPF:
 			self.validation_data = sparse.coo_matrix((vy, (vu, vi)), shape=X.shape)
 		else:
 			(vu, vi, vy) = (u, i, y)
+		nnz = y.shape[0]
 
 		# Initialize the variational parameters with priors and some randomness
 		kappa_shape = np.full(n_users, b + k * a, dtype='float32')  # This is actually the first variational update, but needed only once
@@ -221,6 +221,8 @@ class HPF:
 			lambda_shape = np.random.uniform(0.5 * c, 1.5 * c, (n_items, k)).astype('float32')
 			lambda_rate = np.random.uniform(0.5 * d, 1.5 * d, (n_items, k)).astype('float32')
 
+		y_phi = np.empty((nnz, k), dtype="float32")
+
 		self.log_likelihoods = []
 		with trange(self.max_iter + 1) as t:
 			t.set_description(f"HPF.fit(X.shape={X.shape})")
@@ -228,7 +230,7 @@ class HPF:
 				# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
 				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 				# Shape of phi will be (nnz, k)
-				y_phi = compute_y_phi(gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
+				compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
 
 				# Upate the variational parameters corresponding to theta (the users)
 				# Sum of y_phi over users, for each k
