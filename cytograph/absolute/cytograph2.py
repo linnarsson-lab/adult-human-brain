@@ -19,84 +19,89 @@ from .metrics import jensen_shannon_distance
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None, poisson_pooling: bool = True) -> None:
+	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None) -> None:
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
 		self.k = k
 		self.outliers = outliers
 		self.required_genes = required_genes
-		self.poisson_pooling = poisson_pooling
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
 		n_samples = ds.shape[1]
 
-		# Select genes
-		logging.info(f"Selecting {self.n_genes} genes")
-		normalizer = cg.Normalizer(False)
-		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-		self.genes = genes
-		data = ds.sparse(rows=genes).T
+		poisson_pooling = ("pooled" not in ds.layers)
+		if poisson_pooling:
+			# Select genes
+			logging.info(f"Selecting {self.n_genes} genes")
+			normalizer = cg.Normalizer(False)
+			normalizer.fit(ds)
+			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			self.genes = genes
+			data = ds.sparse(rows=genes).T
 
-		# Subsample to lowest number of UMIs
-		# TODO: figure out how to do this without making the data matrix dense
-		if "TotalRNA" not in ds.ca:
-			(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
-		totals = ds.ca.TotalRNA
-		min_umis = np.min(totals)
-		logging.info(f"Subsampling to {min_umis} UMIs")
-		temp = data.toarray()
-		for c in range(temp.shape[0]):
-			temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), min_umis / totals[c])
-		data = sparse.coo_matrix(temp)
+			# Subsample to lowest number of UMIs
+			# TODO: figure out how to do this without making the data matrix dense
+			if "TotalRNA" not in ds.ca:
+				(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
+			totals = ds.ca.TotalRNA
+			min_umis = np.min(totals)
+			logging.info(f"Subsampling to {min_umis} UMIs")
+			temp = data.toarray()
+			for c in range(temp.shape[0]):
+				temp[c, :] = np.random.binomial(temp[c, :].astype('int32'), min_umis / totals[c])
+			data = sparse.coo_matrix(temp)
 
-		# HPF factorization
-		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
-		hpf.fit(data)
-		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
+			# HPF factorization
+			logging.info(f"HPF to {self.n_factors} latent factors")
+			hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+			hpf.fit(data)
+			theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 
-		if "Batch" in ds.ca and "Replicate" in ds.ca:
-			technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
-			logging.info(f"Removing {technical.sum()} technical factors")
-			theta = theta[:, ~technical]
-		else:
-			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
-
-		# KNN in HPF space
-		logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
-		nn = NNDescent(data=theta, metric=jensen_shannon_distance)
-		indices, distances = nn.query(theta, k=self.k_pooling)
-		# Note: we convert distances to similarities here, to support Poisson smoothing below
-		knn = sparse.csr_matrix(
-			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), 		(theta.shape[0], theta.shape[0])
-		)
-		knn.setdiag(1)
-
-		# Poisson pooling (in place, except the main layer)
-		logging.info(f"Poisson pooling")
-		ds["pooled"] = 'int32'
-		for (ix, indexes, view) in ds.scan(axis=0):
-			if "spliced" in ds.layers:
-				ds["spliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
-				ds["unspliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
-				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced"][indexes.min(): indexes.max() + 1, :] + ds["unspliced"][indexes.min(): indexes.max() + 1, :]
+			if "Batch" in ds.ca and "Replicate" in ds.ca:
+				technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
+				logging.info(f"Removing {technical.sum()} technical factors")
+				theta = theta[:, ~technical]
 			else:
-				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+				logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
 
+			# KNN in HPF space
+			logging.info(f"Computing KNN (k={self.k_pooling}) in latent space")
+			nn = NNDescent(data=theta, metric=jensen_shannon_distance)
+			indices, distances = nn.query(theta, k=self.k_pooling)
+			# Note: we convert distances to similarities here, to support Poisson smoothing below
+			knn = sparse.csr_matrix(
+				(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), 		(theta.shape[0], theta.shape[0])
+			)
+			knn.setdiag(1)
+
+			# Poisson pooling (in place, except the main layer)
+			logging.info(f"Poisson pooling")
+			ds["pooled"] = 'int32'
+			for (ix, indexes, view) in ds.scan(axis=0):
+				if "spliced" in ds.layers:
+					ds["spliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
+					ds["unspliced"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
+					ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced"][indexes.min(): indexes.max() + 1, :] + ds["unspliced"][indexes.min(): indexes.max() + 1, :]
+				else:
+					ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+
+		if "pooled" in ds.layers:
+			main_layer = "pooled"
+		else:
+			main_layer = ""
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes after pooling")
-		normalizer = cg.Normalizer(False, layer="pooled" if self.poisson_pooling else "")
+		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes, layer="pooled").fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		# Make sure to include these genes
 		genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
-		data = ds["pooled" if self.poisson_pooling else ""].sparse(rows=genes).T
+		data = ds[main_layer].sparse(rows=genes).T
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
@@ -195,7 +200,7 @@ class Cytograph2:
 
 		logging.info("Clustering by polished Louvain")
 		pl = cg.PolishedLouvain(outliers=self.outliers)
-		labels = pl.fit_predict(ds, graph="RNN", embedding="HPF")
+		labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
 		ds.ca.Clusters = labels + min(labels)
 		ds.ca.Outliers = (labels == -1).astype('int')
 		logging.info(f"Found {labels.max() + 1} clusters")
