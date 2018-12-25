@@ -111,7 +111,7 @@ class HPF:
 			epsilon			Fraction improvement required to continue iterating
 			max_r			Maximum Pearson's correlation coefficient allowed before a component is considered redundant
 			compute_X_ppv	If true, compute the posterior predictive values X_ppv (same shape as X)
-			n_threads		Number of parallel threads to use (0, use half of available logical CPUs)
+			n_threads		Number of parallel threads to use (0, use all available logical CPUs)
 		"""
 		self.k = k
 		self.a = a
@@ -125,7 +125,7 @@ class HPF:
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
-		self.minibatch_size = 1_000_000
+		self.minibatch_size = 50_000_000
 		self.n_threads = n_threads
 		if n_threads == 0:
 			if os.cpu_count() is not None:
@@ -221,6 +221,8 @@ class HPF:
 			tau_rate = np.random.uniform(0.5 * dp, 1.5 * dp, n_items).astype('float32')
 			lambda_shape = np.random.uniform(0.5 * c, 1.5 * c, (n_items, k)).astype('float32')
 			lambda_rate = np.random.uniform(0.5 * d, 1.5 * d, (n_items, k)).astype('float32')
+		
+		y_phi = np.empty((self.minibatch_size, k), dtype="float32")
 
 		self.log_likelihoods = []
 		with trange(self.max_iter + 1) as t:
@@ -232,7 +234,8 @@ class HPF:
 					# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
 					# Shape of phi will be (nnz, k)
 					minibatch_size = min(self.minibatch_size, u.shape[0] - minibatch_offset)
-					y_phi = np.empty((minibatch_size, k), dtype="float32")
+					if minibatch_size != self.minibatch_size:  # Last iteration may be less than a full minibatch
+						y_phi = np.empty((minibatch_size, k), dtype="float32")
 					u_mb = u[minibatch_offset: minibatch_offset + minibatch_size]
 					i_mb = i[minibatch_offset: minibatch_offset + minibatch_size]
 					y_mb = y[minibatch_offset: minibatch_offset + minibatch_size]
@@ -266,6 +269,7 @@ class HPF:
 						lambda_shape = c + y_phi_sum_i
 						lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
 						tau_rate = (d / dp) + (lambda_shape / lambda_rate).sum(axis=1)
+
 					minibatch_offset += self.minibatch_size
 
 				if n_iter % self.stop_interval == 0:
