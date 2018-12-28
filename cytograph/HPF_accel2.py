@@ -125,7 +125,7 @@ class HPF:
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
-		self.minibatch_size = 50_000_000
+		self.minibatch_size = 100_000_000
 		self.n_threads = n_threads
 		if n_threads == 0:
 			if os.cpu_count() is not None:
