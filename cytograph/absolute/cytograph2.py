@@ -16,6 +16,7 @@ import networkx as nx
 from .velocity_inference import fit_gamma
 from .identify_technical_factors import identify_technical_factors
 from .metrics import jensen_shannon_distance
+from .cell_cycle_annotator import CellCycleAnnotator
 
 
 class Cytograph2:
@@ -220,3 +221,7 @@ class Cytograph2:
 			velocity = u - gamma[:, None] * s
 			ds["velocity"] = "float32"
 			ds["velocity"][selected, :] = velocity
+		
+		logging.info("Inferring cell cycle")
+		CellCycleAnnotator(ds).annotate_loom()
+
