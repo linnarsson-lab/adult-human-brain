@@ -189,6 +189,10 @@ class HPF:
 		(u, i, y) = (X.row, X.col, X.data)  # u and i are indices of the nonzero entries; y are the values of those entries
 		(a, b, c, d) = (self.a, self.b, self.c, self.d)
 		logging.info(f"nnz={len(u)}")
+		ordering = np.random.permutation(u.shape[0])
+		u = u[ordering]
+		i = i[ordering]
+		y = y[ordering]
 
 		# Compute hyperparameters bp and dp
 		def mean_var_prior(X: np.ndarray, axis: int) -> float:
