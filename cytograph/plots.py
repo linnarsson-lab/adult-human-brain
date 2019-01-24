@@ -575,7 +575,7 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 			"Choroid": ["TTR"],
 			"Astro": ["GJA1", "AQP4"],
 			"Rgl": ["FABP7", "HOPX"],
-			"Nblast": ["IGFBPL1", "EOMES"],
+			"Nblast": ["NHLH1"],
 			"Endo": ["CLDN5"],
 			"Immune": ["AIF1", "HEXB", "MRC1"],
 			"OPC": ["PDGFRA", "CSPG4"],
@@ -591,7 +591,7 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 			"Choroid": ["Ttr"],
 			"Astro": ["Gja1", "Aqp4"],
 			"Rgl": ["Fabp7", "Hopx"],
-			"Nblast": ["Igfbpl1", "Eomes"],
+			"Nblast": ["Nhlh1"],
 			"Endo": ["Cldn5"],
 			"Immune": ["Aif1", "Hexb", "Mrc1"],
 			"OPC": ["Pdgfra", "Cspg4"],
@@ -712,8 +712,12 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(222)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=0)
+	cells = np.random.permutation(labels.shape[0])
+	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], lw=0, s=10)
+	lgnd = ax.legend()
+	for handle in lgnd.legendHandles:
+		handle.set_sizes([10])
 	plt.title("Age")
 	
 	if "XIST" in ds.ra.Gene:

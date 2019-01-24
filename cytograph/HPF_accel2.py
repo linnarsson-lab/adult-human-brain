@@ -132,6 +132,7 @@ class HPF:
 				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
 			else:
 				self.n_threads = 1
+		logging.info(f"HPF using {self.n_threads} threads")
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None

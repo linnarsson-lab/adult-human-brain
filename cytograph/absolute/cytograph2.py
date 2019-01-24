@@ -20,13 +20,26 @@ from .cell_cycle_annotator import CellCycleAnnotator
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None) -> None:
+	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: str = None, feature_selection_method: str = "markers") -> None:
+		"""
+		Run cytograph2
+
+		Args:
+			n_genes							Number of genes to select
+			n_factors						Number of HPF factors
+			k								Number of neighbors for KNN graph
+			k_pooling						Number of neighbors for Poisson pooling
+			outliers						Allow outliers and mark them
+			required_genes					List of genes that must be included in any feature selection
+			feature_selection_method 		"markers" or "variance"
+		"""
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.k_pooling = k_pooling
 		self.k = k
 		self.outliers = outliers
 		self.required_genes = required_genes
+		self.feature_selection_method = feature_selection_method
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
@@ -94,14 +107,59 @@ class Cytograph2:
 			main_layer = ""
 		# Select genes
 		logging.info(f"Selecting {self.n_genes} genes after pooling")
-		normalizer = cg.Normalizer(False, layer=main_layer)
-		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-		# Make sure to include these genes
-		genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
-		selected = np.zeros(ds.shape[0])
-		selected[genes] = 1
-		ds.ra.Selected = selected
+		if self.feature_selection_method == "variance":
+			normalizer = cg.Normalizer(False, layer=main_layer)
+			normalizer.fit(ds)
+			genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			# Make sure to include these genes
+			genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
+			selected = np.zeros(ds.shape[0])
+			selected[genes] = 1
+			ds.ra.Selected = selected
+		elif self.feature_selection_method == "markers":
+			logging.info("Selecting up to %d marker genes", self.n_genes)
+			normalizer = cg.Normalizer(False, layer=main_layer)
+			normalizer.fit(ds)
+			genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			n_cells = ds.shape[1]
+			n_components = min(50, n_cells)
+			logging.info("PCA projection to %d components", n_components)
+			pca = cg.PCAProjection(genes, max_n_components=n_components)
+			pca_transformed = pca.fit_transform(ds, normalizer)
+			transformed = pca_transformed
+
+			logging.info("Generating balanced KNN graph")
+			np.random.seed(0)
+			k = min(self.k, n_cells - 1)
+			bnn = cg.BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
+			bnn.fit(transformed)
+			knn = bnn.kneighbors_graph(mode='connectivity')
+			knn = knn.tocoo()
+			mknn = knn.minimum(knn.transpose()).tocoo()
+
+			logging.info("MKNN-Louvain clustering with outliers")
+			(a, b, w) = (mknn.row, mknn.col, mknn.data)
+			lj = cg.LouvainJaccard(resolution=1, jaccard=False)
+			labels = lj.fit_predict(knn)
+			bigs = np.where(np.bincount(labels) >= 10)[0]
+			mapping = {k: v for v, k in enumerate(bigs)}
+			labels = np.array([mapping[x] if x in bigs else -1 for x in labels])
+
+			n_labels = np.max(labels) + 1
+			logging.info("Found " + str(n_labels) + " preliminary clusters")
+
+			logging.info("Marker selection")
+			temp = None
+			if "Clusters" in ds.ca:
+				temp = ds.ca.Clusters
+			ds.ca.Clusters = labels - labels.min()
+			(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels), findq=False).fit(ds)
+			if temp is not None:
+				ds.ca.Clusters = temp
+			selected = np.zeros(ds.shape[0])
+			selected[genes] = 1
+			ds.ra.Selected = selected
+
 		data = ds[main_layer].sparse(rows=genes).T
 
 		# HPF factorization

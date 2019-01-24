@@ -57,7 +57,7 @@ class PCAProjection:
 				vals = normalizer.transform(view[:, :], selection)
 				if self.nng is not None:
 					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
-				logging.info(vals[self.genes, :].transpose().shape)
+				#logging.info(vals[self.genes, :].transpose().shape)
 				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> np.ndarray:
