@@ -744,11 +744,11 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.title("SampleID")
 
 	plt.savefig(out_file, dpi=144)
-
+	plt.close()
 
 def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
-	plt.figure(figsize=(12, 4))
-	plt.subplot(121)
+	plt.figure(figsize=(16, 4))
+	plt.subplot(131)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
 		plt.hist(ds.ca.TotalRNA[cells], bins=100, label=chip, alpha=0.5, range=(0, 30000))
@@ -756,7 +756,7 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 		plt.ylabel("Number of cells")
 		plt.xlabel("Number of UMIs")
 	plt.legend()
-	plt.subplot(122)
+	plt.subplot(132)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
 		plt.hist(ds.ca.NGenes[cells], bins=100, label=chip, alpha=0.5, range=(0, 10000))
@@ -764,7 +764,17 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 		plt.ylabel("Number of cells")
 		plt.xlabel("Number of genes")
 	plt.legend()
+	plt.subplot(133)
+	tsne = ds.ca.TSNE
+	plt.scatter(tsne[:, 0], tsne[:, 1], c="lightgrey", lw=0, marker='.')
+	for chip in np.unique(ds.ca.SampleID):
+		cells = (ds.ca.DoubletFlag == 1) & (ds.ca.SampleID == chip)
+		plt.scatter(tsne[:, 0][cells], tsne[:, 1][cells], label=chip, lw=0, marker='.')
+		plt.title("Doublets")
+	plt.axis("off")
+	plt.legend()
 	plt.savefig(out_file, dpi=144)
+	plt.close()
 
 
 class MidpointNormalize(Normalize):

@@ -37,18 +37,19 @@ class ClusterValidator:
 		normalizer.fit(ds)
 
 		logging.info("Feature selection")
-		(_, enrichment, _) = cg.MarkerSelection(findq=False, labels_attr="Clusters").fit(ds)
-		genes = np.zeros_like(ds.ra.Gene, dtype=bool)
-		for ix in range(enrichment.shape[1]):
-			genes[np.argsort(-enrichment[:, ix])[:25]] = True
+		# (_, enrichment, _) = cg.MarkerSelection(findq=False, labels_attr="Clusters").fit(ds)
+		# genes = np.zeros_like(ds.ra.Gene, dtype=bool)
+		# for ix in range(enrichment.shape[1]):
+		# 	genes[np.argsort(-enrichment[:, ix])[:25]] = True
+		genes = ds.ra.Selected == 1
 
 		logging.info("PCA projection")
 		pca = cg.PCAProjection(genes, max_n_components=50)
 		transformed = pca.fit_transform(ds, normalizer)
 
-		le = LabelEncoder().fit(ds.ca.ClusterName)
+		le = LabelEncoder().fit(ds.ca.Clusters.astype("str"))
 		self.le = le
-		labels = le.transform(ds.ca.ClusterName)
+		labels = le.transform(ds.ca.Clusters.astype("str"))
 
 		train_X, test_X, train_Y, test_Y = train_test_split(transformed, labels, test_size=0.2)
 		classifier = RandomForestClassifier(max_depth=30)
@@ -67,5 +68,6 @@ class ClusterValidator:
 			cbar = plt.colorbar()
 			cbar.set_label('Probability of predicted cluster', rotation=90)
 			plt.savefig(plot, bbox_inches="tight")
+			plt.close()
 
 		return self.proba
