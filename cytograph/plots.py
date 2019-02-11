@@ -18,7 +18,17 @@ from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
 from .utils import species
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, LinearSegmentedColormap
+
+
+class MidpointNormalize(Normalize):
+	def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+		self.midpoint = midpoint
+		Normalize.__init__(self, vmin, vmax, clip)
+
+	def __call__(self, value, clip=None):
+		x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+		return np.ma.masked_array(np.interp(value, x, y))
 
 
 def plot_cv_mean(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -94,7 +104,7 @@ def plot_graph(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None,
 	nn.fit(pos)
 	knn = nn.kneighbors_graph(mode='distance')
 	k_radius = knn.max(axis=1).toarray()
-	epsilon = 24 * np.percentile(k_radius, eps_pct)
+	epsilon = (2500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
 
 	fig = plt.figure(figsize=(10, 10))
 	ax = fig.add_subplot(111)
@@ -466,33 +476,39 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 
 def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
-	# Plots
 	logging.info(f"Plotting factors")
 	offset = 0
 	theta = ds.ca.HPF
-	beta = ds.ra.HPF
 	n_factors = theta.shape[1]
+	beta = ds.ra.HPF
+	v = ds["velocity"][ds.ra.Selected == 1, :]
+	v_hpf = beta[ds.ra.Selected == 1].T @ v
 	while offset < n_factors:
 		fig = plt.figure(figsize=(15, 15))
 		fig.subplots_adjust(hspace=0, wspace=0)
-		for nnc in range(offset, offset + 16):
+		for nnc in range(offset, offset + 8):
 			if nnc >= n_factors:
 				break
-			ax = plt.subplot(4, 4, nnc + 1 - offset)
+			ax = plt.subplot(4, 4, (nnc - offset) * 2 + 1)
 			plt.xticks(())
 			plt.yticks(())
 			plt.scatter(x=ds.ca.TSNE[:, 0], y=ds.ca.TSNE[:, 1], c='lightgrey', marker='.', alpha=0.5, s=60, lw=0)
-			cells = theta[:, nnc] > np.percentile(theta[:, nnc], 99) * 0.25
+			cells = theta[:, nnc] > np.percentile(theta[:, nnc], 99) * 0.1
 			cmap = "viridis"
-			if cells.sum() > ds.shape[1] * 0.5:
-				cmap = "autumn"
-			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], vmax=np.percentile(theta[:, nnc][cells], 95), c=theta[:, nnc][cells], marker='.', alpha=0.5, s=60, cmap=cmap, lw=0)
+			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], c=theta[:, nnc][cells], marker='.', alpha=0.5, s=60, cmap=cmap, lw=0)
 			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-beta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
-			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes)
+			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes, fontsize=12)
+			ax.text(.5, .9, f"{np.percentile(v_hpf[nnc], 98):.2}", horizontalalignment='right', transform=ax.transAxes)
+			plt.axis("off")
+			vcmap = LinearSegmentedColormap.from_list("", ["red","whitesmoke","green"])
+			norm = MidpointNormalize(midpoint=0)
+			ax = plt.subplot(4, 4, (nnc - offset) * 2 + 2)
+			plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[nnc], 2),vmax=np.percentile(v_hpf[nnc], 98), c=v_hpf[nnc],norm=norm, cmap=vcmap, marker='.',s=10)
+			plt.axis("off")
 		plt.savefig(base_name + f"{offset}.png", dpi=144)
-		offset += 16
-	plt.close()
-
+		offset += 8
+		plt.close()
+		
 
 def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	layer = ds["pooled"]
@@ -705,7 +721,9 @@ def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax.legend()
 	plt.title("Tissue")
 
-	if "Age" in ds.ca:
+	if "PCW" in ds.ca:
+		labels = ds.ca.PCW
+	elif "Age" in ds.ca:
 		labels = ds.ca.Age
 	else:
 		labels = np.array(["(unknown)"] * ds.shape[1])
@@ -777,16 +795,6 @@ def plot_umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.close()
 
 
-class MidpointNormalize(Normalize):
-	def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
-		self.midpoint = midpoint
-		Normalize.__init__(self, vmin, vmax, clip)
-
-	def __call__(self, value, clip=None):
-		x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
-		return np.ma.masked_array(np.interp(value, x, y))
-
-
 def plot_gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = None) -> None:
 	genes = ds.ra.Gene[ds.ra.Selected == 1]
 	g = ds.gamma[ds.ra.Gene == gene]
@@ -819,3 +827,24 @@ def plot_gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = Non
 	
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
+	plt.close()
+
+
+def plot_embedded_velocity(ds: loompy.LoomConnection, n_bins: int = 50, embedding: str = "TSNE", out_file: str = None) -> None:
+	points = ds.ca[embedding]
+	xmin, xmax = points[:, 0].min(), points[:, 0].max()
+	ymin, ymax = points[:, 1].min(), points[:, 1].max()
+	grid_x, grid_y = np.mgrid[xmin:xmax:complex(0, n_bins), ymin:ymax:complex(0, n_bins)]  # type: ignore
+	arrows = ds.attrs["EmbeddedVelocity" + embedding]
+	u, v = arrows[:, :, 0], arrows[:, :, 1]
+	hist, _, _ = np.histogram2d(points[:, 0], points[:, 1], bins=n_bins, range=[[xmin, xmax], [ymin, ymax]])
+	u[hist < 1] = 0
+	v[hist < 1] = 0
+	selected = (u != 0) | (v != 0)
+	plt.figure(figsize=(10, 10))
+	plt.scatter(ds.ca[embedding][:, 0], ds.ca[embedding][:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=20, alpha=0.5)
+	plt.quiver(grid_x[selected], grid_y[selected], u[selected], v[selected], scale=500, edgecolor='white', facecolor='black', linewidth=.5)
+	plt.axis("off")
+	if out_file is not None:
+		plt.savefig(out_file, dpi=144)
+	plt.close()

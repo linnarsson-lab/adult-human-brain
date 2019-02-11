@@ -16,58 +16,64 @@ class ClusterValidator:
 		self.report: str = None
 		self.proba: np.ndarray = None
 
-	def fit(self, ds: loompy.LoomConnection, plot: str = None) -> np.ndarray:
+	def fit(self, ds: loompy.LoomConnection, plot_file: str = None, report_file: str = None) -> np.ndarray:
 		"""
 		Fit a classifier and use it to determine cluster predictive power
 
 		Args:
 			ds		Dataset
-			plot	Filename for optional plot
+			plot_file	Filename for optional plot
+			report_file	Filename for optional report
 
 		Returns:
 			Matrix of classification probabilities, shape (n_cells, n_labels)
 		"""
-		logging.info("Feature selection")
-		nnz = ds.map([np.count_nonzero], axis=0)[0]
-		valid_genes = np.logical_and(nnz > 5, nnz < ds.shape[1] * 0.5).astype("int")
-		ds.ra._Valid = valid_genes
+		# logging.info("Feature selection")
+		# nnz = ds.map([np.count_nonzero], axis=0)[0]
+		# valid_genes = np.logical_and(nnz > 5, nnz < ds.shape[1] * 0.5).astype("int")
+		# ds.ra._Valid = valid_genes
 
-		logging.info("Normalization")
-		normalizer = cg.Normalizer(False)
-		normalizer.fit(ds)
+		# logging.info("Normalization")
+		# normalizer = cg.Normalizer(False)
+		# normalizer.fit(ds)
 
-		logging.info("Feature selection")
-		# (_, enrichment, _) = cg.MarkerSelection(findq=False, labels_attr="Clusters").fit(ds)
-		# genes = np.zeros_like(ds.ra.Gene, dtype=bool)
-		# for ix in range(enrichment.shape[1]):
-		# 	genes[np.argsort(-enrichment[:, ix])[:25]] = True
-		genes = ds.ra.Selected == 1
+		# logging.info("Feature selection")
+		# # (_, enrichment, _) = cg.MarkerSelection(findq=False, labels_attr="Clusters").fit(ds)
+		# # genes = np.zeros_like(ds.ra.Gene, dtype=bool)
+		# # for ix in range(enrichment.shape[1]):
+		# # 	genes[np.argsort(-enrichment[:, ix])[:25]] = True
+		# genes = ds.ra.Selected == 1
 
-		logging.info("PCA projection")
-		pca = cg.PCAProjection(genes, max_n_components=50)
-		transformed = pca.fit_transform(ds, normalizer)
+		# logging.info("PCA projection")
+		# pca = cg.PCAProjection(genes, max_n_components=50)
+		# transformed = pca.fit_transform(ds, normalizer)
 
-		le = LabelEncoder().fit(ds.ca.Clusters.astype("str"))
-		self.le = le
-		labels = le.transform(ds.ca.Clusters.astype("str"))
+		if "ClusterName" in ds.ca:
+			cluster_names = [ds.ca.ClusterName[ds.ca.Clusters == lbl][0] for lbl in np.unique(ds.ca.Clusters)]
+		else:
+			cluster_names = [str(lbl) for lbl in np.unique(ds.ca.Clusters)]
 
-		train_X, test_X, train_Y, test_Y = train_test_split(transformed, labels, test_size=0.2)
+		train_X, test_X, train_Y, test_Y = train_test_split(ds.ca.HPF, ds.ca.Clusters, test_size=0.2)
 		classifier = RandomForestClassifier(max_depth=30)
 		classifier.fit(train_X, train_Y)
-		self.report = classification_report(test_Y, classifier.predict(test_X), target_names=le.classes_)
-		self.proba = classifier.predict_proba(transformed)
+		self.report = classification_report(test_Y, classifier.predict(test_X), target_names=cluster_names)
+		self.proba = classifier.predict_proba(ds.ca.HPF)
 
-		if plot:
-			agg = npg.aggregate(labels, self.proba, axis=0, func="mean")
+		if plot_file is not None:
+			plt.figure()
+			agg = npg.aggregate(ds.ca.Clusters, self.proba, axis=0, func="mean")
 			plt.imshow(agg, cmap="viridis")
-			plt.xticks(np.arange(le.classes_.shape[0]), le.classes_, rotation="vertical", fontsize=7)
-			plt.yticks(np.arange(le.classes_.shape[0]), le.classes_, rotation="horizontal", fontsize=7)
+			plt.xticks(np.arange(len(cluster_names)), cluster_names, rotation="vertical", fontsize=7)
+			plt.yticks(np.arange(len(cluster_names)), cluster_names, rotation="horizontal", fontsize=7)
 			plt.xlabel("Predicted cluster")
 			plt.ylabel("Ground truth cluster")
 			plt.title("Predictive power of cluster identities")
 			cbar = plt.colorbar()
 			cbar.set_label('Probability of predicted cluster', rotation=90)
-			plt.savefig(plot, bbox_inches="tight")
+			plt.savefig(plot_file, bbox_inches="tight")
 			plt.close()
+		if report_file is not None:
+			with open(report_file, "w") as f:
+				f.write(self.report)
 
 		return self.proba
