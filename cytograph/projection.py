@@ -46,6 +46,8 @@ class PCAProjection:
 			# NOTE TO AVOID a BUG with layer of pickled objects
 			try:
 				for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[self.layer]):
+					if len(selection) < self.n_components:
+						continue
 					vals = normalizer.transform(view.layers[self.layer][:, :], selection)
 					if self.nng is not None:
 						vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
@@ -54,6 +56,8 @@ class PCAProjection:
 				self.layer = None
 		if self.layer is None:
 			for (ix, selection, view) in ds.scan(items=cells, axis=1):
+				if len(selection) < self.n_components:
+					continue
 				vals = normalizer.transform(view[:, :], selection)
 				if self.nng is not None:
 					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
