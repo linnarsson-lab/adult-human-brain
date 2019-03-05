@@ -101,7 +101,8 @@ def multinomial_distance(p: np.ndarray, q: np.ndarray) -> float:
 	return 1 - 1 / (1 + x)
 
 
-@numba.jit("float32(float64[:], float64[:])", nopython=True, parallel=True, nogil=True)
+#@numba.jit("float32(float64[:], float64[:])", nopython=True, parallel=True, nogil=True)
+@numba.jit(["float32(float64[:], float64[:])", "float32(float32[:], float32[:])"], nopython=True, cache=True)
 def multinomial_subspace_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	selected = (pk > 0) | (qk > 0)
 	p = pk[selected]

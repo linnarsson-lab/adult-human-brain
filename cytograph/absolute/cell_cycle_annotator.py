@@ -38,7 +38,7 @@ class CellCycleAnnotator:
 		self.ds.ca.G2M = g2m
 
 	def plot_cell_cycle(self, path: str) -> None:
-		(g1, s, g2m) = self.totals_per_cell("spliced_exp")
+		(g1, s, g2m) = self.totals_per_cell("")
 		ordering = np.random.permutation(self.ds.shape[1])
 		tsne_x = self.ds.ca.TSNE[:, 0][ordering]
 		tsne_y = self.ds.ca.TSNE[:, 1][ordering]
@@ -46,20 +46,27 @@ class CellCycleAnnotator:
 		s = s[ordering]
 		g2m = g2m[ordering]
 		colors = cg.colorize(self.ds.ca.Clusters)[ordering]
-		cycling = (g1 + s + g2m) > 1
 
 		plt.figure(figsize=(20, 4))
 		plt.subplot(141)
+		cells = (g1 + s + g2m) > np.percentile((g1 + s + g2m), 99) / 5
 		plt.scatter(tsne_x, tsne_y, c='lightgrey', marker='.', lw=0)
-		plt.scatter(tsne_x[cycling], tsne_y[cycling], c=colors[cycling], marker='.', lw=0)
+		plt.scatter(tsne_x[cells], tsne_y[cells], c=colors[cells], marker='.', lw=0)
 		plt.title("Clusters")
 		plt.subplot(142)
-		plt.scatter(tsne_x, tsne_y, c=g1, marker='.', lw=0, s=30, alpha=0.7)
+		cells = g1 > np.percentile(g1, 99) / 5
+		plt.scatter(tsne_x, tsne_y, c='lightgrey', marker='.', lw=0)
+		plt.scatter(tsne_x[cells], tsne_y[cells], c=g1[cells], marker='.', lw=0, s=30, alpha=0.7)
 		plt.title("G1")
 		plt.subplot(143)
-		plt.scatter(x=tsne_x, y=tsne_y, c=s, marker='.', lw=0, s=30, alpha=0.7)
+		cells = s > np.percentile(s, 99) / 5
+		plt.scatter(tsne_x, tsne_y, c='lightgrey', marker='.', lw=0)
+		plt.scatter(x=tsne_x[cells], y=tsne_y[cells], c=s[cells], marker='.', lw=0, s=30, alpha=0.7)
 		plt.title("S")
 		plt.subplot(144)
-		plt.scatter(tsne_x, tsne_y, c=g2m, marker='.', lw=0, s=30, alpha=0.7)
+		cells = g2m > np.percentile(g2m, 99) / 5
+		plt.scatter(tsne_x, tsne_y, c='lightgrey', marker='.', lw=0)
+		plt.scatter(tsne_x[cells], tsne_y[cells], c=g2m[cells], marker='.', lw=0, s=30, alpha=0.7)
 		plt.title("G2/M")
 		plt.savefig(path, dpi=144)
+

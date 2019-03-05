@@ -15,7 +15,7 @@ from .pool_spec import PoolSpec
 from .plots import *
 from .magic import magic_imputation
 from .marker_selection import MarkerSelection
-from .TFs import TFs
+from .TFs import TFs_mouse, TFs_human
 from .utils import cap_select, logging, colorize, colors75, div0
 from .manifold_learning import ManifoldLearning
 from .manifold_learning_2 import ManifoldLearning2
@@ -33,3 +33,4 @@ from .vbgmm_clustering import VbgmmClustering
 from .cluster_validator import ClusterValidator
 from .absolute import *
 from .tsne_js import tsne_js
+from .tsne import tsne

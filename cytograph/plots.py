@@ -348,11 +348,12 @@ def plot_classes(ds: loompy.LoomConnection, out_file: str) -> None:
 
 def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
 	logging.info(ds.shape)
+	layer = "pooled" if "pooled" in ds.layers else ""
 	n_clusters = np.max(dsagg.ca["Clusters"] + 1)
 	n_markers = n_markers_per_cluster * n_clusters
 	enrichment = dsagg.layer["enrichment"][:n_markers, :]
 	cells = ds.ca["Clusters"] >= 0
-	data = np.log(ds[:n_markers, :][:, cells] + 1)
+	data = np.log(ds[layer][:n_markers, :][:, cells] + 1)
 	agg = np.log(dsagg[:n_markers, :] + 1)
 
 	clusterborders = np.cumsum(dsagg.col_attrs["NCells"])
@@ -372,9 +373,9 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 
 	gene_names: List[str] = []
 	if species(ds) == "Mus musculus":
-		gene_names = ["Pcna", "Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Rbfox1", "Eomes", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz"]
+		gene_names = ["Pcna", "Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Rbfox1", "Eomes", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz", "Emx1", "Dlx5"]
 	elif species(ds) == "Homo sapiens":
-		gene_names = ["PCNA", "CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "RBFOX1", "EOMES", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ"]
+		gene_names = ["PCNA", "CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "RBFOX1", "EOMES", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ", "EMX1", "DLX5"]
 	genes = [g for g in gene_names if g in ds.ra.Gene]
 	n_genes = len(genes)
 
@@ -432,7 +433,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 	for ix, g in enumerate(genes):
 		ax = fig.add_subplot(gs[3 + n_tissues + n_classes + n_probclasses + ix])
 		gix = np.where(ds.ra.Gene == g)[0][0]
-		vals = ds[gix, :][cells]
+		vals = ds[layer][gix, :][cells]
 		vals = vals / (np.percentile(vals, 99) + 0.1)
 		ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1)
 		ax.set_frame_on(False)
@@ -447,7 +448,7 @@ def plot_markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, 
 		bottoms = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) + n_topmarkers - 0.5)).T
 		lc = LineCollection(zip(tops, bottoms), linewidths=1, color='white', alpha=0.5)
 		ax.add_collection(lc)
-		
+
 	ax.imshow(topmarkers, aspect='auto', cmap="viridis", vmin=0, vmax=1)
 	for ix in range(n_topmarkers):
 		xpos = gene_pos[ix]
@@ -830,21 +831,113 @@ def plot_gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = Non
 	plt.close()
 
 
-def plot_embedded_velocity(ds: loompy.LoomConnection, n_bins: int = 50, embedding: str = "TSNE", out_file: str = None) -> None:
-	points = ds.ca[embedding]
-	xmin, xmax = points[:, 0].min(), points[:, 0].max()
-	ymin, ymax = points[:, 1].min(), points[:, 1].max()
-	grid_x, grid_y = np.mgrid[xmin:xmax:complex(0, n_bins), ymin:ymax:complex(0, n_bins)]  # type: ignore
-	arrows = ds.attrs["EmbeddedVelocity" + embedding]
-	u, v = arrows[:, :, 0], arrows[:, :, 1]
-	hist, _, _ = np.histogram2d(points[:, 0], points[:, 1], bins=n_bins, range=[[xmin, xmax], [ymin, ymax]])
-	u[hist < 1] = 0
-	v[hist < 1] = 0
-	selected = (u != 0) | (v != 0)
-	plt.figure(figsize=(10, 10))
-	plt.scatter(ds.ca[embedding][:, 0], ds.ca[embedding][:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=20, alpha=0.5)
-	plt.quiver(grid_x[selected], grid_y[selected], u[selected], v[selected], scale=500, edgecolor='white', facecolor='black', linewidth=.5)
+def plot_embedded_velocity(ds: loompy.LoomConnection, out_file: str = None) -> None:
+	plt.figure(figsize=(12, 12))
+	plt.subplot(221)
+	xy = ds.ca.UMAP
+	uv = ds.ca.UMAPVelocity
+	plt.scatter(xy[:, 0], xy[:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=2.5, edgecolor='white', facecolor="black", linewidth=.25)
 	plt.axis("off")
+	plt.title("Velocity (UMAP, cells)")
+
+	plt.subplot(222)
+	xy = ds.attrs.UMAPVelocityPoints
+	uv = ds.attrs.UMAPVelocity
+	plt.scatter(ds.ca.UMAP[:, 0], ds.ca.UMAP[:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=1, edgecolor='white', facecolor="black", linewidth=.25)
+	plt.axis("off")
+	plt.title("Velocity (UMAP, grid)")
+
+	plt.subplot(223)
+	xy = ds.ca.TSNE
+	uv = ds.ca.TSNEVelocity
+	plt.scatter(xy[:, 0], xy[:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=2.5, edgecolor='white', facecolor="black", linewidth=.25)
+	plt.axis("off")
+	plt.title("Velocity (TSNE, cells)")
+
+	plt.subplot(224)
+	xy = ds.attrs.TSNEVelocityPoints
+	uv = ds.attrs.TSNEVelocity
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=cg.colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=1, edgecolor='white', facecolor="black", linewidth=.25)
+	plt.axis("off")
+	plt.title("Velocity (TSNE, grid)")
+
+	if out_file is not None:
+		plt.savefig(out_file, dpi=144)
+	plt.close()
+
+
+def plot_TF_heatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file: str = None) -> None:
+	enrichment = dsagg["enrichment"][:, :]
+	enrichment = enrichment[np.isin(dsagg.ra.Gene, cg.TFs_human), :]
+	genes = dsagg.ra.Gene[np.isin(dsagg.ra.Gene, cg.TFs_human)]
+	genes = genes[np.argsort(-enrichment, axis=0)[:10, :]].T  # (n_clusters, n_genes)
+	genes = np.unique(genes)  # 1d array of unique genes, sorted
+	n_genes = len(genes)
+	n_clusters = dsagg.shape[1]
+	clusterborders = np.cumsum(dsagg.col_attrs["NCells"])
+
+	# Now sort the genes by cluster enrichment
+	top_cluster = []
+	for g in genes:
+		top_cluster.append(np.argsort(-dsagg["enrichment"][ds.ra.Gene == g, :][0])[0])
+	genes = genes[np.argsort(top_cluster)]
+	top_cluster = np.sort(top_cluster)
+
+	plt.figure(figsize=(12, n_genes // 10))
+	for ix, g in enumerate(genes):
+		ax = plt.subplot(n_genes, 1, ix + 1)
+		gix = np.where(ds.ra.Gene == g)[0][0]
+		vals = ds[layer][gix, :]
+		vals = vals / (np.percentile(vals, 99) + 0.1)
+		ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1)
+		ax.set_frame_on(False)
+		ax.set_xticks([])
+		ax.set_yticks([])
+		text = plt.text(0, 0.9, g, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
+		text = plt.text(1.001, 0.9, g, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
+
+		cluster = top_cluster[ix]
+		if cluster < len(clusterborders) - 1:
+			xpos = clusterborders[cluster]
+			text = plt.text(0.001 + xpos, -0.5, g, horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
+
+		# Draw border between clusters
+		if n_clusters > 2:
+			tops = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) - 0.5)).T
+			bottoms = np.vstack((clusterborders - 0.5, np.zeros(clusterborders.shape[0]) + 0.5)).T
+			lc = LineCollection(zip(tops, bottoms), linewidths=0.5, color='white', alpha=0.25)
+			ax.add_collection(lc)
+
+		if ix == 0:
+			# Cluster IDs
+			labels = ["#" + str(x) for x in np.arange(n_clusters)]
+			if "ClusterName" in ds.ca:
+				labels = dsagg.ca.ClusterName
+			for ix in range(0, clusterborders.shape[0]):
+				left = 0 if ix == 0 else clusterborders[ix - 1]
+				right = clusterborders[ix]
+				text = plt.text(left + (right - left) / 2, -1.5, labels[ix], horizontalalignment='center', verticalalignment='top', fontsize=4, color="black")
+
+	plt.subplots_adjust(hspace=0)
+
+	if out_file is not None:
+		plt.savefig(out_file, dpi=144)
+	plt.close()
+
+
+def plot_buckets(ds: loompy.LoomConnection, out_file: str = None) -> None:
+	fig = plt.figure(figsize=(7, 7))
+	colors = cg.colorize(np.unique(ds.ca.Bucket))
+	for ix, bucket in enumerate(np.unique(ds.ca.Bucket)):
+		cells = ds.ca.Bucket == bucket
+		plt.scatter(ds.ca.TSNE[cells, 0], ds.ca.TSNE[cells, 1], c=("lightgrey" if bucket == "" else colors[ix]), label=bucket, lw=0, marker='.', s=40, alpha=0.5)
+		plt.axis("off")
+		plt.title("Cerebellum L2 buckets")
+	plt.legend(markerscale=3, loc="upper right")
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
 	plt.close()

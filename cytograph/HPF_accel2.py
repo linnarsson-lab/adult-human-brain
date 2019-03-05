@@ -101,17 +101,18 @@ class HPF:
 		n_threads: int = 0) -> None:
 		"""
 		Args:
-			k				Number of components
-			a				Hyperparameter a in the paper
-			b				Hyperparameter a' in the paper
-			c				Hyperparameter c in the paper
-			d				Hyperparameter c' in the paper
-			max_iter		Maximum number of iterations
-			stop_interval	Interval between calculating and reporting the log-likelihood
-			epsilon			Fraction improvement required to continue iterating
-			max_r			Maximum Pearson's correlation coefficient allowed before a component is considered redundant
-			compute_X_ppv	If true, compute the posterior predictive values X_ppv (same shape as X)
-			n_threads		Number of parallel threads to use (0, use all available logical CPUs)
+			k					Number of components
+			a					Hyperparameter a in the paper
+			b					Hyperparameter a' in the paper
+			c					Hyperparameter c in the paper
+			d					Hyperparameter c' in the paper
+			max_iter			Maximum number of iterations
+			stop_interval		Interval between calculating and reporting the log-likelihood
+			epsilon				Fraction improvement required to continue iterating
+			max_r				Maximum Pearson's correlation coefficient allowed before a component is considered redundant
+			compute_X_ppv		If true, compute the posterior predictive values X_ppv (same shape as X)
+			validation_fraction	Fraction of datapoints to use for validation (0 to validate on the training set)
+			n_threads			Number of parallel threads to use (0, use all available logical CPUs)
 		"""
 		self.k = k
 		self.a = a
