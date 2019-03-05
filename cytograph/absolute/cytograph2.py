@@ -246,11 +246,11 @@ class Cytograph2:
 		logging.info("Selecting up to %d marker genes", self.n_genes)
 		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 		n_cells = ds.shape[1]
 		n_components = min(50, n_cells)
 		logging.info("PCA projection to %d components", n_components)
-		pca = cg.PCAProjection(genes, max_n_components=n_components)
+		pca = cg.PCAProjection(genes, max_n_components=n_components, layer=main_layer)
 		pca_transformed = pca.fit_transform(ds, normalizer)
 		transformed = pca_transformed
 
@@ -307,7 +307,7 @@ class Cytograph2:
 			spliced_layer = "spliced"
 			unspliced_layer = "unspliced"
 		# Select genes
-		logging.info(f"Selecting {self.n_genes} genes after pooling")
+		logging.info(f"Selecting {self.n_genes} genes")
 		if self.feature_selection_method == "variance":
 			genes = self.feature_selection_by_variance(ds, main_layer)
 		elif self.feature_selection_method == "markers":

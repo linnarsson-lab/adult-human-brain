@@ -14,10 +14,11 @@ def EP2int(timepoint: str) -> int:
 
 
 class FilterManager(object):
-    def __init__(self, punchcard_obj: Dict, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection=None) -> None:
+    def __init__(self, punchcard_obj: Dict, ds: loompy.LoomConnection, dsagg: loompy.LoomConnection=None, root: str = "../auto-annotation") -> None:
         self.punchcard_obj = punchcard_obj
         self.ds = ds
         self.dsagg = dsagg
+        self.root = root
         # Read the autoannotation.aa.tab file and extract tags
         self.tags_per_cluster = list(self.dsagg.col_attrs["AutoAnnotation"])  # Previously cg.read_autoannotation()
 
@@ -103,7 +104,7 @@ class FilterManager(object):
         return in_clu, ex_clu
 
     def make_filter_category(self) -> Tuple[np.ndarray, np.ndarray]:
-        aa = cg.AutoAnnotator.load_direct()
+        aa = cg.AutoAnnotator().load_direct(root=self.root)
         categories_dict = defaultdict(list)  # type: DefaultDict
         for t in aa.tags:
             for c in t.categories:
@@ -124,7 +125,7 @@ class FilterManager(object):
                         intersection &= set(categories_dict[c])
                     include_aa += list(intersection)
                 else:
-                    logging.warning("Processes: exclude categories are not correctly formatted")
+                    logging.warning("Processes: include categories are not correctly formatted")
         
         if exclude_cat == "none":
             exclude_aa = "none"  # type: Any
