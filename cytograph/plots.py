@@ -4,6 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import sparse
+import math
 import networkx as nx
 import cytograph as cg
 import loompy
@@ -19,6 +20,7 @@ from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
 from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
+from scipy.spatial import ConvexHull
 
 
 class MidpointNormalize(Normalize):
@@ -870,7 +872,41 @@ def plot_embedded_velocity(ds: loompy.LoomConnection, out_file: str = None) -> N
 	plt.close()
 
 
-def plot_TF_heatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file: str = None) -> None:
+def mad(points, thresh=2.5):
+	"""
+	Returns a boolean array with True if points are outliers and False 
+	otherwise.
+
+	Parameters:
+	-----------
+		points : An numobservations by numdimensions array of observations
+		thresh : The modified z-score to use as a threshold. Observations with
+			a modified z-score (based on the median absolute deviation) greater
+			than this value will be classified as outliers.
+
+	Returns:
+	--------
+		mask : A numobservations-length boolean array.
+
+	References:
+	----------
+		Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
+		Handle Outliers", The ASQC Basic References in Quality Control:
+		Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. 
+	"""
+	if len(points.shape) == 1:
+		points = points[:,None]
+	median = np.median(points, axis=0)
+	diff = np.sum((points - median)**2, axis=-1)
+	diff = np.sqrt(diff)
+	med_abs_deviation = np.median(diff)
+
+	modified_z_score = 0.6745 * diff / med_abs_deviation
+
+	return modified_z_score > thresh
+
+
+def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file_root: str = None) -> None:
 	enrichment = dsagg["enrichment"][:, :]
 	enrichment = enrichment[np.isin(dsagg.ra.Gene, cg.TFs_human), :]
 	genes = dsagg.ra.Gene[np.isin(dsagg.ra.Gene, cg.TFs_human)]
@@ -924,8 +960,30 @@ def plot_TF_heatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, lay
 
 	plt.subplots_adjust(hspace=0)
 
-	if out_file is not None:
-		plt.savefig(out_file, dpi=144)
+	if out_file_root is not None:
+		plt.savefig(out_file_root + "_TFs_heatmap.pdf", dpi=144)
+	plt.close()
+
+	n_cols = 10
+	n_rows = math.ceil(len(genes) / 10)
+	plt.figure(figsize=(15, 1.5 * n_rows))
+	for i, gene in enumerate(genes):
+		plt.subplot(n_rows, n_cols, i + 1)
+		color = ds["pooled"][ds.ra.Gene == gene, :][0, :]
+		cells = color > 0
+		plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c="lightgrey", lw=0, marker='.', s=10, alpha=0.5)
+		plt.scatter(ds.ca.TSNE[:, 0][cells], ds.ca.TSNE[:, 1][cells], c=color[cells], lw=0, marker='.', s=10, alpha=0.5)
+		# Outline the cluster
+		points = ds.ca.TSNE[ds.ca.Clusters == top_cluster[i], :]
+		points = points[~mad(points), :]  # Remove outliers to get a tighter outline
+		hull = ConvexHull(points)  # Find the convex hull
+		plt.fill(points[hull.vertices, 0], points[hull.vertices, 1], edgecolor="red", lw=1, fill=False)
+		# Plot the gene name
+		plt.text(0, ds.ca.TSNE[:, 1].min() * 1.05, gene, color="black", fontsize=10, horizontalalignment="center", verticalalignment="top")
+		plt.axis("off")
+
+	if out_file_root is not None:
+		plt.savefig(out_file_root + "_TFs_scatter.png", dpi=144)
 	plt.close()
 
 
