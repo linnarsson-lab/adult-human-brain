@@ -907,9 +907,10 @@ def mad(points, thresh=2.5):
 
 
 def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file_root: str = None) -> None:
+	TFs = cg.TFs_human if species(ds) == "Homo sapiens" else cg.TFs_mouse
 	enrichment = dsagg["enrichment"][:, :]
-	enrichment = enrichment[np.isin(dsagg.ra.Gene, cg.TFs_human), :]
-	genes = dsagg.ra.Gene[np.isin(dsagg.ra.Gene, cg.TFs_human)]
+	enrichment = enrichment[np.isin(dsagg.ra.Gene, TFs), :]
+	genes = dsagg.ra.Gene[np.isin(dsagg.ra.Gene, TFs)]
 	genes = genes[np.argsort(-enrichment, axis=0)[:10, :]].T  # (n_clusters, n_genes)
 	genes = np.unique(genes)  # 1d array of unique genes, sorted
 	n_genes = len(genes)

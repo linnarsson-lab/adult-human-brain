@@ -22,8 +22,10 @@ from .cell_cycle_annotator import CellCycleAnnotator
 from .velocity_embedding import VelocityEmbedding
 from .neighborhood_enrichment import NeighborhoodEnrichment
 from ..tsne import tsne
+from ..utils import species
 
-cc_genes = np.array([
+
+cc_genes_human = np.array([
 	'ABHD3', 'AC016205.1', 'AC073529.1', 'AC084033.3', 'AC087632.1',
 	'AC091057.6', 'AC097534.2', 'AC099850.2', 'AC135586.2', 'ACAA2',
 	'ACADM', 'ACP1', 'ACTL6A', 'ACYP1', 'ADCY3', 'ADD3', 'ADK', 'AHCY',
@@ -137,6 +139,9 @@ cc_genes = np.array([
 	'ZMYM1', 'ZNF22', 'ZNF367', 'ZNF43', 'ZNF704', 'ZNF83', 'ZRANB3',
 	'ZSCAN16-AS1', 'ZWINT'], dtype=object)
 
+cc_genes_mouse = np.array([x[0] + x[1:].lower() for x in cc_genes_human], dtype=object)
+
+
 class Cytograph2:
 	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: List[str] = None, mask_cell_cycle: bool = False, feature_selection_method: str = "markers", use_poisson_pooling: bool = True) -> None:
 		"""
@@ -222,6 +227,7 @@ class Cytograph2:
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
 
 	def feature_selection_by_cell_cycle(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
+		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
 		genes = np.where(np.isin(ds.ra.Gene, cc_genes))[0]
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
@@ -229,6 +235,7 @@ class Cytograph2:
 		return genes
 
 	def feature_selection_by_variance(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
+		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
 		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
 		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
@@ -243,6 +250,8 @@ class Cytograph2:
 		return genes
 
 	def feature_selection_by_markers(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
+		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
+
 		logging.info("Selecting up to %d marker genes", self.n_genes)
 		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
@@ -365,6 +374,7 @@ class Cytograph2:
 		logging.info(f"Computing expected values")
 		ds["expected"] = 'float32'  # Create a layer of floats
 		log_posterior_proba = np.zeros(n_samples)
+		theta_unnormalized = hpf.theta[:, ~technical] if "Batch" in ds.ca else hpf.theta
 		data = data.toarray()
 		start = 0
 		batch_size = 6400
@@ -375,7 +385,7 @@ class Cytograph2:
 			# Compute PPV (using normalized theta)
 			ds["expected"][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
 			# Compute PPV using raw theta, for calculating posterior probability of the observations
-			ppv_unnormalized = beta @ hpf.theta[start: start + batch_size, :].T
+			ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
 			log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
 			if "spliced" in ds.layers:
 				ds["spliced_exp"][:, start: start + batch_size] = beta_all @ theta_spliced[start: start + batch_size, :].T
