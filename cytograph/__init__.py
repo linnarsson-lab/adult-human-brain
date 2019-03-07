@@ -32,5 +32,4 @@ from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidenc
 from .vbgmm_clustering import VbgmmClustering
 from .cluster_validator import ClusterValidator
 from .absolute import *
-from .tsne_js import tsne_js
 from .tsne import tsne
