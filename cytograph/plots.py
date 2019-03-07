@@ -977,7 +977,7 @@ def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str
 		# Outline the cluster
 		points = ds.ca.TSNE[ds.ca.Clusters == top_cluster[i], :]
 		points = points[~mad(points), :]  # Remove outliers to get a tighter outline
-		if point.shape[0] > 10:
+		if points.shape[0] > 10:
 			hull = ConvexHull(points)  # Find the convex hull
 			plt.fill(points[hull.vertices, 0], points[hull.vertices, 1], edgecolor="red", lw=1, fill=False)
 		# Plot the gene name
