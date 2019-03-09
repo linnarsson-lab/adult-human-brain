@@ -28,25 +28,6 @@ class ClusterValidator:
 		Returns:
 			Matrix of classification probabilities, shape (n_cells, n_labels)
 		"""
-		# logging.info("Feature selection")
-		# nnz = ds.map([np.count_nonzero], axis=0)[0]
-		# valid_genes = np.logical_and(nnz > 5, nnz < ds.shape[1] * 0.5).astype("int")
-		# ds.ra._Valid = valid_genes
-
-		# logging.info("Normalization")
-		# normalizer = cg.Normalizer(False)
-		# normalizer.fit(ds)
-
-		# logging.info("Feature selection")
-		# # (_, enrichment, _) = cg.MarkerSelection(findq=False, labels_attr="Clusters").fit(ds)
-		# # genes = np.zeros_like(ds.ra.Gene, dtype=bool)
-		# # for ix in range(enrichment.shape[1]):
-		# # 	genes[np.argsort(-enrichment[:, ix])[:25]] = True
-		# genes = ds.ra.Selected == 1
-
-		# logging.info("PCA projection")
-		# pca = cg.PCAProjection(genes, max_n_components=50)
-		# transformed = pca.fit_transform(ds, normalizer)
 
 		if "ClusterName" in ds.ca:
 			cluster_names = [ds.ca.ClusterName[ds.ca.Clusters == lbl][0] for lbl in np.unique(ds.ca.Clusters)]
