@@ -37,7 +37,7 @@ class ClusterValidator:
 		train_X, test_X, train_Y, test_Y = train_test_split(ds.ca.HPF, ds.ca.Clusters, test_size=0.2)
 		classifier = RandomForestClassifier(max_depth=30)
 		classifier.fit(train_X, train_Y)
-		self.report = classification_report(test_Y, classifier.predict(test_X), target_names=cluster_names)
+		self.report = classification_report(test_Y, classifier.predict(test_X), labels=np.unique(ds.ca.Clusters), target_names=cluster_names)
 		self.proba = classifier.predict_proba(ds.ca.HPF)
 
 		if plot_file is not None:
