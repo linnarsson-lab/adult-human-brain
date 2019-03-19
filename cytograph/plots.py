@@ -482,10 +482,9 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 	logging.info(f"Plotting factors")
 	offset = 0
 	theta = ds.ca.HPF
-	n_factors = theta.shape[1]
 	beta = ds.ra.HPF
-	v = ds["velocity"][ds.ra.Selected == 1, :]
-	v_hpf = beta[ds.ra.Selected == 1].T @ v
+	v_hpf = ds.ca.HPFVelocity
+	n_factors = theta.shape[1]
 	while offset < n_factors:
 		fig = plt.figure(figsize=(15, 15))
 		fig.subplots_adjust(hspace=0, wspace=0)
@@ -506,7 +505,7 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			vcmap = LinearSegmentedColormap.from_list("", ["red","whitesmoke","green"])
 			norm = MidpointNormalize(midpoint=0)
 			ax = plt.subplot(4, 4, (nnc - offset) * 2 + 2)
-			plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[nnc], 2),vmax=np.percentile(v_hpf[nnc], 98), c=v_hpf[nnc],norm=norm, cmap=vcmap, marker='.',s=10)
+			plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[:,nnc], 2),vmax=np.percentile(v_hpf[:,nnc], 98), c=v_hpf[:,nnc],norm=norm, cmap=vcmap, marker='.',s=10)
 			plt.axis("off")
 		plt.savefig(base_name + f"{offset}.png", dpi=144)
 		offset += 8
@@ -580,6 +579,7 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	ordering = np.random.permutation(g1.shape[0])  # randomize the ordering so that the plot is not misleading because of cluster order
 	plt.scatter(x=g2[ordering], y=g1[ordering], c=cg.colorize(ds.ca.Clusters)[ordering], marker='.', lw=0, s=10)
 	plt.savefig(out_file, format="png", dpi=144)
+	plt.close()
 
 
 def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -634,6 +634,7 @@ def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 			plt.scatter(xy[:, 0][cells], xy[:, 1][cells], c=expr[cells], marker='.', lw=0, s=20, cmap="viridis")
 			ix += 1
 	plt.savefig(out_file, format="png", dpi=144)
+	plt.close()
 
 
 def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> None:
@@ -707,6 +708,7 @@ def plot_radius_characteristics(ds: loompy.LoomConnection, out_file: str = None)
 
 	if out_file is not None:
 		plt.savefig(out_file, format="png", dpi=144)
+	plt.close()
 
 
 def plot_batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -990,14 +992,41 @@ def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str
 
 
 def plot_buckets(ds: loompy.LoomConnection, out_file: str = None) -> None:
-	fig = plt.figure(figsize=(7, 7))
-	colors = cg.colorize(np.unique(ds.ca.Bucket))
+	fig = plt.figure(figsize=(21, 7))
+	plt.subplot(131)
+	buckets = np.unique(ds.ca.Bucket)
+	colors = cg.colorize(buckets)
+	bucket_colors = {buckets[i]: colors[i] for i in range(len(buckets))}
 	for ix, bucket in enumerate(np.unique(ds.ca.Bucket)):
 		cells = ds.ca.Bucket == bucket
 		plt.scatter(ds.ca.TSNE[cells, 0], ds.ca.TSNE[cells, 1], c=("lightgrey" if bucket == "" else colors[ix]), label=bucket, lw=0, marker='.', s=40, alpha=0.5)
 		plt.axis("off")
-		plt.title("Cerebellum L2 buckets")
 	plt.legend(markerscale=3, loc="upper right")
+	plt.title("Buckets from previous build")
+	plt.subplot(132)
+	cells = ds.ca.NewCells == 1
+	plt.scatter(ds.ca.TSNE[~cells, 0], ds.ca.TSNE[~cells, 1], c="lightgrey", label="Old cells", lw=0, marker='.', s=40, alpha=0.5)
+	plt.scatter(ds.ca.TSNE[cells, 0], ds.ca.TSNE[cells, 1], c="red", label="New cells", lw=0, marker='.', s=40, alpha=0.5)
+	plt.axis("off")
+	plt.legend(markerscale=3, loc="upper right")
+	plt.title("Cells added in this build")
+	plt.subplot(133)
+	n_colors = len(bucket_colors)
+	for ix, bucket in enumerate(np.unique(ds.ca.NewBucket)):
+		cells = ds.ca.NewBucket == bucket
+		color = "lightgrey"
+		if bucket != "":
+			if bucket in bucket_colors.keys():
+				color = bucket_colors[bucket]
+			else:
+				color = cg.colors75[n_colors]
+				bucket_colors[bucket] = color
+				n_colors += 1
+		plt.scatter(ds.ca.TSNE[cells, 0], ds.ca.TSNE[cells, 1], c=color, label=bucket, lw=0, marker='.', s=40, alpha=0.5)
+		plt.axis("off")
+	plt.legend(markerscale=3, loc="upper right")
+	plt.title("Buckets proposed for this build")
+
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
 	plt.close()

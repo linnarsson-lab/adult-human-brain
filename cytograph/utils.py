@@ -19,7 +19,7 @@ from sklearn.preprocessing import LabelEncoder
 
 
 pd.options.mode.chained_assignment = None  # this is because of a warning in prepare_heat_map
-lg.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=lg.WARNING)
+lg.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=lg.INFO)
 
 
 def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:

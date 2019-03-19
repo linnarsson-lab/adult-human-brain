@@ -143,7 +143,7 @@ cc_genes_mouse = np.array([x[0] + x[1:].lower() for x in cc_genes_human], dtype=
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: List[str] = None, mask_cell_cycle: bool = False, feature_selection_method: str = "markers", use_poisson_pooling: bool = True) -> None:
+	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: List[str] = None, mask_cell_cycle: bool = False, feature_selection_method: str = "variance", use_poisson_pooling: bool = True) -> None:
 		"""
 		Run cytograph2
 
@@ -169,11 +169,15 @@ class Cytograph2:
 		self.use_poisson_pooling = use_poisson_pooling
 
 	def poisson_pooling(self, ds: loompy.LoomConnection) -> None:
+		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
 		n_samples = ds.shape[1]
 		logging.info(f"Selecting {self.n_genes} genes")
 		normalizer = cg.Normalizer(False)
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		mask = None
+		if self.mask_cell_cycle:
+			mask = np.isin(ds.ra.Gene, cc_genes)
+		genes = cg.FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
 
@@ -238,12 +242,10 @@ class Cytograph2:
 		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
 		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
-		# Make sure to include these genes
-		genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
-		# Mask cell cycle
+		mask = None
 		if self.mask_cell_cycle:
-			genes = np.setdiff1d(genes, np.where(np.isin(ds.ra.Gene, cc_genes))[0])
+			mask = np.isin(ds.ra.Gene, cc_genes)
+		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
 		ds.ra.Selected = selected
@@ -255,7 +257,10 @@ class Cytograph2:
 		logging.info("Selecting up to %d marker genes", self.n_genes)
 		normalizer = cg.Normalizer(False, layer=main_layer)
 		normalizer.fit(ds)
-		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+		mask = None
+		if self.mask_cell_cycle:
+			mask = np.isin(ds.ra.Gene, cc_genes)
+		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
 		n_cells = ds.shape[1]
 		n_components = min(50, n_cells)
 		logging.info("PCA projection to %d components", n_components)
@@ -288,15 +293,9 @@ class Cytograph2:
 		if "Clusters" in ds.ca:
 			temp = ds.ca.Clusters
 		ds.ca.Clusters = labels - labels.min()
-		(genes, _, _) = cg.MarkerSelection(n_markers=int(500 / n_labels), findq=False).fit(ds)
+		(genes, _, _) = cg.MarkerSelection(n_markers=int(self.n_genes / n_labels), findq=False, mask=mask).fit(ds)
 		if temp is not None:
 			ds.ca.Clusters = temp
-
-		# Make sure to include these genes
-		genes = np.union1d(genes, np.where(np.isin(ds.ra.Gene, self.required_genes))[0])
-		# Mask cell cycle
-		if self.mask_cell_cycle:
-			genes = np.setdiff1d(genes, np.where(np.isin(ds.ra.Gene, cc_genes))[0])
 
 		selected = np.zeros(ds.shape[0])
 		selected[genes] = 1
@@ -450,7 +449,9 @@ class Cytograph2:
 
 			logging.info("Projecting velocity to latent space")
 			beta = ds.ra.HPF
-			ds.ca.HPFVelocity = (beta[ds.ra.Selected == 1].T @ velocity).T.astype("float32")
+			ds.ca.HPFVelocity = np.dot(np.linalg.pinv(beta[ds.ra.Selected == 1]), velocity).T
+			# ve = cg.VelocityEmbedding(data_source="pooled", velocity_source="velocity", embedding_name="HPF", neighborhood_type="RNN", points_kind="cells", min_neighbors=0)
+			# ds.ca.HPFVelocity = ve.fit(ds)
 
 			logging.info("Projecting velocity to TSNE 2D embedding")
 			ve = VelocityEmbedding(data_source="HPF", velocity_source="HPFVelocity", embedding_name="TSNE", neighborhood_type="RNN", points_kind="cells", min_neighbors=0)

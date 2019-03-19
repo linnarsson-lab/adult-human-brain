@@ -7,6 +7,7 @@ import loompy
 import numpy as np
 import cytograph as cg
 import scipy.cluster.hierarchy as hierarchy
+import scipy
 import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist

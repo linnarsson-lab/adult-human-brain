@@ -4,7 +4,7 @@ import loompy
 import logging
 import scipy.sparse as sparse
 from sklearn.neighbors import NearestNeighbors
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 
 
 def linspace_ndim(min_vals, max_vals, num_steps):
@@ -20,31 +20,35 @@ class VelocityEmbedding:
 	"""
 	Methods for projecting RNA velocities from expression spce or HPF latent space, to a low-dimensional embedding.
 	"""
-	def __init__(self, data_source: str = "expected", velocity_source: str = "velocity", embedding_name: str = "TSNE", neighborhood_type: Union[float, str] = "nearest", neighborhood_size: Union[int, float] = 50, points_kind: str = "cells", num_points: Union[int, Tuple[int, ...]] = None, min_neighbors: int = 2) -> None:
+	def __init__(self, data_source: str = "expected", velocity_source: str = "velocity", genes: Union[np.ndarray, str] = None, embedding_name: str = "TSNE", neighborhood_type: Union[float, str] = "nearest", neighborhood_size: Union[int, float] = 50, points_kind: str = "cells", num_points: Union[int, Tuple[int, ...]] = None, min_neighbors: int = 2, regression_type: str = "ols") -> None:
 		"""
 		Create an instance of the class with the given parameters
 
 		Args:
 			data_source			Name of a layer or column attribute to use as the source data space (e.g. "expected" or "HPF")
 			velocity_source		Name of a layer or column attribute to use as the source velocity (e.g. "velocity" or "HPF_Velocity")
+			genes				Boolean array indicating selected genes to be used, or string giving an integer (0 or 1) row attribute (e.g. "Selected"), or None to use all genes
 			embedding_name		Name of a column attribute to use as the target embedding (e.g. "TSNE" or "UMAP3D")
 			neighborhood_type	Name of a column graph to use as neighborhood, or "nearest" to use nearest neighbors on the embedding, or "radius" to use all neighbors within a distance, or "voronoi" to use voronoi tesselation
-			neighborhood_size	A number to use as the radius of the neighborhood on the embedding (when neighborhood == "radius"), or number of neighbors (when neighborhood_type == "nearest")
+			neighborhood_size	A number to use as the radius of the neighborhood on the embedding (when neighborhood == "radius"; use None to set it to 10% of range), or number of neighbors (when neighborhood_type == "nearest")
 			points_kind			"cells" to use one point per cell, "grid" to use a uniform grid
 			num_points			Integer, or tuple of integers giving the number of points in each embedding dimension (default: 50). If a single integer, the same number of points is used for every dimension
 			min_neighbors		Minimum number of neighbors required for estimating a non-zero velocity
+			regression_type		The type of regression to use when inferring velocities on the embedding: "ols", "ridge" or "lasso"
 		
 		Remarks:
 			If data_source is the name of a layer in the Loom file, then a row attribute ds.ra.Selected == 1 can give the relevant genes; otherwise all genes are used.
 		"""
 		self.data_source = data_source
 		self.velocity_source = velocity_source
+		self.genes = genes
 		self.embedding_name = embedding_name
 		self.neighborhood_type = neighborhood_type
 		self.neighborhood_size = neighborhood_size
 		self.points_kind = points_kind
 		self.num_points = num_points
 		self.min_neighbors = min_neighbors
+		self.regression_type = regression_type
 
 		self.data: np.ndarray = None
 		self.v_data: np.ndarray = None
@@ -54,12 +58,18 @@ class VelocityEmbedding:
 		self.v_embedding: np.ndarray = None
 
 	def fit(self, ds: loompy.LoomConnection) -> np.ndarray:
+		selected: np.ndarray = None
+		if isinstance(self.genes, np.ndarray):
+			selected = self.genes
+		elif isinstance(self.genes, str) and self.genes in ds.ra:
+			selected = ds.ra[self.genes] == 1
+
 		# Get the source data space
 		if self.data_source in ds.layers:
-			if "Selected" in ds.ra:
-				self.data = ds[self.data_source][ds.ra.Selected == 1, :]
+			if selected is not None:
+				self.data = ds[self.data_source][selected, :].T
 			else:
-				self.data = ds[self.data_source][:, :]
+				self.data = ds[self.data_source][:, :].T
 		elif self.data_source in ds.ca:
 			self.data = ds.ca[self.data_source]
 		else:
@@ -67,10 +77,10 @@ class VelocityEmbedding:
 
 		# Get the source velocities
 		if self.velocity_source in ds.layers:
-			if "Selected" in ds.ra:
-				self.v_data = ds[self.velocity_source][ds.ra.Selected == 1, :]
+			if selected is not None:
+				self.v_data = ds[self.velocity_source][selected, :].T
 			else:
-				self.v_data = ds[self.velocity_source][:, :]
+				self.v_data = ds[self.velocity_source][:, :].T
 		elif self.velocity_source in ds.ca:
 			self.v_data = ds.ca[self.velocity_source]
 		else:
@@ -116,7 +126,10 @@ class VelocityEmbedding:
 				nn = NearestNeighbors().fit(self.embedding)
 				self.neighborhood = nn.kneighbors_graph(self.points, n_neighbors=k)  # Shape (n_points, n_cells)
 			elif self.neighborhood_type == "radius":
-				radius = float(self.neighborhood_size)
+				if self.neighborhood_size is None:
+					radius = np.mean(max_vals - min_vals) / 10
+				else:
+					radius = float(self.neighborhood_size)
 				if radius <= 0:
 					raise ValueError("Parameter 'neighborhood_size' must be strictly positive when used with 'neighborhood' == 'radius'")
 				nn = NearestNeighbors().fit(self.embedding)
@@ -154,6 +167,14 @@ class VelocityEmbedding:
 			v_binned = self.v_data[neighbors, :].mean(axis=0)  # Shape (k,)
 
 			# Estimate v_embedding using linear regression
-			self.v_embedding[i, :] = LinearRegression().fit(gradient, v_binned).coef_  # Shape (d,)
+			if self.regression_type == "ols":
+				regression = LinearRegression()
+			elif self.regression_type == "ridge":
+				regression = Ridge()
+			elif self.regression_type == "lasso":
+				regression = Lasso()
+			else:
+				raise ValueError("regression_type must be 'ols', 'ridge' or 'lasso'")
+			self.v_embedding[i, :] = regression.fit(gradient, v_binned).coef_  # Shape (d,)
 
 		return self.v_embedding
