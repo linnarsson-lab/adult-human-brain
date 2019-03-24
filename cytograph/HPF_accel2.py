@@ -126,7 +126,7 @@ class HPF:
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
-		self.minibatch_size = 100_000_000
+		self.minibatch_size = 100_000_000  # WARNING: minibatches are unstable, so they are not used currently
 		self.n_threads = n_threads
 		if n_threads == 0:
 			if os.cpu_count() is not None:
@@ -210,6 +210,7 @@ class HPF:
 		else:
 			(vu, vi, vy) = (u, i, y)
 		nnz = y.shape[0]
+		self.minibatch_size = nnz
 
 		# Initialize the variational parameters with priors and some randomness
 		kappa_shape = np.full(n_users, b + k * a, dtype='float32')  # This is actually the first variational update, but needed only once
