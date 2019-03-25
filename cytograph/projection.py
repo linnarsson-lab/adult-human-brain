@@ -55,7 +55,7 @@ class PCAProjection:
 			except AttributeError:
 				self.layer = None
 		if self.layer is None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1):
+			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[""]):
 				if len(selection) < self.n_components:
 					continue
 				vals = normalizer.transform(view[:, :], selection)
@@ -90,7 +90,7 @@ class PCAProjection:
 			except AttributeError:
 				self.layer = None
 		if self.layer is None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1):
+			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[""]):
 				vals = normalizer.transform(view[:, :], selection)
 				if self.nng is not None:
 					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0

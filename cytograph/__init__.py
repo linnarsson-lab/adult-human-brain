@@ -15,6 +15,7 @@ from .pool_spec import PoolSpec
 from .plots import *
 from .magic import magic_imputation
 from .marker_selection import MarkerSelection
+from .multilevel_marker_selection import MultilevelMarkerSelection
 from .TFs import TFs_mouse, TFs_human
 from .utils import cap_select, logging, colorize, colors75, div0
 from .manifold_learning import ManifoldLearning

@@ -14,14 +14,17 @@ from scipy.spatial.distance import pdist
 import scipy.stats
 from sklearn.preprocessing import binarize
 import matplotlib.pyplot as plt
+from .utils import cc_genes_human, cc_genes_mouse, species
 
 
 class Aggregator:
-	def __init__(self, *, n_markers: int = 10, f: Union[float, List[float]] = 0.2) -> None:
+	def __init__(self, *, n_markers: int = 10, f: Union[float, List[float]] = 0.2, mask_cell_cycle: bool = True) -> None:
 		self.n_markers = n_markers
 		self.f = f
+		self.mask_cell_cycle = mask_cell_cycle
 
 	def aggregate(self, ds: loompy.LoomConnection, out_file: str, agg_spec: Dict[str, str] = None) -> None:
+		cc_genes = cc_genes_human if species(ds) == "Homo sapiens" else cc_genes_mouse
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",
@@ -54,25 +57,28 @@ class Aggregator:
 				dsout.layers["trinaries"] = trinaries
 
 			logging.info("Computing cluster gene enrichment scores")
-			(markers, enrichment, qvals) = cg.MarkerSelection(self.n_markers, findq=False).fit(ds)
+			mask = None
+			if self.mask_cell_cycle:
+				mask = np.isin(ds.ra.Gene, cc_genes)
+			(markers, enrichment) = cg.MultilevelMarkerSelection(mask=mask).fit(ds)
 			dsout.layers["enrichment"] = enrichment
 
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 
 			# Renumber the clusters
 			logging.info("Renumbering clusters by similarity, and permuting columns")
-			if "_Selected" in ds.ra:
-				genes = (ds.ra._Selected == 1)
-			elif "Selected" in ds.ra:
-				genes = (ds.ra.Selected == 1)
-			else:
-				logging.info("Normalization")
-				normalizer = cg.Normalizer(False)
-				normalizer.fit(ds)
-				logging.info("Selecting up to 1000 genes")
-				genes = cg.FeatureSelection(1000).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
+			# if "_Selected" in ds.ra:
+			# 	genes = (ds.ra._Selected == 1)
+			# elif "Selected" in ds.ra:
+			# 	genes = (ds.ra.Selected == 1)
+			# else:
+			# 	logging.info("Normalization")
+			# 	normalizer = cg.Normalizer(False)
+			# 	normalizer.fit(ds)
+			# 	logging.info("Selecting up to 1000 genes")
+			# 	genes = cg.FeatureSelection(1000).fit(ds, mu=normalizer.mu, sd=normalizer.sd)
 
-			data = np.log(dsout[:, :] + 1)[genes, :].T
+			data = np.log(dsout[:, :] + 1)[markers, :].T
 			D = pdist(data, 'euclidean')
 			Z = hc.linkage(D, 'ward', optimal_ordering=True)
 			ordering = hc.leaves_list(Z)
@@ -80,6 +86,11 @@ class Aggregator:
 			# Permute the aggregated file, and renumber
 			dsout.permute(ordering, axis=1)
 			dsout.ca.Clusters = np.arange(n_labels)
+
+			# Redo the Ward's linkage just to get a tree that corresponds with the new ordering
+			data = np.log(dsout[:, :] + 1)[markers, :].T
+			D = pdist(data, 'euclidean')
+			dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
 			# Renumber the original file, and permute
 			d = dict(zip(ordering, np.arange(n_labels)))
@@ -106,7 +117,7 @@ class Aggregator:
 			dsout.ca.ClusterScore = np.array(cluster_scores)
 
 
-def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: str, aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False) -> np.ndarray:
+def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray, group_by: Tuple[str, np.ndarray], aggr_by: str, aggr_ca_by: Dict[str, str], return_matrix: bool = False) -> np.ndarray:
 	"""
 	Aggregate a Loom file by applying aggregation functions to the main matrix as well as to the column attributes
 
@@ -114,7 +125,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 		ds			The Loom file
 		out_file	The name of the output Loom file (will be appended to if it exists)
 		select		Bool array giving the columns to include (or None, to include all)
-		group_by	The column attribute to group by
+		group_by	The column attribute to group by, or an np.ndarray of integer group labels
 		aggr_by 	The aggregation function for the main matrix
 		aggr_ca_by	The aggregation functions for the column attributes (or None to skip)
 
@@ -130,7 +141,10 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 	ca = {}  # type: Dict[str, np.ndarray]
 	if select is not None:
 		raise ValueError("The 'select' argument is deprecated")
-	labels = (ds.ca[group_by]).astype('int')
+	if isinstance(group_by, np.ndarray):
+		labels = group_by
+	else:
+		labels = (ds.ca[group_by]).astype('int')
 	_, zero_strt_sort_noholes_lbls = np.unique(labels, return_inverse=True)
 	n_groups = len(set(labels))
 	if aggr_ca_by is not None:
@@ -154,7 +168,7 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 				ca[key] = npg.aggregate(zero_strt_sort_noholes_lbls, ds.ca[key], func=func, fill_value=ds.ca[key][0])
 
 	m = np.empty((ds.shape[0], n_groups))
-	for (_, selection, view) in ds.scan(axis=0):
+	for (_, selection, view) in ds.scan(axis=0, layers=[""]):
 		vals_aggr = npg.aggregate(zero_strt_sort_noholes_lbls, view[:, :], func=aggr_by, axis=1, fill_value=0)
 		m[selection, :] = vals_aggr
 

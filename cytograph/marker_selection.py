@@ -8,7 +8,7 @@ import cytograph as cg
 
 
 class MarkerSelection:
-	def __init__(self, n_markers: int = 10, labels_attr: str = "Clusters", mask: np.ndarray=None, findq: bool = True) -> None:
+	def __init__(self, n_markers: int = 10, labels_attr: str = "Clusters", mask: np.ndarray = None, findq: bool = True) -> None:
 		self.n_markers = n_markers
 		self.labels_attr = labels_attr
 		self.alpha = 0.1
@@ -55,16 +55,6 @@ class MarkerSelection:
 			return (np.sort(selected), enrichment, None)
 
 	def _fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
-		"""
-		Finds n_markers genes per cluster using enrichment score
-
-		Args:
-			ds (LoomConnection):	Dataset
-
-		Returns:
-			ndarray of selected genes (list of ints)
-			ndarray of enrichment scores
-		"""
 		labels = ds.ca[self.labels_attr]
 		n_labels = max(labels) + 1
 		n_cells = ds.shape[1]
@@ -72,9 +62,9 @@ class MarkerSelection:
 		# Number of cells per cluster
 		sizes = np.bincount(labels, minlength=n_labels)
 		# Number of nonzero values per cluster
-		nnz = cg.aggregate_loom(ds, None, None, self.labels_attr, np.count_nonzero, None, return_matrix=True)
+		nnz = cg.aggregate_loom(ds, None, None, labels, np.count_nonzero, None, return_matrix=True)
 		# Mean value per cluster
-		means = cg.aggregate_loom(ds, None, None, self.labels_attr, "mean", None, return_matrix=True)
+		means = cg.aggregate_loom(ds, None, None, labels, "mean", None, return_matrix=True)
 		# Non-zeros and means over all cells
 		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0)
 		# Scale by number of cells
