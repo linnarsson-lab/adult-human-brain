@@ -352,7 +352,8 @@ class Cytograph2:
 			ds.attrs.UMAPVelocity = ve.fit(ds)
 			ds.attrs.UMAPVelocityPoints = ve.points
 
-		logging.info("Inferring cell cycle")
-		cca = CellCycleAnnotator(ds)
-		cca.annotate_loom()
+		if species(ds) in ["Homo sapiens", "Mus musculus"]:
+			logging.info("Inferring cell cycle")
+			cca = CellCycleAnnotator(ds)
+			cca.annotate_loom()
 

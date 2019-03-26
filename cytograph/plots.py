@@ -483,7 +483,8 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 	offset = 0
 	theta = ds.ca.HPF
 	beta = ds.ra.HPF
-	v_hpf = ds.ca.HPFVelocity
+	if "HPFVelocity" in ds.ca:
+		v_hpf = ds.ca.HPFVelocity
 	n_factors = theta.shape[1]
 	while offset < n_factors:
 		fig = plt.figure(figsize=(15, 15))
@@ -494,19 +495,20 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			ax = plt.subplot(4, 4, (nnc - offset) * 2 + 1)
 			plt.xticks(())
 			plt.yticks(())
+			plt.axis("off")
 			plt.scatter(x=ds.ca.TSNE[:, 0], y=ds.ca.TSNE[:, 1], c='lightgrey', marker='.', alpha=0.5, s=60, lw=0)
 			cells = theta[:, nnc] > np.percentile(theta[:, nnc], 99) * 0.1
 			cmap = "viridis"
 			plt.scatter(x=ds.ca.TSNE[cells, 0], y=ds.ca.TSNE[cells, 1], c=theta[:, nnc][cells], marker='.', alpha=0.5, s=60, cmap=cmap, lw=0)
 			ax.text(.01, .99, '\n'.join(ds.ra.Gene[np.argsort(-beta[:, nnc])][:9]), horizontalalignment='left', verticalalignment="top", transform=ax.transAxes)
 			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes, fontsize=12)
-			ax.text(.5, .9, f"{np.percentile(v_hpf[nnc], 98):.2}", horizontalalignment='right', transform=ax.transAxes)
-			plt.axis("off")
-			vcmap = LinearSegmentedColormap.from_list("", ["red","whitesmoke","green"])
-			norm = MidpointNormalize(midpoint=0)
-			ax = plt.subplot(4, 4, (nnc - offset) * 2 + 2)
-			plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[:,nnc], 2),vmax=np.percentile(v_hpf[:,nnc], 98), c=v_hpf[:,nnc],norm=norm, cmap=vcmap, marker='.',s=10)
-			plt.axis("off")
+			if "HPFVelocity" in ds.ca:
+				ax.text(.5, .9, f"{np.percentile(v_hpf[nnc], 98):.2}", horizontalalignment='right', transform=ax.transAxes)
+				vcmap = LinearSegmentedColormap.from_list("", ["red","whitesmoke","green"])
+				norm = MidpointNormalize(midpoint=0)
+				ax = plt.subplot(4, 4, (nnc - offset) * 2 + 2)
+				plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[:,nnc], 2),vmax=np.percentile(v_hpf[:,nnc], 98), c=v_hpf[:,nnc],norm=norm, cmap=vcmap, marker='.',s=10)
+				plt.axis("off")
 		plt.savefig(base_name + f"{offset}.png", dpi=144)
 		offset += 8
 		plt.close()
@@ -585,7 +587,10 @@ def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
 def plot_markers(ds: loompy.LoomConnection, out_file: str) -> None:
 	xy = ds.ca.TSNE
 	labels = ds.ca.Clusters
-	layer = ds["pooled"]
+	if "pooled" in ds.layers:
+		layer = ds["pooled"]
+	else:
+		layer = ds[""]
 	markers: Dict[str, List[str]] = {}
 	if species(ds) == "Homo sapiens":
 		markers = {

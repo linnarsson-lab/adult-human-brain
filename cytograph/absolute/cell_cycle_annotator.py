@@ -30,7 +30,12 @@ class CellCycleAnnotator:
 		return (g1_totals, s_totals, g2m_totals)
 	
 	def annotate_loom(self) -> None:
-		(g1, s, g2m) = self.totals_per_cell("spliced_exp")
+		if "spliced_exp" in self.ds.layers:
+			(g1, s, g2m) = self.totals_per_cell("spliced_exp")
+		elif "pooled" in self.ds.layers:
+			(g1, s, g2m) = self.totals_per_cell("pooled")
+		else:
+			(g1, s, g2m) = self.totals_per_cell("")
 		cycling = (g1 + s + g2m) > 1
 		self.ds.ca.Cycling = cycling.astype("int")
 		self.ds.ca.G1 = g1
