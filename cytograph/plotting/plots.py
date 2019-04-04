@@ -21,6 +21,7 @@ import community
 from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
+from .midpoint_normalize import MidpointNormalize
 
 
 def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
