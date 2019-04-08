@@ -84,3 +84,24 @@ class AutoAutoAnnotator:
 		specificity = np.array(specificity).T
 
 		return (selected, selectivity, specificity, robustness)
+
+	def annotate(self, ds: loompy.LoomConnection) -> None:
+		"""
+		Annotate the loom file with marker gene sets based on auto-auto-annotation
+
+		Remarks:
+			Creates the following column attributes:
+				MarkerGenes			Space-separated list of six marker genes
+				MarkerSelectivity	Space-separated list of cumulative selectivity
+				MarkerSpecificity	Space-separated list of cumulative specificity
+				MarkerRobustness	Space-separated list of cumulative robustness
+			
+			See the fit() method for definitions of the metrics
+		"""
+		(selected, selectivity, specificity, robustness) = self.fit(ds)
+		n_clusters = ds.ca.Clusters.max() + 1
+		ds.ca.MarkerGenes = [" ".join(ds.ra.Gene[selected[:, ix]]) for ix in np.arange(n_clusters)]
+		ds.ca.MarkerSelectivity = [" ".join([f"{x:.2}" for x in selectivity[:, ix]]) for ix in np.arange(n_clusters)]
+		ds.ca.MarkerSpecificity = [" ".join([f"{x:.2}" for x in specificity[:, ix]]) for ix in np.arange(n_clusters)]
+		ds.ca.MarkerRobustness = [" ".join([f"{x:.2}" for x in robustness[:, ix]]) for ix in np.arange(n_clusters)]
+

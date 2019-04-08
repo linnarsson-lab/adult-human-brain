@@ -12,24 +12,22 @@ from cython.metric import jensen_shannon_distance
 
 
 class PoissonPooling:
-	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask_cell_cycle: bool = False, remove_technical_factors: bool = False, compute_velocity: bool = False):
+	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, remove_technical_factors: bool = False, compute_velocity: bool = False):
 		self.k_pooling = k_pooling
 		self.n_genes = n_genes
 		self.n_factors = n_factors
-		self.mask_cell_cycle = mask_cell_cycle
+		self.mask = mask
 		self.remove_technical_factors = remove_technical_factors
 		self.compute_velocity = compute_velocity
+		self.knn: sparse.coo_matrix = None
 
-	def poisson_pooling(self, ds: loompy.LoomConnection) -> None:
-		cc_genes = Species(ds).cell_cycle_genes
+	def fit(self, ds: loompy.LoomConnection) -> None:
 		n_samples = ds.shape[1]
 		logging.info(f"Selecting {self.n_genes} genes")
 		normalizer = Normalizer(False)
 		normalizer.fit(ds)
 		mask = None
-		if self.mask_cell_cycle:
-			mask = np.isin(ds.ra.Gene, cc_genes)
-		genes = FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
+		genes = FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=self.mask)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
 
@@ -67,6 +65,7 @@ class PoissonPooling:
 			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), 		(theta.shape[0], theta.shape[0])
 		)
 		knn.setdiag(1)
+		self.knn = knn
 
 		# Poisson pooling
 		logging.info(f"Poisson pooling")

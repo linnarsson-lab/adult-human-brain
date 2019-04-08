@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 class ClusterValidator:
 	def __init__(self) -> None:
-		self.report: str = None
+		self.report: str = ""
 		self.proba: np.ndarray = None
 
 	def fit(self, ds: loompy.LoomConnection, plot_file: str = None, report_file: str = None) -> np.ndarray:
@@ -48,7 +48,7 @@ class ClusterValidator:
 			plt.yticks(np.arange(len(cluster_names)), cluster_names, rotation="horizontal", fontsize=7)
 			plt.xlabel("Predicted cluster")
 			plt.ylabel("Ground truth cluster")
-			plt.title("Predictive power of cluster identities")
+			plt.title("Cluster quality (predictive power)")
 			cbar = plt.colorbar()
 			cbar.set_label('Probability of predicted cluster', rotation=90)
 			plt.savefig(plot_file, bbox_inches="tight")

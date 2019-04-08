@@ -10,7 +10,7 @@ from .cytograph2 import Cytograph2
 from .aggregator import Aggregator
 from .annotation import AutoAutoAnnotator
 from .config import config
-from .tasks import Pool
+from .tasks import Pool, Process
 
 
 """
@@ -39,7 +39,7 @@ Other:
 
 
 class PunchcardSubset:
-	def __init__(self, name: str, card: Punchcard, include: List[str], onlyif: str, params: Dict[str, Any], steps: List[str]) -> None:
+	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str]) -> None:
 		self.name = name
 		self.card = card
 		self.include = include
@@ -99,5 +99,9 @@ class PunchcardDeck:
 		self.path = path
 		self.root = Punchcard.load_recursive(os.path.join(path, "Root.yaml"), None)
 
-	def task(self) -> Pool:
-		return Pool(subsets=self.root.get_leaves())
+	def task(self) -> luigi.Task:
+		leaves = self.root.get_leaves()
+		if len(leaves) == 1:
+			return Process(subset=leaves[0])
+		else:
+			return Pool(subsets=self.root.get_leaves())

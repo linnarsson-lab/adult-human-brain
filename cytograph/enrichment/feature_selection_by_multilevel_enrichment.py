@@ -8,7 +8,7 @@ from scipy.spatial.distance import pdist
 import loompy
 
 
-class MultilevelMarkerEnrichment:
+class FeatureSelectionByMultilevelEnrichment:
 	"""
 	Find markers at each of several levels relative to cluster labels
 	"""
@@ -23,6 +23,7 @@ class MultilevelMarkerEnrichment:
 		self.labels_attr = labels_attr
 		self.mask = mask
 		self.valid_genes: np.ndarray = None
+		self.enrichment: np.ndarray = None
 
 	def fit(self, ds: loompy.LoomConnection, labels: np.ndarray = None) -> np.ndarray:
 		"""
@@ -30,6 +31,7 @@ class MultilevelMarkerEnrichment:
 
 		Args:
 			ds (LoomConnection):	Dataset
+			labels					Optional labels to use instead of the cluster labels
 
 		Returns:
 			ndarray of selected marker genes (array of ints), shape (n_markers)
@@ -79,7 +81,15 @@ class MultilevelMarkerEnrichment:
 		else:
 			logging.info("Not enough clusters for multilevel marker selection (using level 0 markers only)")
 
-		return (np.where(all_markers)[0], all_enrichment)
+		self.enrichment = all_enrichment
+		selected = np.zeros(ds.shape[0], dtyoe=bool)
+		selected[np.where(all_markers)[0]] = True
+		return selected
+
+	def select(self, ds: loompy.LoomConnection) -> np.ndarray:
+		selected = self.fit(ds)
+		ds.ra.Selected = selected.astype("int")
+		return selected
 
 	def _fit(self, ds: loompy.LoomConnection, labels: np.ndarray) -> np.ndarray:
 		logging.info("Computing enrichment statistic")

@@ -6,15 +6,17 @@ from statsmodels.sandbox.stats.multicomp import multipletests
 import loompy
 
 
-class MarkerEnrichment:
-	def __init__(self, n_markers: int = 10, labels_attr: str = "Clusters", mask: np.ndarray = None, findq: bool = True) -> None:
+class FeatureSelectionByEnrichment:
+	def __init__(self, n_markers: int = 10, mask: np.ndarray = None, labels_attr: str = "Clusters", findq: bool = True) -> None:
 		self.n_markers = n_markers
 		self.labels_attr = labels_attr
 		self.alpha = 0.1
 		self.mask = mask
 		self.findq = findq
+		self.enrichment: np.ndarray = None
+		self.qvals: np.ndarray = None
 
-	def fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+	def fit(self, ds: loompy.LoomConnection) -> np.ndarray:
 		"""
 		Finds n_markers genes per cluster using enrichment score
 
@@ -28,7 +30,7 @@ class MarkerEnrichment:
 		"""
 		# Get the observed enrichment statistics
 		logging.info("Computing enrichment statistic")
-		(selected, enrichment) = self._fit(ds)
+		(genes, self.enrichment) = self._fit(ds)
 
 		if self.findq:
 			# Compute the null distribution using permutation test
@@ -40,18 +42,23 @@ class MarkerEnrichment:
 
 			# Calculate FDR-corrected P values
 			logging.info("Computing enrichment FDR-corrected P values")
-			qvals = np.zeros_like(enrichment)
-			for ix in range(enrichment.shape[1]):
+			self.qvals = np.zeros_like(self.enrichment)
+			for ix in range(self.enrichment.shape[1]):
 				null_values = null_enrichment[:, ix]
 				null_values.sort()
-				values = enrichment[:, ix]
+				values = self.enrichment[:, ix]
 				pvals = 1 - np.searchsorted(null_values, values) / values.shape[0]
 				(_, q, _, _) = multipletests(pvals, self.alpha, method="fdr_bh")
-				qvals[:, ix] = q
+				self.qvals[:, ix] = q
 
-			return (np.sort(selected), enrichment, qvals)
-		else:
-			return (np.sort(selected), enrichment, None)
+		selected = np.zeros(ds.shape[0], dtype=bool)
+		selected[np.sort(genes)] = True
+		return selected
+
+	def select(self, ds: loompy.LoomConnection) -> np.ndarray:
+		selected = self.fit(ds)
+		ds.ra.Selected = selected.astype("int")
+		return selected
 
 	def _fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
 		labels = ds.ca[self.labels_attr]

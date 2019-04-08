@@ -15,141 +15,61 @@ from typing import *
 import os
 import community
 import networkx as nx
-from .velocity_inference import fit_gamma
-from .identify_technical_factors import identify_technical_factors
-from .metrics import jensen_shannon_distance
-from .cell_cycle_annotator import CellCycleAnnotator
-from .velocity_embedding import VelocityEmbedding
-from .neighborhood_enrichment import NeighborhoodEnrichment
-from .embedding import tsne
-from .species import Species
+from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
+from cytograph.species import Species
+from cytograph.preprocessing import PoissonPooling
+from cytograph.velocity import fit_gamma, VelocityEmbedding
+from cytograph.clustering import identify_technical_factors, PolishedLouvain
+from cytograph.metrics import jensen_shannon_distance
+from cytograph.annotation import CellCycleAnnotator
+from cytograph.embedding import tsne
+from cytograph.decomposition import HPF
+from cytograph.manifold import BalancedKNN
+from .config import config
 
 
 class Cytograph2:
-	def __init__(self, *, n_genes: int = 2000, n_factors: int = 64, k: int = 50, k_pooling: int = 5, outliers: bool = False, required_genes: List[str] = None, mask_cell_cycle: bool = False, feature_selection_method: str = "variance", steps: List[str]) -> None:
+	def __init__(self, *, steps: List[str]) -> None:
 		"""
 		Run cytograph2
 
 		Args:
-			n_genes							Number of genes to select
-			n_factors						Number of HPF factors
-			k								Number of neighbors for KNN graph
-			k_pooling						Number of neighbors for Poisson pooling
-			outliers						Allow outliers and mark them
-			required_genes					List of genes that must be included in any feature selection (except "cellcycle")
-			mask_cell_cycle					Remove cell cycle genes (including from required_genes), unless feature_selection_method == "cellcycle"
-			feature_selection_method 		"markers", "variance" or "cellcycle"
 			steps							Which steps to include in the analysis
+		
+		Remarks:
+			All parameters are obtained from the config object, which comes from the default config
+			and can be overridden by the config in the current punchcard
 		"""
-		self.n_genes = n_genes
-		self.n_factors = n_factors
-		self.k_pooling = k_pooling
-		self.k = k
-		self.outliers = outliers
-		self.required_genes = required_genes
-		self.mask_cell_cycle = mask_cell_cycle
-		self.feature_selection_method = feature_selection_method
 		self.steps = steps
-
-	def feature_selection_by_cell_cycle(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
-		cc_genes = Species(ds).cell_cycle_genes
-		genes = np.where(np.isin(ds.ra.Gene, cc_genes))[0]
-		selected = np.zeros(ds.shape[0])
-		selected[genes] = 1
-		ds.ra.Selected = selected
-		return genes
-
-	def feature_selection_by_variance(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
-		cc_genes = Species(ds).cell_cycle_genes
-		normalizer = cg.Normalizer(False, layer=main_layer)
-		normalizer.fit(ds)
-		mask = None
-		if self.mask_cell_cycle:
-			mask = np.isin(ds.ra.Gene, cc_genes)
-		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
-		selected = np.zeros(ds.shape[0])
-		selected[genes] = 1
-		ds.ra.Selected = selected
-		return genes
-
-	def feature_selection_by_markers(self, ds: loompy.LoomConnection, main_layer: str) -> np.ndarray:
-		cc_genes = Species(ds).cell_cycle_genes
-
-		logging.info("Selecting up to %d marker genes", self.n_genes)
-		normalizer = cg.Normalizer(False, layer=main_layer)
-		normalizer.fit(ds)
-		mask = None
-		if self.mask_cell_cycle:
-			mask = np.isin(ds.ra.Gene, cc_genes)
-		genes = cg.FeatureSelection(self.n_genes, layer=main_layer).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=mask)
-		n_cells = ds.shape[1]
-		n_components = min(50, n_cells)
-		logging.info("PCA projection to %d components", n_components)
-		pca = cg.PCAProjection(genes, max_n_components=n_components, layer=main_layer)
-		pca_transformed = pca.fit_transform(ds, normalizer)
-		transformed = pca_transformed
-
-		logging.info("Generating balanced KNN graph")
-		np.random.seed(0)
-		k = min(self.k, n_cells - 1)
-		bnn = cg.BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
-		bnn.fit(transformed)
-		knn = bnn.kneighbors_graph(mode='connectivity')
-		knn = knn.tocoo()
-		mknn = knn.minimum(knn.transpose()).tocoo()
-
-		logging.info("MKNN-Louvain clustering with outliers")
-		(a, b, w) = (mknn.row, mknn.col, mknn.data)
-		lj = cg.LouvainJaccard(resolution=1, jaccard=False)
-		labels = lj.fit_predict(knn)
-		bigs = np.where(np.bincount(labels) >= 10)[0]
-		mapping = {k: v for v, k in enumerate(bigs)}
-		labels = np.array([mapping[x] if x in bigs else -1 for x in labels])
-
-		n_labels = np.max(labels) + 1
-		logging.info("Found " + str(n_labels) + " preliminary clusters")
-
-		logging.info("Marker selection")
-		temp = None
-		if "Clusters" in ds.ca:
-			temp = ds.ca.Clusters
-		ds.ca.Clusters = labels - labels.min()
-		(genes, _, _) = cg.MarkerSelection(n_markers=int(self.n_genes / n_labels), findq=False, mask=mask).fit(ds)
-		if temp is not None:
-			ds.ca.Clusters = temp
-
-		selected = np.zeros(ds.shape[0])
-		selected[genes] = 1
-		ds.ra.Selected = selected
-		return genes
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
 		n_samples = ds.shape[1]
 
+		# Perform Poisson pooling if requested, and select features
 		if "poisson_pooling" in self.steps and ("pooled" in ds.layers):
 			main_layer = "pooled"
 			spliced_layer = "spliced_pooled"
 			unspliced_layer = "unspliced_pooled"
+			pp = PoissonPooling(config.params.k_pooling, config.params.n_genes)
+			pp.fit(ds)
+			g = nx.from_scipy_sparse_matrix(pp.knn)
+			partitions = community.best_partition(g, resolution=self.resolution, randomize=False)
+			ds.ca.Clusters = np.array([partitions[key] for key in range(knn.shape[0])])
+			n_labels = ds.ca.Clusters.max() + 1
+			genes = FeatureSelectionByEnrichment(int(self.n_genes / n_labels), Species.mask(ds, config.params.mask)).select(ds)
 		else:
 			main_layer = ""
 			spliced_layer = "spliced"
 			unspliced_layer = "unspliced"
-		# Select genes
-		logging.info(f"Selecting {self.n_genes} genes")
-		if self.feature_selection_method == "variance":
-			genes = self.feature_selection_by_variance(ds, main_layer)
-		elif self.feature_selection_method == "markers":
-			genes = self.feature_selection_by_markers(ds, main_layer)
-		elif self.feature_selection_method == "cellcycle":
-			genes = self.feature_selection_by_cell_cycle(ds, main_layer)
+			genes = FeatureSelectionByVariance(self.n_genes, main_layer, Species.mask(ds, config.params.mask)).select(ds)
 
 		# Load the data for the selected genes
 		data = ds[main_layer].sparse(rows=genes).T
 
 		# HPF factorization
 		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = cg.HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf = HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = hpf.beta
@@ -215,7 +135,7 @@ class Cytograph2:
 
 		if "nn" in self.steps or "clustering" in self.steps:
 			logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
-			bnn = cg.BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
+			bnn = BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
 			bnn.fit(theta)
 			knn = bnn.kneighbors_graph(mode='distance')
 			knn.eliminate_zeros()
@@ -249,7 +169,7 @@ class Cytograph2:
 
 		if "clustering" in self.steps:
 			logging.info("Clustering by polished Louvain")
-			pl = cg.PolishedLouvain(outliers=self.outliers)
+			pl = PolishedLouvain(outliers=self.outliers)
 			labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
 			ds.ca.Clusters = labels + min(labels)
 			ds.ca.Outliers = (labels == -1).astype('int')
@@ -294,6 +214,4 @@ class Cytograph2:
 
 		if Species(ds).name in ["Homo sapiens", "Mus musculus"]:
 			logging.info("Inferring cell cycle")
-			cca = CellCycleAnnotator(ds)
-			cca.annotate_loom()
-
+			CellCycleAnnotator(ds).annotate()

@@ -18,7 +18,7 @@ class ParamsConfig(NamedTuple):
 	doublets_action: str  # "score", "remove"
 	doublets_method: str  # "scrublet", "doublet_finder"
 	feature_selection_method: str  # "variance", "markers"
-	mask_cellcycle: bool
+	mask: List[str]
 
 
 class Config(NamedTuple):

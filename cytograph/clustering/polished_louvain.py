@@ -101,19 +101,10 @@ class PolishedLouvain:
 			labels:	The cluster labels (where -1 indicates outliers)
 
 		"""
-		if embedding == "UMAP":
-			xy = ds.ca.UMAP
-		elif embedding == "TSNE":
-			if "TSNE" in ds.ca:
-				xy = ds.ca.TSNE
-			elif "_X" in ds.ca:
-				xy = np.vstack([ds.ca._X, ds.ca._Y]).transpose()
-			else:
-				raise ValueError("The loom file has no TSNE embedding (TSNE or _X, _Y)")
-		elif embedding in ds.ca:
+		if embedding in ds.ca:
 			xy = ds.ca[embedding]
 		else:
-			raise ValueError("Invalid embedding (did you mean UMAP or TSNE?)")
+			raise ValueError(f"Embedding '{embedding}' not found in file")
 			
 		knn = ds.col_graphs[graph]
 
