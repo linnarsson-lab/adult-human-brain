@@ -5,7 +5,6 @@ import logging
 import pickle
 import loompy
 import numpy as np
-import cytograph as cg
 import scipy.cluster.hierarchy as hierarchy
 import scipy
 import numpy_groupies.aggregate_numpy as npg
@@ -16,6 +15,7 @@ from sklearn.preprocessing import binarize
 import matplotlib.pyplot as plt
 from .utils import cc_genes_human, cc_genes_mouse, species
 from .enrichment import MultilevelMarkerEnrichment
+from cytograph.enrichment import Trinarizer, MultilevelMarkerEnrichment
 
 
 class Aggregator:
@@ -48,20 +48,20 @@ class Aggregator:
 			logging.info("Trinarizing")
 			if type(self.f) is list or type(self.f) is tuple:
 				for ix, f in enumerate(self.f):  # type: ignore
-					trinaries = cg.Trinarizer(f=f).fit(ds)
+					trinaries = Trinarizer(f=f).fit(ds)
 					if ix == 0:
 						dsout.layers["trinaries"] = trinaries
 					else:
 						dsout.layers[f"trinaries_{f}"] = trinaries
 			else:
-				trinaries = cg.Trinarizer(f=self.f).fit(ds)
+				trinaries = Trinarizer(f=self.f).fit(ds)  # type:ignore
 				dsout.layers["trinaries"] = trinaries
 
 			logging.info("Computing cluster gene enrichment scores")
 			mask = None
 			if self.mask_cell_cycle:
 				mask = np.isin(ds.ra.Gene, cc_genes)
-			(markers, enrichment) = cg.MultilevelMarkerSelection(mask=mask).fit(ds)
+			(markers, enrichment) = MultilevelMarkerSelection(mask=mask).fit(ds)
 			dsout.layers["enrichment"] = enrichment
 
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)

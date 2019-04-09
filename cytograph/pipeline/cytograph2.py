@@ -1,4 +1,3 @@
-import cytograph as cg
 import numpy as np
 import scipy.sparse as sparse
 from scipy.interpolate import griddata
@@ -54,22 +53,22 @@ class Cytograph2:
 			pp = PoissonPooling(config.params.k_pooling, config.params.n_genes)
 			pp.fit(ds)
 			g = nx.from_scipy_sparse_matrix(pp.knn)
-			partitions = community.best_partition(g, resolution=self.resolution, randomize=False)
-			ds.ca.Clusters = np.array([partitions[key] for key in range(knn.shape[0])])
+			partitions = community.best_partition(g, resolution=1, randomize=False)
+			ds.ca.Clusters = np.array([partitions[key] for key in range(pp.knn.shape[0])])
 			n_labels = ds.ca.Clusters.max() + 1
-			genes = FeatureSelectionByEnrichment(int(self.n_genes / n_labels), Species.mask(ds, config.params.mask)).select(ds)
+			genes = FeatureSelectionByEnrichment(int(config.params.n_genes / n_labels), Species.mask(ds, config.params.mask)).select(ds)
 		else:
 			main_layer = ""
 			spliced_layer = "spliced"
 			unspliced_layer = "unspliced"
-			genes = FeatureSelectionByVariance(self.n_genes, main_layer, Species.mask(ds, config.params.mask)).select(ds)
+			genes = FeatureSelectionByVariance(config.params.n_genes, main_layer, Species.mask(ds, config.params.mask)).select(ds)
 
 		# Load the data for the selected genes
 		data = ds[main_layer].sparse(rows=genes).T
 
 		# HPF factorization
-		logging.info(f"HPF to {self.n_factors} latent factors")
-		hpf = HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		logging.info(f"HPF to {config.params.n_factors} latent factors")
+		hpf = HPF(k=config.params.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = hpf.beta
@@ -134,8 +133,8 @@ class Cytograph2:
 		ds.ca.HPF_LogPP = log_posterior_proba
 
 		if "nn" in self.steps or "clustering" in self.steps:
-			logging.info(f"Computing balanced KNN (k = {self.k}) in latent space")
-			bnn = BalancedKNN(k=self.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
+			logging.info(f"Computing balanced KNN (k = {config.params.k}) in latent space")
+			bnn = BalancedKNN(k=config.params.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
 			bnn.fit(theta)
 			knn = bnn.kneighbors_graph(mode='distance')
 			knn.eliminate_zeros()
@@ -162,14 +161,14 @@ class Cytograph2:
 			ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
 
 			logging.info(f"2D UMAP embedding from latent space")
-			ds.ca.UMAP = UMAP(n_components=2, metric=jensen_shannon_distance, n_neighbors=self.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
+			ds.ca.UMAP = UMAP(n_components=2, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 			logging.info(f"3D UMAP embedding from latent space")
-			ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=self.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
+			ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 		if "clustering" in self.steps:
 			logging.info("Clustering by polished Louvain")
-			pl = PolishedLouvain(outliers=self.outliers)
+			pl = PolishedLouvain(outliers=False)
 			labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
 			ds.ca.Clusters = labels + min(labels)
 			ds.ca.Outliers = (labels == -1).astype('int')
@@ -212,6 +211,7 @@ class Cytograph2:
 				ds.attrs.UMAPVelocity = ve.fit(ds)
 				ds.attrs.UMAPVelocityPoints = ve.points
 
-		if Species(ds).name in ["Homo sapiens", "Mus musculus"]:
+		species = Species.detect(ds)
+		if species.name in ["Homo sapiens", "Mus musculus"]:
 			logging.info("Inferring cell cycle")
-			CellCycleAnnotator(ds).annotate()
+			CellCycleAnnotator(species).annotate(ds)

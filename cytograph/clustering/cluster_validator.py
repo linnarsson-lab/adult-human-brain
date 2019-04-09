@@ -2,7 +2,6 @@ from typing import *
 import numpy as np
 import logging
 import loompy
-import cytograph as cg
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split

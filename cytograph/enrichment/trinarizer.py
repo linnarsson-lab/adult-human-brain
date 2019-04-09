@@ -5,7 +5,6 @@ from math import exp, lgamma, log
 import loompy
 from scipy.special import beta, betainc, betaln
 import numpy as np
-import cytograph as cg
 import pandas as pd
 from sklearn.preprocessing import binarize
 

@@ -1,12 +1,12 @@
 import os
 import csv
 import numpy as np
-import cytograph as cg
 from typing import *
 from sklearn.decomposition import IncrementalPCA, FastICA
 from scipy.stats import ks_2samp
 import loompy
 import logging
+from cytograph.preprocessing import Normalizer
 
 
 class PCAProjection:
@@ -31,7 +31,7 @@ class PCAProjection:
 		self.sigs = None  # type: np.ndarray
 		self.accessions = None  # type: np.ndarray
 
-	def fit(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> None:
+	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
 		n_cells = cells.shape[0]
@@ -64,7 +64,7 @@ class PCAProjection:
 				#logging.info(vals[self.genes, :].transpose().shape)
 				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
-	def transform(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> np.ndarray:
+	def transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
 		n_cells = cells.shape[0]
@@ -111,6 +111,6 @@ class PCAProjection:
 
 		return transformed
 
-	def fit_transform(self, ds: loompy.LoomConnection, normalizer: cg.Normalizer, cells: np.ndarray = None) -> np.ndarray:
+	def fit_transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		self.fit(ds, normalizer, cells)
 		return self.transform(ds, normalizer, cells)

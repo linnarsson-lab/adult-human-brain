@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,9 +21,10 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from cytograph.species import Species
 
 
-def mad(points, thresh=2.5):
+def mad(points, thresh=2.5):  # type: ignore
 	"""
 	Returns a boolean array with True if points are outliers and False 
 	otherwise.
@@ -59,7 +59,7 @@ def mad(points, thresh=2.5):
 
 
 def TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file_root: str = None) -> None:
-	TFs = cg.TFs_human if species(ds) == "Homo sapiens" else cg.TFs_mouse
+	TFs = Species.detect(ds).genes.TFs
 	enrichment = dsagg["enrichment"][:, :]
 	enrichment = enrichment[np.isin(dsagg.ra.Gene, TFs), :]
 	genes = dsagg.ra.Gene[np.isin(dsagg.ra.Gene, TFs)]

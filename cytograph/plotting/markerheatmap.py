@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -41,7 +40,7 @@ def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_mar
 		tissues = set(ds.col_attrs["Tissue"])
 	n_tissues = len(tissues)
 
-	classes = []
+	classes: List[str] = []
 	if "Subclass" in ds.ca:
 		classes = sorted(list(set(ds.col_attrs["Subclass"])))
 	n_classes = len(classes)

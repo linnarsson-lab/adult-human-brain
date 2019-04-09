@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,6 +21,7 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from .colors import colorize
 
 
 def gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = None) -> None:
@@ -36,7 +36,7 @@ def gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = None) ->
 	plt.figure(figsize=(16, 4))
 	plt.suptitle(gene)
 	plt.subplot(141)
-	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=cg.colorize(c), marker='.', s=10)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(c), marker='.', s=10)
 	plt.title("Clusters")
 	plt.axis("off")
 	plt.subplot(142)
@@ -49,7 +49,7 @@ def gene_velocity(ds: loompy.LoomConnection, gene: str, out_file: str = None) ->
 	plt.title("Expression")
 	plt.axis("off")
 	plt.subplot(144)
-	plt.scatter(s, u, c=cg.colorize(c), marker='.', s=10)
+	plt.scatter(s, u, c=colorize(c), marker='.', s=10)
 	maxs = np.max(s)
 	plt.plot([0, maxs], [0, maxs * g], 'r--', color='b')
 	plt.title("Phase portrait")		

@@ -6,9 +6,9 @@ import scipy.sparse as sparse
 from pynndescent import NNDescent
 from cytograph.species import Species
 from .normalizer import Normalizer
-from cytograph.enrichment import FeatureSelection
+from cytograph.enrichment import FeatureSelectionByVariance
 from cytograph.decomposition import HPF, identify_technical_factors
-from cython.metric import jensen_shannon_distance
+from cytograph.metrics import jensen_shannon_distance
 
 
 class PoissonPooling:
@@ -19,7 +19,8 @@ class PoissonPooling:
 		self.mask = mask
 		self.remove_technical_factors = remove_technical_factors
 		self.compute_velocity = compute_velocity
-		self.knn: sparse.coo_matrix = None
+
+		self.knn: sparse.coo_matrix = None  # Make this available after fitting in case it's useful downstream
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		n_samples = ds.shape[1]
@@ -27,15 +28,16 @@ class PoissonPooling:
 		normalizer = Normalizer(False)
 		normalizer.fit(ds)
 		mask = None
-		genes = FeatureSelection(self.n_genes).fit(ds, mu=normalizer.mu, sd=normalizer.sd, mask=self.mask)
+		genes = FeatureSelectionByVariance(self.n_genes, mask=self.mask).fit(ds)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
 
 		# Subsample to lowest number of UMIs
 		# TODO: figure out how to do this without making the data matrix dense
-		if "TotalRNA" not in ds.ca:
-			(ds.ca.TotalRNA, ) = ds.map([np.sum], axis=1)
-		totals = ds.ca.TotalRNA
+		if "TotalRNA" in ds.ca:
+			totals = ds.ca.TotalRNA
+		else:
+			totals = ds.map([np.sum], axis=1)[0]
 		min_umis = np.min(totals)
 		logging.info(f"Subsampling to {min_umis} UMIs")
 		temp = data.toarray()

@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,13 +21,14 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from .colors import colorize, colors75
 
 
 def buckets(ds: loompy.LoomConnection, out_file: str = None) -> None:
 	fig = plt.figure(figsize=(21, 7))
 	plt.subplot(131)
 	buckets = np.unique(ds.ca.Bucket)
-	colors = cg.colorize(buckets)
+	colors = colorize(buckets)
 	bucket_colors = {buckets[i]: colors[i] for i in range(len(buckets))}
 	for ix, bucket in enumerate(np.unique(ds.ca.Bucket)):
 		cells = ds.ca.Bucket == bucket
@@ -52,7 +52,7 @@ def buckets(ds: loompy.LoomConnection, out_file: str = None) -> None:
 			if bucket in bucket_colors.keys():
 				color = bucket_colors[bucket]
 			else:
-				color = cg.colors75[n_colors]
+				color = colors75[n_colors]
 				bucket_colors[bucket] = color
 				n_colors += 1
 		plt.scatter(ds.ca.TSNE[cells, 0], ds.ca.TSNE[cells, 1], c=color, label=bucket, lw=0, marker='.', s=40, alpha=0.5)

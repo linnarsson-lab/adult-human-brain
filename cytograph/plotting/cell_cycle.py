@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,6 +21,7 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from .colors import colorize
 
 
 def cell_cycle(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -32,7 +32,7 @@ def cell_cycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	g1 = g1[ordering]
 	s = s[ordering]
 	g2m = g2m[ordering]
-	colors = cg.colorize(ds.ca.Clusters)[ordering]
+	colors = colorize(ds.ca.Clusters)[ordering]
 
 	plt.figure(figsize=(20, 4))
 	plt.subplot(141)

@@ -3,7 +3,7 @@ import loompy
 import numpy as np
 import logging
 import luigi
-from ..utils import div0
+from .utils import div0
 
 
 class Normalizer:

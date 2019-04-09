@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,6 +21,7 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from .colors import colors75
 
 
 def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
@@ -80,7 +80,7 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors=edgecolor, alpha=0.1, s=epsilon))
 			names.append(f"{i}/n={n_cells}  (outliers)")
 		else:
-			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=[cg.colors75[np.mod(i, 75)]], marker='.', lw=0, s=epsilon, alpha=0.5))
+			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=[colors75[np.mod(i, 75)]], marker='.', lw=0, s=epsilon, alpha=0.5))
 			txt = str(i)
 			if "ClusterName" in ds.ca:
 				txt = ds.ca.ClusterName[ds.ca["Clusters"] == i][0]

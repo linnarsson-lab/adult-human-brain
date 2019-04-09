@@ -4,7 +4,7 @@ from sklearn.neighbors import kneighbors_graph, NearestNeighbors
 from scipy import sparse
 import logging
 from typing import *
-from .metrics import jensen_shannon_distance
+from cytograph.metrics import jensen_shannon_distance
 from pynndescent import NNDescent
 
 

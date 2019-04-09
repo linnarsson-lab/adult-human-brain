@@ -6,7 +6,6 @@ import numpy as np
 from scipy import sparse
 import math
 import networkx as nx
-import cytograph as cg
 import loompy
 from matplotlib.colors import LinearSegmentedColormap
 import numpy_groupies.aggregate_numpy as npg
@@ -22,6 +21,7 @@ from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
+from .colors import colorize
 
 
 def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -35,7 +35,7 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(221)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=10)
 	ax.legend()
 	plt.title("Tissue")
 
@@ -48,9 +48,9 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(222)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=0)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=0)
 	cells = np.random.permutation(labels.shape[0])
-	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], lw=0, s=10)
+	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], lw=0, s=10)
 	lgnd = ax.legend()
 	for handle in lgnd.legendHandles:
 		handle.set_sizes([10])
@@ -75,7 +75,7 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	ax = plt.subplot(224)
 	for lbl in np.unique(labels):
 		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=cg.colorize(labels)[cells], label=lbl, lw=0, s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=10)
 	ax.legend()
 	plt.title("SampleID")
 

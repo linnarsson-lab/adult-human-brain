@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 class Species:
 	@staticmethod
-	def detect(ds: loompy.LoomConnection) -> Species:
+	def detect(ds: loompy.LoomConnection) -> Any:  # Really returns Species, but mypy doesn't understand that
 		if "species" in ds.attrs:
 			name = ds.attrs.species
 		elif "Gene" in ds.ra:

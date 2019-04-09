@@ -1,11 +1,10 @@
-import cytograph as cg
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn.manifold.t_sne import _joint_probabilities_nn
 from typing import *
 import numpy as np
 from pynndescent import NNDescent
-from .absolute.metrics import multinomial_subspace_distance, jensen_shannon_distance
+from cytograph.metrics import multinomial_subspace_distance, jensen_shannon_distance
 import logging
 
 
