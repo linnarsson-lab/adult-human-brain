@@ -79,6 +79,9 @@ class MultilevelMarkerSelection:
 				i += 1
 		else:
 			logging.info("Not enough clusters for multilevel marker selection (using level 0 markers only)")
+			# Find markers at the leaf level
+			(all_markers, all_enrichment, means) = self._fit(ds, labels)
+			logging.info(f"Found {all_markers.sum()} marker genes at level 0 (leaves)")
 
 		return (np.where(all_markers)[0], all_enrichment)
 

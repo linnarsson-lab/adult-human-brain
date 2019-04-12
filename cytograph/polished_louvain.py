@@ -190,7 +190,10 @@ class PolishedLouvain:
 		labels = np.array(temp)
 
 		# Renumber the clusters (since some clusters might have been lost in poor neighborhoods)
-		retain = sorted(list(set(labels)))
+		retain = list(set(labels))
+		if -1 not in retain:
+			retain.append(-1)
+		retain = sorted(retain)
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
 
