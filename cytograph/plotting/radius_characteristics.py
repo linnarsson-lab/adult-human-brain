@@ -17,7 +17,7 @@ from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
-from .utils import species
+from cytograph.species import Species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize

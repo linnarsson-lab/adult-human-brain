@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
+from typing import *
 
 
 color_alphabet = np.array([

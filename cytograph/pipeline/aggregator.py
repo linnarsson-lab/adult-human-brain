@@ -13,9 +13,8 @@ from scipy.spatial.distance import pdist
 import scipy.stats
 from sklearn.preprocessing import binarize
 import matplotlib.pyplot as plt
-from .utils import cc_genes_human, cc_genes_mouse, species
-from .enrichment import MultilevelMarkerEnrichment
-from cytograph.enrichment import Trinarizer, MultilevelMarkerEnrichment
+from cytograph.species import species
+from cytograph.enrichment import Trinarizer, FeatureSelectionByMultilevelEnrichment
 
 
 class Aggregator:
@@ -61,8 +60,9 @@ class Aggregator:
 			mask = None
 			if self.mask_cell_cycle:
 				mask = np.isin(ds.ra.Gene, cc_genes)
-			(markers, enrichment) = MultilevelMarkerSelection(mask=mask).fit(ds)
-			dsout.layers["enrichment"] = enrichment
+			fe = FeatureSelectionByMultilevelEnrichment(mask=mask)
+			markers = fe.fit(ds)
+			dsout.layers["enrichment"] = fe.enrichment
 
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 

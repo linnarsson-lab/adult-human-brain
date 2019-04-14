@@ -54,7 +54,7 @@ def quantile_weights(S: np.ndarray, U: np.ndarray) -> np.ndarray:
 	return W
 
 
-def velocity_gamma(S: np.ndarray, U: np.ndarray, limit_gamma: bool = False, bounds: Tuple[float, float] = (0, 20), maxmin_perc: List[float] = [2, 98]) -> Tuple[np.ndarray, np.ndarray]:
+def fit_velocity_gamma(S: np.ndarray, U: np.ndarray, limit_gamma: bool = False, bounds: Tuple[float, float] = (0, 20), maxmin_perc: List[float] = [2, 98]) -> Tuple[np.ndarray, np.ndarray]:
 	"""Loop through the genes and fits the slope
 	S: np.ndarray, shape=(genes, cells)
 		the independent variable (spliced)

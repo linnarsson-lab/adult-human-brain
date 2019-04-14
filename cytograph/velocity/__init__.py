@@ -1,2 +1,2 @@
 from .velocity_embedding import VelocityEmbedding
-from .velocity_inference import velocity_gamma
+from .velocity_inference import fit_velocity_gamma

@@ -17,8 +17,9 @@ import networkx as nx
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.species import Species
 from cytograph.preprocessing import PoissonPooling
-from cytograph.velocity import fit_gamma, VelocityEmbedding
-from cytograph.clustering import identify_technical_factors, PolishedLouvain
+from cytograph.velocity import fit_velocity_gamma, VelocityEmbedding
+from cytograph.decomposition import identify_technical_factors
+from cytograph.clustering import PolishedLouvain
 from cytograph.metrics import jensen_shannon_distance
 from cytograph.annotation import CellCycleAnnotator
 from cytograph.embedding import tsne
@@ -27,7 +28,7 @@ from cytograph.manifold import BalancedKNN
 from .config import config
 
 
-class Cytograph2:
+class Cytograph:
 	def __init__(self, *, steps: List[str]) -> None:
 		"""
 		Run cytograph2

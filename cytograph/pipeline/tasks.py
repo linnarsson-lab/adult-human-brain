@@ -6,16 +6,15 @@ import luigi
 import logging
 import math
 import pandas as pd
-from .config import config
-from .cytograph2 import Cytograph2
-from .punchcard import Punchcard, PunchcardSubset
-from .aggregator import Aggregator
-from .workflow import workflow
-from cytograph.annotation import AutoAutoAnnotator, AutoAnnotator, CellCycleAnnotator
 import cytograph.plotting as cgplot
+from cytograph.annotation import AutoAutoAnnotator, AutoAnnotator, CellCycleAnnotator
 from cytograph.clustering import ClusterValidator
 from cytograph.species import Species
 from cytograph.preprocessing import Scrublet
+from .config import config
+from .cytograph import Cytograph
+from .punchcards import Punchcard, PunchcardSubset, PunchcardDeck
+from .aggregator import Aggregator
 
 
 #
@@ -33,6 +32,17 @@ from cytograph.preprocessing import Scrublet
 #                                          \--> Process -> Second_Second.loom --<                                           |
 #                                                                                \--> Process -> Second_Second_Second.loom -|
 #
+
+
+def build(path: str, max_processes: int = 100) -> luigi.Task:
+	deck = PunchcardDeck(path)
+	leaves = deck.root.get_leaves()
+	if len(leaves) == 1:
+		endpoint = Process(subset=leaves[0])
+	else:
+		endpoint = Pool(subsets=self.root.get_leaves())
+	
+	luigi.build(endpoint, workers=max_processes, local_scheduler=True)
 
 
 def pcw(age: str) -> float:
@@ -200,6 +210,7 @@ class Process(luigi.Task):
 								col_attrs["DoubletFlag"] = predicted_doublets.astype("int")
 								if config.params.doublets_action == "remove":
 									# TODO: remove the doublets before adding to output
+									pass
 								logging.info(f"Appending {sample_id} ({ds.shape[1]} cells)")
 								dsout.add_columns(ds.layers, col_attrs, row_attrs=ds.row_attrs)
 							replicate_id += 1

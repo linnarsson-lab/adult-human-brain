@@ -17,14 +17,47 @@ class ParamsConfig(NamedTuple):
 	n_genes: int
 	doublets_action: str  # "score", "remove"
 	doublets_method: str  # "scrublet", "doublet_finder"
-	feature_selection_method: str  # "variance", "markers"
 	mask: List[str]
+
+
+class ExecutionConfig:
+	max_jobs: int
+	local: bool
+	n_cpus: int
+	memory: int
 
 
 class Config(NamedTuple):
 	paths: PathConfig
 	params: ParamsConfig
-	steps: List[str]  # "doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"
+	steps: List[str]
+	execution: ExecutionConfig
 
 
-config = Config()  # TODO: load the config from the build folder, users home etc. and merge them sensibly
+#
+# Load configs from the following locations in this order (merging each):
+#
+# 	1. The builtin defaults
+#   2. The user's home directory
+#   3. The directory above the current directory
+#   4. The current directory (& set this to be the build folder)
+#
+config = Config(
+	paths=PathConfig(
+		build="",
+		samples="",
+		metadata="",
+		autoannotation=""
+	),
+	params=ParamsConfig(
+		k=25,
+		k_pooling=10,
+		n_factors=96,
+		min_umis=1500,
+		n_genes=2000,
+		doublets_action="remove",
+		doublets_method="scrublet",
+		mask=["cellcycle", "sex", "ieg"]
+	),
+	steps=["doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
+)

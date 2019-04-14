@@ -17,7 +17,7 @@ from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
-from .utils import species
+from cytograph.species import Species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
@@ -49,9 +49,9 @@ def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_mar
 	n_probclasses = len(probclasses)
 
 	gene_names: List[str] = []
-	if species(ds) == "Mus musculus":
+	if Species.detect(ds) == "Mus musculus":
 		gene_names = ["Pcna", "Cdk1", "Top2a", "Fabp7", "Fabp5", "Hopx", "Aif1", "Hexb", "Mrc1", "Lum", "Col1a1", "Cldn5", "Acta2", "Tagln", "Tmem212", "Foxj1", "Aqp4", "Gja1", "Rbfox1", "Eomes", "Gad1", "Gad2", "Slc32a1", "Slc17a7", "Slc17a8", "Slc17a6", "Tph2", "Fev", "Th", "Slc6a3", "Chat", "Slc5a7", "Slc18a3", "Slc6a5", "Slc6a9", "Dbh", "Slc18a2", "Plp1", "Sox10", "Mog", "Mbp", "Mpz", "Emx1", "Dlx5"]
-	elif species(ds) == "Homo sapiens":
+	elif Species.detect(ds) == "Homo sapiens":
 		gene_names = ["PCNA", "CDK1", "TOP2A", "FABP7", "FABP5", "HOPX", "AIF1", "HEXB", "MRC1", "LUM", "COL1A1", "CLDN5", "ACTA2", "TAGLN", "TMEM212", "FOXJ1", "AQP4", "GJA1", "RBFOX1", "EOMES", "GAD1", "GAD2", "SLC32A1", "SLC17A7", "SLC17A8", "SLC17A6", "TPH2", "FEV", "TH", "SLC6A3", "CHAT", "SLC5A7", "SLC18A3", "SLC6A5", "SLC6A9", "DBH", "SLC18A2", "PLP1", "SOX10", "MOG", "MBP", "MPZ", "EMX1", "DLX5"]
 	genes = [g for g in gene_names if g in ds.ra.Gene]
 	n_genes = len(genes)

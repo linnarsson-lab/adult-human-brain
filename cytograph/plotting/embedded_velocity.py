@@ -17,7 +17,6 @@ from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
 from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
 import community
-from .utils import species
 from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
 from .midpoint_normalize import MidpointNormalize
@@ -53,7 +52,7 @@ def embedded_velocity(ds: loompy.LoomConnection, out_file: str = None) -> None:
 	plt.subplot(224)
 	xy = ds.attrs.TSNEVelocityPoints
 	uv = ds.attrs.TSNEVelocity
-	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], ccolorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
 	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=1, edgecolor='white', facecolor="black", linewidth=.25)
 	plt.axis("off")
 	plt.title("Velocity (TSNE, grid)")
