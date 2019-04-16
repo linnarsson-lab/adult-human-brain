@@ -155,9 +155,9 @@ def aggregate_loom(ds: loompy.LoomConnection, out_file: str, select: np.ndarray,
 			if func == "tally":
 				for val in set(ds.col_attrs[key]):
 					if np.issubdtype(type(val), np.str_):
-						val = val.replace("/", "-")  # Slashes are not allowed in attribute names
-						val = val.replace(".", "_")  # Nor are periods
-					ca[key + "_" + str(val)] = npg.aggregate(zero_strt_sort_noholes_lbls, (ds.col_attrs[key] == val).astype('int'), func="sum", fill_value=0)
+						valnew = val.replace("/", "-")  # Slashes are not allowed in attribute names
+						valnew = valnew.replace(".", "_")  # Nor are periods
+					ca[key + "_" + str(valnew)] = npg.aggregate(zero_strt_sort_noholes_lbls, (ds.col_attrs[key] == val).astype('int'), func="sum", fill_value=0)
 			elif func == "mode":
 				def mode(x):
 					return scipy.stats.mode(x)[0][0]
