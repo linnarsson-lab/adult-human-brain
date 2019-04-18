@@ -33,12 +33,18 @@ class ClusterValidator:
 			cluster_names = [ds.ca.ClusterName[ds.ca.Clusters == lbl][0] for lbl in np.unique(ds.ca.Clusters)]
 		else:
 			cluster_names = [str(lbl) for lbl in np.unique(ds.ca.Clusters)]
+		
+		genes = np.where(ds.ra.Selected==1)[0]
+		data = ds.sparse(rows=genes).T
+		hpf = cg.HPF(k=ds.ca.HPF.shape[1], validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf.fit(data)
+		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 
-		train_X, test_X, train_Y, test_Y = train_test_split(ds.ca.HPF, ds.ca.Clusters, test_size=0.2)
+		train_X, test_X, train_Y, test_Y = train_test_split(theta, ds.ca.Clusters, test_size=0.2)
 		classifier = RandomForestClassifier(max_depth=30)
 		classifier.fit(train_X, train_Y)
 		self.report = classification_report(test_Y, classifier.predict(test_X), labels=np.unique(ds.ca.Clusters), target_names=cluster_names)
-		self.proba = classifier.predict_proba(ds.ca.HPF)
+		self.proba = classifier.predict_proba(theta)
 
 		if plot_file is not None:
 			plt.figure()

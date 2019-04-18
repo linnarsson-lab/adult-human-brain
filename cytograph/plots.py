@@ -515,7 +515,7 @@ def plot_factors(ds: loompy.LoomConnection, base_name: str) -> None:
 		
 
 def plot_cellcycle(ds: loompy.LoomConnection, out_file: str) -> None:
-	layer = ds["pooled"]
+	layer = ds["pooled"] if "pooled" in ds.layers else ds[""]
 	xy = ds.ca.TSNE
 	cellcycle: Dict[str, List[str]] = {}
 	if species(ds) == "Homo sapiens":
@@ -914,6 +914,7 @@ def mad(points, thresh=2.5):
 
 
 def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file_root: str = None) -> None:
+	layer = "pooled" if "pooled" in ds.layers else ""
 	TFs = cg.TFs_human if species(ds) == "Homo sapiens" else cg.TFs_mouse
 	enrichment = dsagg["enrichment"][:, :]
 	enrichment = enrichment[np.isin(dsagg.ra.Gene, TFs), :]
@@ -977,7 +978,7 @@ def plot_TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str
 	plt.figure(figsize=(15, 1.5 * n_rows))
 	for i, gene in enumerate(genes):
 		plt.subplot(n_rows, n_cols, i + 1)
-		color = ds["pooled"][ds.ra.Gene == gene, :][0, :]
+		color = ds[layer][ds.ra.Gene == gene, :][0, :]
 		cells = color > 0
 		plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c="lightgrey", lw=0, marker='.', s=10, alpha=0.5)
 		plt.scatter(ds.ca.TSNE[:, 0][cells], ds.ca.TSNE[:, 1][cells], c=color[cells], lw=0, marker='.', s=10, alpha=0.5)

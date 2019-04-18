@@ -201,7 +201,7 @@ class PolishedLouvain:
 			logging.warn("All cells were determined to be outliers!")
 			return np.zeros_like(labels)
 
-		if not self.outliers:
+		if not self.outliers and np.any(labels == -1):
 			# Assign each outlier to the same cluster as the nearest non-outlier
 			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
 			nn.fit(xy[labels >= 0])
