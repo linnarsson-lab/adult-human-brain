@@ -58,6 +58,8 @@ def mad(points, thresh=2.5):  # type: ignore
 
 
 def TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "pooled", out_file_root: str = None) -> None:
+	layer = "pooled" if "pooled" in ds.layers else ""
+
 	TFs = Species.detect(ds).genes.TFs
 	enrichment = dsagg["enrichment"][:, :]
 	enrichment = enrichment[np.isin(dsagg.ra.Gene, TFs), :]
@@ -121,7 +123,7 @@ def TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "p
 	plt.figure(figsize=(15, 1.5 * n_rows))
 	for i, gene in enumerate(genes):
 		plt.subplot(n_rows, n_cols, i + 1)
-		color = ds["pooled"][ds.ra.Gene == gene, :][0, :]
+		color = ds[layer][ds.ra.Gene == gene, :][0, :]
 		cells = color > 0
 		plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c="lightgrey", lw=0, marker='.', s=10, alpha=0.5)
 		plt.scatter(ds.ca.TSNE[:, 0][cells], ds.ca.TSNE[:, 1][cells], c=color[cells], lw=0, marker='.', s=10, alpha=0.5)

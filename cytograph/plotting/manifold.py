@@ -27,7 +27,6 @@ from .colors import colors75
 def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
 	logging.info("Loading graph")
 	n_cells = ds.shape[1]
-	cells = np.where(ds.ca["_Valid", "Valid"] == 1)[0]
 	has_edges = False
 	if "RNN" in ds.list_edges(axis=1):
 		(a, b, w) = ds.get_edges("RNN", axis=1)

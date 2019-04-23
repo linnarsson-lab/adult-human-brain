@@ -54,7 +54,6 @@ class AutoAnnotator(object):
 		self.genes: List[str] = []
 		self.annotations = None  # type: np.ndarray
 	
-	def _load_defs(self) -> None:
 		fileext = [".yaml", ".md"]
 		errors = False
 		root_len = len(self.root)

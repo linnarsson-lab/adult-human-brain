@@ -14,7 +14,7 @@ import cytograph.plotting as cgplot
 from cytograph.annotation import AutoAutoAnnotator, AutoAnnotator, CellCycleAnnotator
 from cytograph.clustering import ClusterValidator
 from cytograph.species import Species
-from cytograph.preprocessing import Scrublet
+from cytograph.preprocessing import Scrublet, doublet_finder
 from .config import config
 from .cytograph import Cytograph
 from .punchcards import Punchcard, PunchcardSubset, PunchcardDeck
@@ -172,17 +172,17 @@ def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 								col_attrs["PCW"] = np.array([pcw(metadata["Age"])] * ds.shape[1])
 							except:
 								pass
-						if config.params.doublets_action == "remove":
-							logging.info(f"Removing putative doublets using '{config.params.doublets_method}'")
-						else:
-							logging.info(f"Scoring putative doublets using '{config.params.doublets_method}'")
+						logging.info("Scoring doublets using Scrublet")
 						data = ds[:, :].T
 						doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
-						col_attrs["DoubletScore"] = doublet_scores
-						col_attrs["DoubletFlag"] = predicted_doublets.astype("int")
+						col_attrs["ScrubletScore"] = doublet_scores
+						col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
+						logging.info("Scoring doublets using DoubletFinder")
+						col_attrs["DoubletFinderScore"] = doublet_finder(ds)
 						logging.info(f"Computing total UMIs")
-						totals = ds.map([np.sum], axis=1)[0]
+						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 						ds.ca.TotalUMI = totals
+						ds.ca.NGenes = genes
 						good_cells = (totals >= config.params.min_umis)
 						if config.params.doublets_action == "remove":
 							logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
@@ -192,7 +192,7 @@ def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 					replicate_id += 1
 				batch_id += 1
 			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask), cluster_validation="cluster-validation" in config.steps).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
 	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 	card_for_subset = deck.get_card(subset.longname())
 	if card_for_subset is not None:
@@ -227,15 +227,9 @@ def process_subset(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
 
 			logging.info(f"Collected {ds.shape[1]} cells")
-			if subset.steps != []:
-				steps = subset.steps
-			elif is_root:
-				steps = ["doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
-			else:
-				steps = ["poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
 
 			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask), cluster_validation="cluster-validation" in config.steps).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
 	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 	card_for_subset = deck.get_card(subset.longname())
 	if card_for_subset is not None:

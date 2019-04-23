@@ -181,7 +181,10 @@ class PolishedLouvain:
 		labels = np.array(temp)
 
 		# Renumber the clusters (since some clusters might have been lost in poor neighborhoods)
-		retain = sorted(list(set(labels)))
+		retain = list(set(labels))
+		if -1 not in retain:
+			retain.append(-1)
+		retain = sorted(retain)
 		d = dict(zip(retain, np.arange(-1, len(set(retain)))))
 		labels = np.array([d[x] if x in d else -1 for x in labels])
 
@@ -189,7 +192,7 @@ class PolishedLouvain:
 			logging.warn("All cells were determined to be outliers!")
 			return np.zeros_like(labels)
 
-		if not self.outliers:
+		if not self.outliers and np.any(labels == -1):
 			# Assign each outlier to the same cluster as the nearest non-outlier
 			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
 			nn.fit(xy[labels >= 0])

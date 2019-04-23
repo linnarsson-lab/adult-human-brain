@@ -35,7 +35,8 @@ def tsne(X: np.ndarray, *, n_components: int = 2, metric: str = "js", dof: int =
 	if distances_nn is None or neighbors_nn is None:
 		k = min(n_samples - 1, int(3. * perplexity + 1))
 		nn = NNDescent(data=X, metric=(multinomial_subspace_distance if metric == "mns" else jensen_shannon_distance))
-		indices_nn, distances_nn = nn.query(X, k=k)
+		queue_size = min(5.0, n_samples / k)
+		indices_nn, distances_nn = nn.query(X, k=k, queue_size=queue_size)
 		indices_nn = indices_nn[:, 1:]
 		distances_nn = distances_nn[:, 1:]
 

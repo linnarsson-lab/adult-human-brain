@@ -205,12 +205,14 @@ class BalancedKNN:
 			self.maxl = maxl
 		if mode == "distance":
 			if self.metric == "js":
-				self.dsi, self.dist = self.nn.query(self.data, k=self.sight_k + 1)
+				queue_size = min(5.0, self.n_samples / (self.sight_k + 1))
+				self.dsi, self.dist = self.nn.query(self.data, k=self.sight_k + 1, queue_size=queue_size)
 			else:
 				self.dist, self.dsi = self.nn.kneighbors(self.data, return_distance=True)
 		else:
 			if self.metric == "js":
-				self.dsi, _ = self.nn.query(self.data, k=self.sight_k + 1)
+				queue_size = min(5.0, self.n_samples / (self.sight_k + 1))
+				self.dsi, _ = self.nn.query(self.data, k=self.sight_k + 1, queue_size=queue_size)
 			else:
 				self.dsi = self.nn.kneighbors(self.data, return_distance=False)
 			self.dist = np.ones_like(self.dsi, dtype='float64')

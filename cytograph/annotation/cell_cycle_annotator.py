@@ -28,13 +28,9 @@ class CellCycleAnnotator:
 			s		Sum of expression of S phase genes
 			g2m		Sum of expression of G2/M phase genes
 		"""
-		if self.layer is None:
-			if "spliced_exp" in ds.layers:
-				layer = "spliced_exp"
-			elif "pooled" in ds.layers:
-				layer = "pooled"
-			else:
-				layer = ""
+		layer = self.layer
+		if layer not in ds.layers:
+			layer = ""
 
 		g1_indices = np.isin(ds.ra.Gene, self.species.genes.g1)
 		s_indices = np.isin(ds.ra.Gene, self.species.genes.s)

@@ -40,6 +40,7 @@ def cli(build_location: str = None, verbosity: str = "info") -> None:
 		print(f"         Metadata: {config.paths.metadata}")
 	else:
 		print(f"         Metadata: {config.paths.metadata} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
+	print(f"            Steps: {', '.join(config.steps)}")
 	print()
 
 

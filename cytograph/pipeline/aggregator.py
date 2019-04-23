@@ -23,9 +23,10 @@ from .config import config
 
 
 class Aggregator:
-	def __init__(self, *, f: Union[float, List[float]] = 0.2, mask: np.ndarray = None) -> None:
+	def __init__(self, *, f: Union[float, List[float]] = 0.2, mask: np.ndarray = None, cluster_validation: bool = False) -> None:
 		self.f = f
 		self.mask = mask
+		self.cluster_validation = cluster_validation
 
 	def aggregate(self, ds: loompy.LoomConnection, *, agg_file: str, export_dir: str = None, agg_spec: Dict[str, str] = None) -> None:
 		if os.path.exists(agg_file):
@@ -126,6 +127,7 @@ class Aggregator:
 						cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
 						cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
-						ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
 						cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
 						cgplot.TFs(ds, dsout, out_file_root=os.path.join(out_dir, pool))
+						if self.cluster_validation:
+							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
