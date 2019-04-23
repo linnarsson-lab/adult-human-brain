@@ -68,9 +68,9 @@ class FeatureSelectionByEnrichment:
 		# Number of cells per cluster
 		sizes = np.bincount(labels, minlength=n_labels)
 		# Number of nonzero values per cluster
-		nnz = ds.aggregate(None, None, labels, np.count_nonzero, None)[:, :]
+		nnz = ds.aggregate(None, None, labels, np.count_nonzero, None)
 		# Mean value per cluster
-		means = ds.aggregate(None, None, labels, "mean", None)[:, :]
+		means = ds.aggregate(None, None, labels, "mean", None)
 		# Non-zeros and means over all cells
 		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0)
 		# Scale by number of cells

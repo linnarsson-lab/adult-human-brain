@@ -46,29 +46,39 @@ class Cytograph:
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
 		n_samples = ds.shape[1]
 
+		logging.info("Recomputing the list of valid genes")
+		nnz = ds.map([np.count_nonzero], axis=0)[0]
+		valid_genes = np.logical_and(nnz > 10, nnz < ds.shape[1] * 0.6)
+		ds.ra.Valid = valid_genes.astype('int')
+
 		# Perform Poisson pooling if requested, and select features
-		if "poisson_pooling" in self.steps and ("pooled" in ds.layers):
+		if "poisson_pooling" in self.steps:
+			logging.info(f"Poisson pooling with k_pooling == {config.params.k_pooling}")
 			main_layer = "pooled"
 			spliced_layer = "spliced_pooled"
 			unspliced_layer = "unspliced_pooled"
-			pp = PoissonPooling(config.params.k_pooling, config.params.n_genes)
+			pp = PoissonPooling(config.params.k_pooling, config.params.n_genes, compute_velocity=True)
 			pp.fit(ds)
+			logging.info(f"Feature selection by enrichment on preliminary clusters")
 			g = nx.from_scipy_sparse_matrix(pp.knn)
 			partitions = community.best_partition(g, resolution=1, randomize=False)
 			ds.ca.Clusters = np.array([partitions[key] for key in range(pp.knn.shape[0])])
 			n_labels = ds.ca.Clusters.max() + 1
 			genes = FeatureSelectionByEnrichment(int(config.params.n_genes / n_labels), Species.mask(ds, config.params.mask)).select(ds)
 		else:
+			logging.info(f"Feature selection by variance")
 			main_layer = ""
 			spliced_layer = "spliced"
 			unspliced_layer = "unspliced"
 			genes = FeatureSelectionByVariance(config.params.n_genes, main_layer, Species.mask(ds, config.params.mask)).select(ds)
+		
+		logging.info(f"Selected {genes.sum()} genes")
 
 		# Load the data for the selected genes
 		data = ds[main_layer].sparse(rows=genes).T
+		logging.debug(f"Data shape is {data.shape}")
 
 		# HPF factorization
-		logging.info(f"HPF to {config.params.n_factors} latent factors")
 		hpf = HPF(k=config.params.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
@@ -87,8 +97,6 @@ class Cytograph:
 			theta = theta[:, ~technical]
 			beta = beta[:, ~technical]
 			beta_all = beta_all[:, ~technical]
-		else:
-			logging.warn("Could not analyze technical factors because attributes 'Batch' and 'Replicate' are missing")
 		# Save the normalized factors
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
@@ -135,7 +143,7 @@ class Cytograph:
 
 		if "nn" in self.steps or "clustering" in self.steps:
 			logging.info(f"Computing balanced KNN (k = {config.params.k}) in latent space")
-			bnn = BalancedKNN(k=config.params.k, metric="js", maxl=2 * self.k, sight_k=2 * self.k, n_jobs=-1)
+			bnn = BalancedKNN(k=config.params.k, metric="js", maxl=2 * config.params.k, sight_k=2 * config.params.k, n_jobs=-1)
 			bnn.fit(theta)
 			knn = bnn.kneighbors_graph(mode='distance')
 			knn.eliminate_zeros()
@@ -151,8 +159,8 @@ class Cytograph:
 			radius = np.percentile(d, 90)
 			logging.info(f"90th percentile radius: {radius:.02}")
 			ds.attrs.radius = radius
-			knn.setdiag(0)
 			knn = knn.tocoo()
+			knn.setdiag(0)
 			inside = knn.data > 1 - radius
 			rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
 			ds.col_graphs.RNN = rnn
@@ -181,7 +189,7 @@ class Cytograph:
 			n_genes = ds.shape[0]
 			s = ds["spliced_exp"][selected, :]
 			u = ds["unspliced_exp"][selected, :]
-			gamma, _ = fit_gamma(s, u)
+			gamma, _ = fit_velocity_gamma(s, u)
 			gamma_all = np.zeros(n_genes)
 			gamma_all[selected] = gamma
 			ds.ra.Gamma = gamma_all

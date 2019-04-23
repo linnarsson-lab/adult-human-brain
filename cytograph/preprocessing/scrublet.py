@@ -1,3 +1,4 @@
+import logging
 from sklearn.decomposition import PCA, TruncatedSVD
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,10 +28,6 @@ import time
 
 ########## PREPROCESSING PIPELINE
 
-def print_optional(string, verbose=True):
-	if verbose:
-		print(string)
-	return
 
 def pipeline_normalize(self, postnorm_total=None):
 	''' Total counts normalization '''
@@ -326,7 +323,7 @@ def tot_counts_norm(E, total_counts = None, exclude_dominant_frac = 1, included 
 				wtmp.setdiag(1. / tots)
 				included = np.asarray(~(((wtmp * E) > exclude_dominant_frac).sum(axis=0) > 0))[0,:]
 				tots_use = E[:,included].sum(axis = 1)
-				print('Excluded %i genes from normalization' %(np.sum(~included)))
+				logging.debug('Excluded %i genes from normalization' %(np.sum(~included)))
 		else:
 			tots_use = E[:,included].sum(axis = 1)
 	else:
@@ -382,14 +379,14 @@ def preprocess_and_pca(E, total_counts_normalize=True, norm_exclude_abundant_gen
 	'''
 
 	if total_counts_normalize:
-		print('Total count normalizing')
+		logging.debug('Total count normalizing')
 		E = tot_counts_norm(E, exclude_dominant_frac = norm_exclude_abundant_gene_frac)[0]
 
 	if gene_filter is None:
-		print('Finding highly variable genes')
+		logging.debug('Finding highly variable genes')
 		gene_filter = filter_genes(E, min_vscore_pctl=min_vscore_pctl, min_counts=min_counts, min_cells=min_cells, show_vscore_plot=show_vscore_plot)
 
-	print('Using %i genes for PCA' %len(gene_filter))
+	logging.debug('Using %i genes for PCA' %len(gene_filter))
 	PCdat = get_pca(E[:,gene_filter], numpc=num_pc, keep_sparse=sparse_pca, normalize=zscore_normalize)
 
 	return PCdat, gene_filter
@@ -408,9 +405,9 @@ def get_knn_graph(X, k=5, dist_metric='euclidean', approx=False, return_edges=Tr
 			from annoy import AnnoyIndex
 		except:
 			approx = False
-			print('Could not find library "annoy" for approx. nearest neighbor search')
+			logging.debug('Could not find library "annoy" for approx. nearest neighbor search')
 	if approx:
-		#print('Using approximate nearest neighbor search')
+		#logging.debug('Using approximate nearest neighbor search')
 
 		if dist_metric == 'cosine':
 			dist_metric = 'angular'
@@ -428,7 +425,7 @@ def get_knn_graph(X, k=5, dist_metric='euclidean', approx=False, return_edges=Tr
 		knn = np.array(knn, dtype=int)
 
 	else:
-		#print('Using sklearn NearestNeighbors')
+		#logging.debug('Using sklearn NearestNeighbors')
 
 		if dist_metric == 'cosine':
 			nbrs = NearestNeighbors(n_neighbors=k, metric=dist_metric, algorithm='brute').fit(X)
@@ -443,7 +440,7 @@ def get_knn_graph(X, k=5, dist_metric='euclidean', approx=False, return_edges=Tr
 				links.add(tuple(sorted((i,j))))
 
 		t_elapse = time.time() - t0
-		#print('kNN graph built in %.3f sec' %(t_elapse))
+		#logging.debug('kNN graph built in %.3f sec' %(t_elapse))
 
 		return links, knn
 	return knn
@@ -524,8 +521,8 @@ def get_louvain_clusters(nodes, edges):
 
 def rank_enriched_genes(E, gene_list, cell_mask, min_counts=3, min_cells=3, verbose=False):
 	gix = (E[cell_mask,:]>=min_counts).sum(0).A.squeeze() >= min_cells
-	print_optional('%i cells in group' %(sum(cell_mask)), verbose)
-	print_optional('Considering %i genes' %(sum(gix)), verbose)
+	logging.debug('%i cells in group' %(sum(cell_mask)))
+	logging.debug('Considering %i genes' %(sum(gix)))
 	
 	gene_list = gene_list[gix]
 	
@@ -772,7 +769,7 @@ class Scrublet():
 			to k-nearest-neighbor graph construction.
 
 		verbose : bool, optional (default: True)
-			If True, print progress updates.
+			If True, logging.debug progress updates.
 
 		Sets
 		----
@@ -790,12 +787,12 @@ class Scrublet():
 		self._E_sim_norm = None
 		self._gene_filter = np.arange(self._E_obs.shape[1])
 
-		print_optional('Preprocessing...', verbose)
+		logging.debug('Preprocessing...')
 		pipeline_normalize(self)
 		pipeline_get_gene_filter(self, min_counts=min_counts, min_cells=min_cells, min_gene_variability_pctl=min_gene_variability_pctl)
 		pipeline_apply_gene_filter(self)
 
-		print_optional('Simulating doublets...', verbose)
+		logging.debug('Simulating doublets...')
 		self.simulate_doublets(sim_doublet_ratio=self.sim_doublet_ratio, synthetic_doublet_umi_subsampling=synthetic_doublet_umi_subsampling)
 		pipeline_normalize(self, postnorm_total=1e6)
 		if log_transform:
@@ -808,13 +805,13 @@ class Scrublet():
 			pipeline_normalize_variance(self)
 
 		if mean_center:
-			print_optional('Embedding transcriptomes using PCA...', verbose)
+			logging.debug('Embedding transcriptomes using PCA...')
 			pipeline_pca(self, n_prin_comps=n_prin_comps)
 		else:
-			print_optional('Embedding transcriptomes using Truncated SVD...', verbose)
+			logging.debug('Embedding transcriptomes using Truncated SVD...')
 			pipeline_truncated_svd(self, n_prin_comps=n_prin_comps)            
 
-		print_optional('Calculating doublet scores...', verbose)
+		logging.debug('Calculating doublet scores...')
 		self.calculate_doublet_scores(
 			use_approx_neighbors=use_approx_neighbors,
 			distance_metric=distance_metric,
@@ -823,7 +820,7 @@ class Scrublet():
 		self.call_doublets(verbose=verbose)
 
 		t1=time.time()
-		print_optional('Elapsed time: {:.1f} seconds'.format(t1 - t0), verbose)
+		logging.debug('Elapsed time: {:.1f} seconds'.format(t1 - t0))
 		return self.doublet_scores_obs_, self.predicted_doublets_
 
 	def simulate_doublets(self, sim_doublet_ratio=None, synthetic_doublet_umi_subsampling=1.0):
@@ -1002,7 +999,7 @@ class Scrublet():
 			co-localization of predicted doublets in a 2-D embedding.
 
 		verbose : bool, optional (default: True)
-			If True, print summary statistics.
+			If True, logging.debug summary statistics.
 
 		Sets
 		----
@@ -1018,11 +1015,11 @@ class Scrublet():
 			try:
 				threshold = threshold_minimum(self.doublet_scores_sim_)
 				if verbose:
-					print("Automatically set threshold at doublet score = {:.2f}".format(threshold))
+					logging.debug("Automatically set threshold at doublet score = {:.2f}".format(threshold))
 			except:
 				self.predicted_doublets_ = None
 				if verbose:
-					print("Warning: failed to automatically identify doublet score threshold. Run `call_doublets` with user-specified threshold.")
+					logging.debug("Warning: failed to automatically identify doublet score threshold. Run `call_doublets` with user-specified threshold.")
 				return self.predicted_doublets_
 
 		Ld_obs = self.doublet_scores_obs_
@@ -1036,13 +1033,7 @@ class Scrublet():
 		self.detectable_doublet_fraction_ = (Ld_sim>threshold).sum() / float(len(Ld_sim))
 		self.overall_doublet_rate_ = self.detected_doublet_rate_ / self.detectable_doublet_fraction_
 
-		if verbose:
-			print('Detected doublet rate = {:.1f}%'.format(100*self.detected_doublet_rate_))
-			print('Estimated detectable doublet fraction = {:.1f}%'.format(100*self.detectable_doublet_fraction_))
-			print('Overall doublet rate:')
-			print('\tExpected   = {:.1f}%'.format(100*self.expected_doublet_rate))
-			print('\tEstimated  = {:.1f}%'.format(100*self.overall_doublet_rate_))
-			
+		logging.info(f"Estimated doublet fraction {100*self.overall_doublet_rate_:.1f}% (of which {100*self.detectable_doublet_fraction_:.1f}% detectable)")
 		return self.predicted_doublets_
 
 	######## Viz functions ########
@@ -1091,7 +1082,7 @@ class Scrublet():
 
 		#from matplotlib.lines import Line2D
 		if embedding_name not in self._embeddings:
-			print('Cannot find "{}" in embeddings. First add the embedding using `set_embedding`.'.format(embedding_name))
+			logging.debug('Cannot find "{}" in embeddings. First add the embedding using `set_embedding`.'.format(embedding_name))
 			return
 
 		# TO DO: check if self.predicted_doublets exists; plot raw scores only if it doesn't

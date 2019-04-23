@@ -1,63 +1,89 @@
 from typing import *
-import luigi
+import logging
+import os
+import yaml
+import inspect
+from pathlib import Path
 
 
-class PathConfig(NamedTuple):
-	build: str
-	samples: str
-	metadata: str
-	autoannotation: str
+class AbstractConfig:
+	def merge(self, defs: Dict) -> None:
+		if defs is None:
+			return
+		attrs = [x for x, val in inspect.getmembers(self) if not x.startswith("_") and not inspect.ismethod(val)]
+		for attr in attrs:
+			if attr in defs:
+				setattr(self, attr, defs[attr])
+
+	def __str__(self) -> str:
+		s = []
+		attrs = [(x, val) for x, val in inspect.getmembers(self) if not x.startswith("_") and not inspect.ismethod(val)]
+		for (x, val) in attrs:
+			s.append(f"{x}: {val}")
+		return "\n".join(s)
 
 
-class ParamsConfig(NamedTuple):
-	k: int
-	k_pooling: int
-	n_factors: int
-	min_umis: int
-	n_genes: int
-	doublets_action: str  # "score", "remove"
-	doublets_method: str  # "scrublet", "doublet_finder"
-	mask: List[str]
+class PathConfig(AbstractConfig):
+	build: str = ""
+	samples: str = ""
+	autoannotation: str = ""
+	metadata: str = ""
 
 
-class ExecutionConfig:
-	max_jobs: int
-	local: bool
-	n_cpus: int
-	memory: int
+class ParamsConfig(AbstractConfig):
+	k: int = 25
+	k_pooling: int = 10
+	n_factors: int = 96
+	min_umis: int = 1500
+	n_genes: int = 2000
+	doublets_action: str = "remove"
+	doublets_method: str = "scrublet"
+	mask: List[str] = ["cellcycle", "sex", "ieg", "mt"]
 
 
-class Config(NamedTuple):
-	paths: PathConfig
-	params: ParamsConfig
-	steps: List[str]
-	execution: ExecutionConfig
+class ExecutionConfig(AbstractConfig):
+	n_cpus: int = 28
+	n_gpus: int = 0
+	memory: int = 256 // 28
+	engine: str = "local"
+	dryrun: bool = False
 
 
-#
-# Load configs from the following locations in this order (merging each):
-#
-# 	1. The builtin defaults
-#   2. The user's home directory
-#   3. The directory above the current directory
-#   4. The current directory (& set this to be the build folder)
-#
-config = Config(
-	paths=PathConfig(
-		build="",
-		samples="",
-		metadata="",
-		autoannotation=""
-	),
-	params=ParamsConfig(
-		k=25,
-		k_pooling=10,
-		n_factors=96,
-		min_umis=1500,
-		n_genes=2000,
-		doublets_action="remove",
-		doublets_method="scrublet",
-		mask=["cellcycle", "sex", "ieg"]
-	),
-	steps=["doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
-)
+class Config:
+	paths = PathConfig()
+	params = ParamsConfig()
+	steps = ["doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
+	execution = ExecutionConfig()
+
+
+def merge_config(config: Config, path: str) -> None:
+	if not os.path.exists(path):
+		return
+
+	with open(path) as f:
+		defs = yaml.load(f)
+
+	if "paths" in defs:
+		config.paths.merge(defs["paths"])
+	if "params" in defs:
+		config.params.merge(defs["params"])
+	if "steps" in defs:
+		config.steps = defs.steps
+	if "execution" in defs:
+		config.execution.merge(defs["execution"])
+
+
+def load_config() -> Config:
+	# Builtin defaults
+	config = Config()
+	# Home directory
+	merge_config(config, os.path.join(os.path.abspath(str(Path.home())), ".cytograph"))
+	# Set build folder
+	if config.paths.build == "" or config.paths.build is None:
+		config.paths.build = os.path.abspath(os.path.curdir)
+	# Build folder
+	merge_config(config, "build.config")
+	return config
+
+
+config = load_config()

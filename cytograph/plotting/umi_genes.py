@@ -27,7 +27,7 @@ def umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.subplot(131)
 	for chip in np.unique(ds.ca.SampleID):
 		cells = ds.ca.SampleID == chip
-		plt.hist(ds.ca.TotalRNA[cells], bins=100, label=chip, alpha=0.5, range=(0, 30000))
+		plt.hist(ds.ca.TotalUMI[cells], bins=100, label=chip, alpha=0.5, range=(0, 30000))
 		plt.title("UMI distribution")
 		plt.ylabel("Number of cells")
 		plt.xlabel("Number of UMIs")

@@ -75,14 +75,14 @@ class FeatureSelectionByMultilevelEnrichment:
 				labels = temp
 				(markers, enrichment, _) = self._fit(ds, labels)
 				logging.info(f"Found {markers.sum()} marker genes at level {i + 1}")
-				logging.info(ds.ra.Gene[markers])
+				logging.debug(ds.ra.Gene[markers])
 				all_markers = (all_markers | markers)
 				i += 1
 		else:
 			logging.info("Not enough clusters for multilevel marker selection (using level 0 markers only)")
 
 		self.enrichment = all_enrichment
-		selected = np.zeros(ds.shape[0], dtyoe=bool)
+		selected = np.zeros(ds.shape[0], dtype=bool)
 		selected[np.where(all_markers)[0]] = True
 		return selected
 
@@ -99,9 +99,9 @@ class FeatureSelectionByMultilevelEnrichment:
 		# Number of cells per cluster
 		sizes = np.bincount(labels, minlength=n_labels)
 		# Number of nonzero values per cluster
-		nnz = ds.aggregate(None, None, labels, np.count_nonzero, None)[:, :]
+		nnz = ds.aggregate(None, None, labels, np.count_nonzero, None)
 		# Mean value per cluster
-		means = ds.aggregate(None, None, labels, "mean", None)[:, :]
+		means = ds.aggregate(None, None, labels, "mean", None)
 		# Non-zeros and means over all cells
 		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0)
 		# Scale by number of cells

@@ -1,6 +1,7 @@
 from typing import *
 from time import sleep
 import os
+import sys
 import logging
 import loompy
 import yaml
@@ -9,32 +10,7 @@ import luigi
 from cytograph.annotation import AutoAutoAnnotator
 from .cytograph import Cytograph
 from .aggregator import Aggregator
-from .config import config
-
-
-"""
-RadialGlia:
-	include: [Rgl, Rgl2, Rgl2c]
-	onlyif: "(Age > 9) & (Age < 12) & (Tissue == 'Forebrain') & (~np.isin(Clusters, [2, 3, 4, 5])"
-	steps: ["export"]
-	params:
-		k: 25
-		k_pooling: 10
-		n_genes: 500
-		poisson_pooling: True
-		velocity: True
-		embedding: True
-		doublets: "remove", "score", "none"
-		min_umis: 1500
-
-Neuroblast:
-	include: [Nbl, NblF]
-
-Other:
-	include: True
-	params:
-		k_pooling: 10
-"""
+from .config import config, ExecutionConfig
 
 
 class Punchcard:
@@ -51,17 +27,21 @@ class Punchcard:
 	@staticmethod
 	def load_recursive(path: str, parent: "Punchcard" = None) -> "Punchcard":
 		name = os.path.basename(path).split(".")[0]
+		if not os.path.exists(path):
+			logging.error(f"Punchcard {path} not found.")
+			sys.exit(1)
 		with open(path) as f:
 			spec = yaml.load(f)
 		p = Punchcard(name, parent, None, None)
 		subsets = []
+		logging.debug(f"Loading punchcard spec for {name}")
 		for s, items in spec.items():
-			subsets.append(PunchcardSubset(s, p, items.get("include"), items.get("onlyif"), items.get("params"), items.get("steps")))
+			subsets.append(PunchcardSubset(s, p, items.get("include"), items.get("onlyif"), items.get("params"), items.get("steps"), items.get("execution")))
 		p.subsets = {s.name: s for s in subsets}
 
 		p.children = {}
 		for s in subsets:
-			subset_path = os.path.join(os.path.splitext(path)[0], "_", s.name, ".yaml")
+			subset_path = os.path.splitext(path)[0] + "_" + s.name + ".yaml"
 			if os.path.exists(subset_path):
 				p.children[s.name] = Punchcard.load_recursive(subset_path, p)
 		return p
@@ -73,27 +53,84 @@ class Punchcard:
 		for c in self.children.values():
 			result += c.get_leaves()
 		return result
-	
+
+	def __str__(self) -> str:
+		s = "Punchcard " + self.name
+		if self.samples is not None:
+			s += f" ({len(self.samples)} sample batches) "
+		for name, subset in self.subsets.items():
+			s += name + ": " + ",".join(subset.include) + "; "
+		return s
+
 
 class PunchcardSubset:
-	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str]) -> None:
+	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str], execution: ExecutionConfig) -> None:
 		self.name = name
 		self.card = card
 		self.include = include
 		self.onlyif = onlyif
 		self.params = params
 		self.steps = steps
+		self.execution = execution
 
 	def longname(self) -> str:
-		name = self.name
-		p: Optional[Punchcard] = self.card
-		while p is not None:
-			name = p.name + "_" + name
-			p = p.parent
-		return name
+		# name = self.name
+		# p: Optional[Punchcard] = self.card
+		# while p is not None:
+		# 	name = p.name + "_" + name
+		# 	p = p.parent
+		# return name
+		return self.card.name + "_"	+ self.name
+
+	def dependency(self) -> str:
+		names = self.longname().split("_")
+		if len(names) == 1:
+			return None
+		return "_".join(names[:-1])
 
 
 class PunchcardDeck:
-	def __init__(self, path: str) -> None:
-		self.path = path
-		self.root = Punchcard.load_recursive(os.path.join(path, "Root.yaml"), None)
+	def __init__(self, build_path: str) -> None:
+		self.path = build_path
+		self.root = Punchcard.load_recursive(os.path.join(build_path, "punchcards", "Root.yaml"), None)
+
+		# Check the samples specifications, and make sure they makes sense
+		for subset in self.root.subsets.values():
+			if not isinstance(subset.include, list):
+				logging.error(f"Error in '{subset.longname()}'; every 'include' in Root.yaml must be a non-empty list of lists of samples.")
+				sys.exit(1)
+			for sample in subset.include:
+				if not isinstance(sample, list):
+					logging.error(f"Error in '{subset.longname()}'; every 'include' in Root.yaml must be a non-empty list of lists of samples.")
+					sys.exit(1)
+			if subset.onlyif != "" and subset.onlyif is not None:
+				logging.error(f"Error in '{subset.longname()}'; 'onlyif' clauses cannot be used in Root.yaml, only in downstream punchcards.")
+				sys.exit(1)
+
+	def get_leaves(self) -> List[PunchcardSubset]:
+		return self.root.get_leaves()
+
+	def _get_subset(self, card: Punchcard, name: str) -> PunchcardSubset:
+		for s in card.subsets.values():
+			if s.longname() == name:
+				return s
+		for c in card.children.values():
+			s = self._get_subset(c, name)
+			if s is not None:
+				return s
+		return None
+
+	def get_subset(self, name: str) -> PunchcardSubset:
+		return self._get_subset(self.root, name)
+
+	def _get_card(self, card: Punchcard, name: str) -> PunchcardSubset:
+		if name == card.name:
+			return card
+		for c in card.children.values():
+			temp = self._get_card(c, name)
+			if temp is not None:
+				return temp
+		return None
+
+	def get_card(self, name: str) -> Punchcard:
+		return self._get_card(self.root, name)

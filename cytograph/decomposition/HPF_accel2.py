@@ -133,7 +133,7 @@ class HPF:
 				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
 			else:
 				self.n_threads = 1
-		logging.info(f"HPF using {self.n_threads} threads")
+		logging.info(f"HPF to {k} factors using {self.n_threads} threads")
 
 		self.beta: np.ndarray = None
 		self.theta: np.ndarray = None
@@ -190,7 +190,6 @@ class HPF:
 		k = self.k
 		(u, i, y) = (X.row, X.col, X.data)  # u and i are indices of the nonzero entries; y are the values of those entries
 		(a, b, c, d) = (self.a, self.b, self.c, self.d)
-		logging.info(f"nnz={len(u)}")
 		ordering = np.random.permutation(u.shape[0])
 		u = u[ordering]
 		i = i[ordering]
@@ -205,7 +204,7 @@ class HPF:
 
 		# Create the validation dataset
 		if self.validation_fraction > 0:
-			(u, vu, i, vi, y, vy) = train_test_split(u, i, y, train_size=1 - self.validation_fraction)
+			(u, vu, i, vi, y, vy) = train_test_split(u, i, y, train_size=1 - self.validation_fraction, test_size=None)
 			self.validation_data = sparse.coo_matrix((vy, (vu, vi)), shape=X.shape)
 		else:
 			(vu, vi, vy) = (u, i, y)
