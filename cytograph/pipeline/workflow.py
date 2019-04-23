@@ -99,23 +99,24 @@ def get_metadata_for(sample: str) -> Dict:
 
 
 def compute_subsets(card: Punchcard) -> None:
+	logging.info(f"Computing subset assignments for {card.name}")
 	with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".loom"), mode="r+") as ds:
 		subset_per_cell = np.zeros(ds.shape[1], dtype=object)
 		taken = np.zeros(ds.shape[1], dtype=bool)
 		with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".agg.loom"), mode="r") as dsagg:
-			for subset in card.subsets:
+			for subset in card.subsets.values():
 				selected = np.zeros(ds.shape[1], dtype=bool)
-				if len(subset.include > 0):
+				if len(subset.include) > 0:
 					# Include clusters that have any of the given auto-annotations
 					for aa in subset.include:
 						for ix in range(dsagg.shape[1]):
-							if aa in dsagg.ca.AutoAnnotation.split(" "):
+							if aa in dsagg.ca.AutoAnnotation[ix].split(" "):
 								selected = selected | (ds.ca.Clusters == ix)
-					# Exclude cells that don't match the onlyif expression
-					if subset.onlyif != "":
-						selected = selected & eval(subset.onlyif, globals(), ds.ca)
 				else:
 					selected = ~taken
+				# Exclude cells that don't match the onlyif expression
+				if subset.onlyif != "" and subset.onlyif is not None:
+					selected = selected & eval(subset.onlyif, globals(), ds.ca)
 				# Don't include cells that were already taken
 				selected = selected & ~taken
 				subset_per_cell[selected] = subset.name
@@ -126,6 +127,11 @@ def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 	# Collect directly from samples, optionally with doublet removal and min_umis etc.
 	# Specification is a nested list giving batches and replicates
 	# include: [[sample1, sample2], [sample3, sample4]]
+
+	# Maybe we're already done?
+	if os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
+		logging.info(f"Skipping {subset.longname()} because it was already done.")
+		return
 
 	# Make sure all the sample files exist
 	err = False
@@ -186,23 +192,38 @@ def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 					replicate_id += 1
 				batch_id += 1
 			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported"))
-	compute_subsets(deck.get_card("Root"))
+			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
+	card_for_subset = deck.get_card(subset.longname())
+	if card_for_subset is not None:
+		compute_subsets(card_for_subset)
+	logging.info("Done.")
 
 
 def process_subset(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
+	# Maybe we're already done?
+	if os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
+		logging.info(f"Skipping {subset.longname()} because it was already done.")
+		return
+
 	# Verify that the previous punchard subset exists
 	parent = os.path.join(config.paths.build, "data", subset.card.name + ".loom")
 	if not os.path.exists(parent):
 		logging.error(f"Punchcard file '{parent}' was missing.")
 		sys.exit(1)
 
+	# Verify that there are some cells in the subset
+	with loompy.connect(parent, mode="r") as ds:
+		if (ds.ca.Subset == subset.name).sum() == 0:
+			logging.info(f"Skipping {subset.longname()} because the subset was empty")
+			sys.exit(0)
+
 	with Tempname(os.path.join(config.paths.build, "data", subset.longname() + ".loom")) as out_file:
 		logging.info(f"Collecting cells for {subset.longname()}")
 		with loompy.new(out_file) as dsout:
 			# Collect from a previous punchard subset
 			with loompy.connect(parent, mode="r") as ds:
-				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == subset.longname()), axis=1, key="Accession"):
+				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == subset.name), axis=1, key="Accession"):
 					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
 
 			logging.info(f"Collected {ds.shape[1]} cells")
@@ -214,11 +235,20 @@ def process_subset(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 				steps = ["poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
 
 			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported"))
-	compute_subsets(deck.get_card(subset.longname()))
+			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
+	card_for_subset = deck.get_card(subset.longname())
+	if card_for_subset is not None:
+		compute_subsets(card_for_subset)
+	logging.info("Done.")
 
 
 def pool_leaves(deck: PunchcardDeck) -> None:
+	# Maybe we're already done?
+	if os.path.exists(os.path.join(config.paths.build, "data", "Pool.loom")):
+		logging.info(f"Skipping {subset.longname()} because it was already done.")
+		return
+
 	with Tempname(os.path.join(config.paths.build, "data", "Pool.loom")) as out_file:
 		logging.info(f"Collecting cells for 'Pool.loom'")
 		punchcards: List[str] = []

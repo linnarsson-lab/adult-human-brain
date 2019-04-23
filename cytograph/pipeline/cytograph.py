@@ -64,7 +64,7 @@ class Cytograph:
 			partitions = community.best_partition(g, resolution=1, randomize=False)
 			ds.ca.Clusters = np.array([partitions[key] for key in range(pp.knn.shape[0])])
 			n_labels = ds.ca.Clusters.max() + 1
-			genes = FeatureSelectionByEnrichment(int(config.params.n_genes / n_labels), Species.mask(ds, config.params.mask)).select(ds)
+			genes = FeatureSelectionByEnrichment(int(config.params.n_genes // n_labels), Species.mask(ds, config.params.mask), findq=False).select(ds)
 		else:
 			logging.info(f"Feature selection by variance")
 			main_layer = ""

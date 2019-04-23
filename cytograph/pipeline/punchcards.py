@@ -41,7 +41,10 @@ class Punchcard:
 
 		p.children = {}
 		for s in subsets:
-			subset_path = os.path.splitext(path)[0] + "_" + s.name + ".yaml"
+			if name == "Root":
+				subset_path = os.path.splitext(path)[0][:-4] + s.name + ".yaml"
+			else:
+				subset_path = os.path.splitext(path)[0] + "_" + s.name + ".yaml"
 			if os.path.exists(subset_path):
 				p.children[s.name] = Punchcard.load_recursive(subset_path, p)
 		return p
@@ -80,7 +83,10 @@ class PunchcardSubset:
 		# 	name = p.name + "_" + name
 		# 	p = p.parent
 		# return name
-		return self.card.name + "_"	+ self.name
+		if self.card.name == "Root":
+			return self.name
+		else:
+			return self.card.name + "_" + self.name
 
 	def dependency(self) -> str:
 		names = self.longname().split("_")

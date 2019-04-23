@@ -72,8 +72,6 @@ def build(execution_engine: str = None, dryrun: bool = None) -> None:
 @cli.command()
 @click.argument("subset")
 def process(subset: str) -> None:
-	if not subset.startswith("Root_"):
-		subset = "Root_" + subset
 	logging.info(f"Processing '{subset}'")
 
 	deck = PunchcardDeck(config.paths.build)

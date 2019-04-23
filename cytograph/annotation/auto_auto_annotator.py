@@ -101,7 +101,7 @@ class AutoAutoAnnotator:
 		(selected, selectivity, specificity, robustness) = self.fit(ds)
 		n_clusters = ds.ca.Clusters.max() + 1
 		ds.ca.MarkerGenes = [" ".join(ds.ra.Gene[selected[:, ix]]) for ix in np.arange(n_clusters)]
-		ds.ca.MarkerSelectivity = [" ".join([f"{x:.2}" for x in selectivity[:, ix]]) for ix in np.arange(n_clusters)]
+		ds.ca.MarkerSelectivity = [" ".join([str(x) for x in selectivity[:, ix]]) for ix in np.arange(n_clusters)]
 		ds.ca.MarkerSpecificity = [" ".join([f"{x:.2}" for x in specificity[:, ix]]) for ix in np.arange(n_clusters)]
 		ds.ca.MarkerRobustness = [" ".join([f"{x:.2}" for x in robustness[:, ix]]) for ix in np.arange(n_clusters)]
 
