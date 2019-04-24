@@ -52,7 +52,7 @@ class ExecutionConfig(AbstractConfig):
 class Config:
 	paths = PathConfig()
 	params = ParamsConfig()
-	steps = ["doublets", "poisson_pooling", "cells_qc", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
+	steps = ["doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
 	execution = ExecutionConfig()
 
 
@@ -68,7 +68,7 @@ def merge_config(config: Config, path: str) -> None:
 	if "params" in defs:
 		config.params.merge(defs["params"])
 	if "steps" in defs:
-		config.steps = defs.steps
+		config.steps = defs["steps"]
 	if "execution" in defs:
 		config.execution.merge(defs["execution"])
 

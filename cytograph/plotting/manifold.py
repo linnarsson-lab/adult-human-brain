@@ -25,21 +25,15 @@ from .colors import colors75
 
 
 def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
-	logging.info("Loading graph")
 	n_cells = ds.shape[1]
 	has_edges = False
-	if "RNN" in ds.list_edges(axis=1):
-		(a, b, w) = ds.get_edges("RNN", axis=1)
+	if "RNN" in ds.col_graphs:
+		g = ds.col_graphs.RNN
 		has_edges = True
-	elif "MKNN" in ds.list_edges(axis=1):
-		(a, b, w) = ds.get_edges("MKNN", axis=1)
+	elif "MKNN" in ds.col_graphs:
+		g = ds.col_graphs.MKNN
 		has_edges = True
-	if embedding == "TSNE":
-		if "TSNE" in ds.ca:
-			pos = ds.ca.TSNE
-		else:
-			pos = np.vstack((ds.col_attrs["_X"], ds.col_attrs["_Y"])).transpose()
-	elif embedding in ds.ca:
+	if embedding in ds.ca:
 		pos = ds.ca[embedding]
 	else:
 		raise ValueError("Embedding not found in the file")
@@ -49,7 +43,6 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 	else:
 		outliers = np.zeros(ds.shape[1])
 	# Compute a good size for the markers, based on local density
-	logging.info("Computing node size")
 	min_pts = 50
 	eps_pct = 60
 	nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
@@ -63,12 +56,10 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 
 	# Draw edges
 	if has_edges:
-		logging.info("Drawing edges")
-		lc = LineCollection(zip(pos[a], pos[b]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
+		lc = LineCollection(zip(pos[g.row], pos[g.col]), linewidths=0.25, zorder=0, color='thistle', alpha=0.1)
 		ax.add_collection(lc)
 
 	# Draw nodes
-	logging.info("Drawing nodes")
 	plots = []
 	names = []
 	for i in range(max(labels) + 1):
@@ -87,10 +78,8 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 				names.append(f"{txt}/n={n_cells} " + tags[i].replace("\n", " "))
 			else:
 				names.append(f"{txt}/n={n_cells}")
-	logging.info("Drawing legend")
 	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
 
-	logging.info("Drawing cluster IDs")
 	for lbl in range(0, max(labels) + 1):
 		txt = str(lbl)
 		if "ClusterName" in ds.ca:
@@ -102,6 +91,5 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
 		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
 	plt.axis("off")
-	logging.info("Saving to file")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
 	plt.close()

@@ -24,7 +24,6 @@ from .midpoint_normalize import MidpointNormalize
 
 
 def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
-	logging.info(ds.shape)
 	layer = "pooled" if "pooled" in ds.layers else ""
 	n_clusters = np.max(dsagg.ca["Clusters"] + 1)
 	n_markers = n_markers_per_cluster * n_clusters

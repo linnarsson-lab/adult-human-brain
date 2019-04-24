@@ -2,17 +2,24 @@ import sys
 import os
 import click
 import logging
+from pathlib import Path
 from .config import config, merge_config
 from .punchcards import PunchcardDeck
 from .engine import LocalEngine, CondorEngine, Engine
-from .workflow import pool_leaves, process_subset, create_build_folders, process_root
+from .workflow import pool_leaves, process_subset, process_root
 from .._version import __version__ as version
+
+
+def create_build_folders(path: str) -> None:
+	Path(os.path.join(path, "data")).mkdir(exist_ok=True)
+	Path(os.path.join(path, "exported")).mkdir(exist_ok=True)
 
 
 @click.group()
 @click.option('--build-location')
+@click.option('--show-message/--hide-message', default=True)
 @click.option('--verbosity', default="info", type=click.Choice(['error', 'warning', 'info', 'debug']))
-def cli(build_location: str = None, verbosity: str = "info") -> None:
+def cli(build_location: str = None, show_message: bool = True, verbosity: str = "info") -> None:
 	level = {"error": 40, "warning": 30, "info": 20, "debug": 10}[verbosity]
 	logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(message)s', level=level)
 	logging.captureWarnings(True)
@@ -23,25 +30,26 @@ def cli(build_location: str = None, verbosity: str = "info") -> None:
 
 	create_build_folders(config.paths.build)
 
-	print(f"Cytograph v{version} by Linnarsson Lab (http://linnarssonlab.org)")
-	if os.path.exists(config.paths.build):
-		print(f"            Build: {config.paths.build}")
-	else:
-		print(f"            Build: {config.paths.build} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
-	if os.path.exists(config.paths.samples):
-		print(f"          Samples: {config.paths.samples}")
-	else:
-		print(f"          Samples: {config.paths.samples} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
-	if os.path.exists(config.paths.autoannotation):
-		print(f"  Auto-annotation: {config.paths.autoannotation}")
-	else:
-		print(f"  Auto-annotation: {config.paths.autoannotation} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
-	if os.path.exists(config.paths.metadata):
-		print(f"         Metadata: {config.paths.metadata}")
-	else:
-		print(f"         Metadata: {config.paths.metadata} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
-	print(f"            Steps: {', '.join(config.steps)}")
-	print()
+	if show_message:
+		print(f"Cytograph v{version} by Linnarsson Lab (http://linnarssonlab.org)")
+		if os.path.exists(config.paths.build):
+			print(f"            Build: {config.paths.build}")
+		else:
+			print(f"            Build: {config.paths.build} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
+		if os.path.exists(config.paths.samples):
+			print(f"          Samples: {config.paths.samples}")
+		else:
+			print(f"          Samples: {config.paths.samples} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
+		if os.path.exists(config.paths.autoannotation):
+			print(f"  Auto-annotation: {config.paths.autoannotation}")
+		else:
+			print(f"  Auto-annotation: {config.paths.autoannotation} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
+		if os.path.exists(config.paths.metadata):
+			print(f"         Metadata: {config.paths.metadata}")
+		else:
+			print(f"         Metadata: {config.paths.metadata} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
+		print(f"            Steps: {', '.join(config.steps)}")
+		print()
 
 
 @cli.command()

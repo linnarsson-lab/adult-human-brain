@@ -24,17 +24,17 @@ from .utils import Tempname
 #
 # Overview of the cytograph2 pipeline
 #
-# sample1 ----\                           /--> Process -> First_First.loom -------------------------------------------------|
-# sample2 -----> Process -> First.loom --<                                                                                  |
-# sample3 ----/                           \--> Process -> First_Second.loom ------------------------------------------------|
-#                                                                                                                           |
-#                                                                                                                            >---> Pool --> All.loom
-#                                                                                                                           |
-# sample4 ----\                            /--> Process -> Second_First.loom -----------------------------------------------|
-# sample5 -----> Process -> Second.loom --<                                                                                 |
-# sample6 ----/                            \                                     /--> Process -> Second_Second_First.loom --|
-#                                          \--> Process -> Second_Second.loom --<                                           |
-#                                                                                \--> Process -> Second_Second_Second.loom -|
+# sample1 ----\                /--> First_First.loom --------------------------------------|
+# sample2 -----> First.loom --<                                                            |
+# sample3 ----/                \--> First_Second.loom -------------------------------------|
+#                                                                                          |
+#                                                                                           >---> Pool.loom
+#                                                                                          |
+# sample4 ----\                 /--> Second_First.loom ------------------------------------|
+# sample5 -----> Second.loom --<                                                           |
+# sample6 ----/                 \                          /--> Second_Second_First.loom --|
+#                               \--> Second_Second.loom --<                                |
+#                                                          \--> Second_Second_Second.loom -|
 #
 
 
@@ -123,76 +123,108 @@ def compute_subsets(card: Punchcard) -> None:
 		ds.ca.Subset = subset_per_cell
 
 
+def aggregate_and_export(loom_file: str, agg_file: str, export_dir: str) -> None:
+	# STEP 2: aggregate and create the .agg.loom file
+	if os.path.exists(agg_file):
+		logging.info(f"Skipping '{agg_file}' because it was already complete.")
+	else:
+		with loompy.connect(loom_file) as dsout:
+			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=agg_file)
+
+	# STEP 3: export plots
+	if os.path.exists(export_dir):
+		logging.info(f"Skipping '{export_dir}' because it was already complete.")
+	else:
+		pool = os.path.split(export_dir)[1]
+		logging.info(f"Exporting plots for {pool}")
+		with Tempname(export_dir) as out_dir:
+			os.mkdir(out_dir)
+			with loompy.connect(loom_file) as ds:
+				with loompy.connect(agg_file) as dsagg:
+					cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.aa.png"), list(dsagg.ca.AutoAnnotation))
+					cgplot.manifold(ds, os.path.join(out_dir, pool + "_TSNE_manifold.aaa.png"), list(dsagg.ca.MarkerGenes))
+					cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.aaa.png"), list(dsagg.ca.MarkerGenes), embedding="UMAP")
+					cgplot.markerheatmap(ds, dsagg, n_markers_per_cluster=10, out_file=os.path.join(out_dir, pool + "_heatmap.pdf"))
+					cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
+					cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
+					cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
+					cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
+					cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
+					cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
+					cgplot.TFs(ds, dsagg, out_file_root=os.path.join(out_dir, pool))
+					if "cluster-validation" in config.steps:
+						ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
+
+
 def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 	# Collect directly from samples, optionally with doublet removal and min_umis etc.
 	# Specification is a nested list giving batches and replicates
 	# include: [[sample1, sample2], [sample3, sample4]]
 
+	# STEP 1: build the .loom file and perform manifold learning (Cytograph)
 	# Maybe we're already done?
-	if os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
-		logging.info(f"Skipping {subset.longname()} because it was already done.")
-		return
+	loom_file = os.path.join(config.paths.build, "data", subset.longname() + ".loom")
+	if os.path.exists(loom_file):
+		logging.info(f"Skipping '{subset.longname()}.loom' because it was already complete.")
+	else:
+		# Make sure all the sample files exist
+		err = False
+		for batch in subset.include:
+			for sample_id in batch:
+				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+				if not os.path.exists(full_path):
+					logging.error(f"Sample file '{full_path}' not found")
+					err = True
+		if err:
+			sys.exit(1)
 
-	# Make sure all the sample files exist
-	err = False
-	for batch in subset.include:
-		for sample_id in batch:
-			full_path = os.path.join(config.paths.samples, sample_id + ".loom")
-			if not os.path.exists(full_path):
-				logging.error(f"Sample file '{full_path}' not found")
-				err = True
-	if err:
-		sys.exit(1)
-
-	if config.params.doublets_method != "scrublet":
-		logging.error("Only doublets_method == 'scrublet' is allowed.")
-		sys.exit(1)
-
-	with Tempname(os.path.join(config.paths.build, "data", subset.longname() + ".loom")) as out_file:
-		logging.info(f"Collecting cells for {subset.longname()}")
-		logging.debug(out_file)
-		with loompy.new(out_file) as dsout:
-			batch_id = 0
-			for batch in subset.include:
-				replicate_id = 0
-				for sample_id in batch:
-					full_path = os.path.join(config.paths.samples, sample_id + ".loom")
-					logging.info(f"Adding {sample_id}.loom")
-					with loompy.connect(full_path) as ds:
-						species = Species.detect(ds).name
-						col_attrs = dict(ds.ca)
-						metadata = get_metadata_for(sample_id)
-						for key, val in metadata.items():
-							col_attrs[key] = np.array([val] * ds.shape[1])
-						col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
-						col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
-						col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-						if "Age" in metadata and species == "Homo sapiens":
-							try:
-								col_attrs["PCW"] = np.array([pcw(metadata["Age"])] * ds.shape[1])
-							except:
-								pass
-						logging.info("Scoring doublets using Scrublet")
-						data = ds[:, :].T
-						doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
-						col_attrs["ScrubletScore"] = doublet_scores
-						col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
-						logging.info("Scoring doublets using DoubletFinder")
-						col_attrs["DoubletFinderScore"] = doublet_finder(ds)
-						logging.info(f"Computing total UMIs")
-						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
-						ds.ca.TotalUMI = totals
-						ds.ca.NGenes = genes
-						good_cells = (totals >= config.params.min_umis)
-						if config.params.doublets_action == "remove":
-							logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
-							good_cells = good_cells & (~predicted_doublets)
-						logging.info(f"Collecting {good_cells.sum()} of {data.shape[0]} cells")
-						dsout.add_columns(ds.layers[:, good_cells], {att: vals[good_cells] for att, vals in col_attrs.items()}, row_attrs=ds.row_attrs)
-					replicate_id += 1
-				batch_id += 1
-			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask), cluster_validation="cluster-validation" in config.steps).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+		with Tempname(loom_file) as out_file:
+			logging.info(f"Collecting cells for {subset.longname()}")
+			logging.debug(out_file)
+			with loompy.new(out_file) as dsout:
+				batch_id = 0
+				for batch in subset.include:
+					replicate_id = 0
+					for sample_id in batch:
+						full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+						logging.info(f"Adding {sample_id}.loom")
+						with loompy.connect(full_path) as ds:
+							species = Species.detect(ds).name
+							col_attrs = dict(ds.ca)
+							metadata = get_metadata_for(sample_id)
+							for key, val in metadata.items():
+								col_attrs[key] = np.array([val] * ds.shape[1])
+							col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
+							col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
+							col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
+							if "Age" in metadata and species == "Homo sapiens":
+								try:
+									col_attrs["PCW"] = np.array([pcw(metadata["Age"])] * ds.shape[1])
+								except:
+									pass
+							logging.info("Scoring doublets using Scrublet")
+							data = ds[:, :].T
+							doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
+							col_attrs["ScrubletScore"] = doublet_scores
+							col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
+							logging.info("Scoring doublets using DoubletFinder")
+							col_attrs["DoubletFinderScore"] = doublet_finder(ds)
+							logging.info(f"Computing total UMIs")
+							(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+							col_attrs["TotalUMI"] = totals
+							col_attrs["NGenes"] = genes
+							good_cells = (totals >= config.params.min_umis)
+							if config.params.doublets_action == "remove":
+								logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
+								good_cells = good_cells & (~predicted_doublets)
+							logging.info(f"Collecting {good_cells.sum()} of {data.shape[0]} cells")
+							dsout.add_columns(ds.layers[:, good_cells], {att: vals[good_cells] for att, vals in col_attrs.items()}, row_attrs=ds.row_attrs)
+						replicate_id += 1
+					batch_id += 1
+				Cytograph(steps=config.steps).fit(dsout)
+	agg_file = os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom")
+	export_dir = os.path.join(config.paths.build, "exported", subset.longname())
+	aggregate_and_export(loom_file, agg_file, export_dir)
 	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 	card_for_subset = deck.get_card(subset.longname())
 	if card_for_subset is not None:
@@ -201,35 +233,36 @@ def process_root(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 
 
 def process_subset(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
+	# STEP 1: cytograph
 	# Maybe we're already done?
-	if os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
-		logging.info(f"Skipping {subset.longname()} because it was already done.")
-		return
+	loom_file = os.path.join(config.paths.build, "data", subset.longname() + ".loom")
+	if os.path.exists(loom_file):
+		logging.info(f"Skipping {subset.longname()}.loom because it was already complete.")
+	else:
+		# Verify that the previous punchard subset exists
+		parent = os.path.join(config.paths.build, "data", subset.card.name + ".loom")
+		if not os.path.exists(parent):
+			logging.error(f"Punchcard file '{parent}' was missing.")
+			sys.exit(1)
 
-	# Verify that the previous punchard subset exists
-	parent = os.path.join(config.paths.build, "data", subset.card.name + ".loom")
-	if not os.path.exists(parent):
-		logging.error(f"Punchcard file '{parent}' was missing.")
-		sys.exit(1)
+		# Verify that there are some cells in the subset
+		with loompy.connect(parent, mode="r") as ds:
+			if (ds.ca.Subset == subset.name).sum() == 0:
+				logging.info(f"Skipping {subset.longname()} because the subset was empty")
+				sys.exit(0)
 
-	# Verify that there are some cells in the subset
-	with loompy.connect(parent, mode="r") as ds:
-		if (ds.ca.Subset == subset.name).sum() == 0:
-			logging.info(f"Skipping {subset.longname()} because the subset was empty")
-			sys.exit(0)
-
-	with Tempname(os.path.join(config.paths.build, "data", subset.longname() + ".loom")) as out_file:
-		logging.info(f"Collecting cells for {subset.longname()}")
-		with loompy.new(out_file) as dsout:
-			# Collect from a previous punchard subset
-			with loompy.connect(parent, mode="r") as ds:
-				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == subset.name), axis=1, key="Accession"):
-					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
-
-			logging.info(f"Collected {ds.shape[1]} cells")
-
-			Cytograph(steps=config.steps).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask), cluster_validation="cluster-validation" in config.steps).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom"), export_dir=os.path.join(config.paths.build, "exported", subset.longname()))
+		with Tempname(loom_file) as out_file:
+			logging.info(f"Collecting cells for {subset.longname()}")
+			with loompy.new(out_file) as dsout:
+				# Collect from a previous punchard subset
+				with loompy.connect(parent, mode="r") as ds:
+					for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == subset.name), axis=1, key="Accession"):
+						dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
+				logging.info(f"Collected {ds.shape[1]} cells")
+				Cytograph(steps=config.steps).fit(dsout)
+	agg_file = os.path.join(config.paths.build, "data", subset.longname() + ".agg.loom")
+	export_dir = os.path.join(config.paths.build, "exported", subset.longname())
+	aggregate_and_export(loom_file, agg_file, export_dir)
 	# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 	card_for_subset = deck.get_card(subset.longname())
 	if card_for_subset is not None:
@@ -238,43 +271,45 @@ def process_subset(deck: PunchcardDeck, subset: PunchcardSubset) -> None:
 
 
 def pool_leaves(deck: PunchcardDeck) -> None:
+	loom_file = os.path.join(config.paths.build, "data", "Pool.loom")
 	# Maybe we're already done?
-	if os.path.exists(os.path.join(config.paths.build, "data", "Pool.loom")):
-		logging.info(f"Skipping {subset.longname()} because it was already done.")
-		return
+	if os.path.exists(loom_file):
+		logging.info(f"Skipping 'Pool.loom' because it was already done.")
+	else:
+		with Tempname(os.path.join(config.paths.build, "data", "Pool.loom")) as out_file:
+			logging.info(f"Collecting cells for 'Pool.loom'")
+			punchcards: List[str] = []
+			clusters: List[int] = []
+			punchcard_clusters: List[int] = []
+			next_cluster = 0
 
-	with Tempname(os.path.join(config.paths.build, "data", "Pool.loom")) as out_file:
-		logging.info(f"Collecting cells for 'Pool.loom'")
-		punchcards: List[str] = []
-		clusters: List[int] = []
-		punchcard_clusters: List[int] = []
-		next_cluster = 0
-
-		# Check that all the inputs exist
-		err = False
-		for subset in deck.get_leaves():
-			if not os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
-				logging.error(f"Punchcard file 'data/{subset.longname()}.loom' is missing")
-				err = True
-		if err:
-			sys.exit(1)
-
-		with loompy.new(out_file) as dsout:
+			# Check that all the inputs exist
+			err = False
 			for subset in deck.get_leaves():
-				with loompy.connect(os.path.join(config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
-					punchcards = punchcards + [subset.longname()] * ds.shape[1]
-					punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
-					clusters = clusters + list(ds.ca.Clusters + next_cluster)
-					next_cluster = max(clusters) + 1
-					for (ix, selection, view) in ds.scan(axis=1, key="Accession"):
-						dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
-			ds.ca.Punchcard = punchcards
-			ds.ca.PunchcardClusters = punchcard_clusters
-			ds.ca.Clusters = clusters
-			Cytograph(steps=["nn", "embeddings", "aggregate", "export"]).fit(dsout)
-			Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, agg_file=os.path.join(config.paths.build, "data", "Pool.agg.loom"), export_dir=os.path.join(config.paths.build, "All_exported"))
+				if not os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
+					logging.error(f"Punchcard file 'data/{subset.longname()}.loom' is missing")
+					err = True
+			if err:
+				sys.exit(1)
+
+			with loompy.new(out_file) as dsout:
+				for subset in deck.get_leaves():
+					with loompy.connect(os.path.join(config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
+						punchcards = punchcards + [subset.longname()] * ds.shape[1]
+						punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
+						clusters = clusters + list(ds.ca.Clusters + next_cluster)
+						next_cluster = max(clusters) + 1
+						for (ix, selection, view) in ds.scan(axis=1, key="Accession"):
+							dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
+				ds.ca.Punchcard = punchcards
+				ds.ca.PunchcardClusters = punchcard_clusters
+				ds.ca.Clusters = clusters
+				Cytograph(steps=["nn", "embeddings", "aggregate", "export"]).fit(dsout)
+	agg_file = os.path.join(config.paths.build, "data", "Pool.agg.loom")
+	export_dir = os.path.join(config.paths.build, "exported", "Pool")
+	aggregate_and_export(loom_file, agg_file, export_dir)
 
 
-def create_build_folders(path) -> None:
+def create_build_folders(path: str) -> None:
 	Path(os.path.join(path, "data")).mkdir(exist_ok=True)
 	Path(os.path.join(path, "exported")).mkdir(exist_ok=True)

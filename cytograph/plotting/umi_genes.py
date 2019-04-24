@@ -44,7 +44,7 @@ def umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	tsne = ds.ca.TSNE
 	plt.scatter(tsne[:, 0], tsne[:, 1], c="lightgrey", lw=0, marker='.')
 	for chip in np.unique(ds.ca.SampleID):
-		cells = (ds.ca.DoubletFlag == 1) & (ds.ca.SampleID == chip)
+		cells = (ds.ca.ScrubletFlag == 1) & (ds.ca.SampleID == chip)
 		plt.scatter(tsne[:, 0][cells], tsne[:, 1][cells], label=chip, lw=0, marker='.')
 		plt.title("Doublets")
 	plt.axis("off")

@@ -52,7 +52,7 @@ def embedded_velocity(ds: loompy.LoomConnection, out_file: str = None) -> None:
 	plt.subplot(224)
 	xy = ds.attrs.TSNEVelocityPoints
 	uv = ds.attrs.TSNEVelocity
-	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
+	plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(ds.ca.Clusters), lw=0, s=15, alpha=0.1)
 	plt.quiver(xy[:, 0], xy[:, 1], uv[:, 0], uv[:, 1], angles='xy', scale_units='xy', scale=1, edgecolor='white', facecolor="black", linewidth=.25)
 	plt.axis("off")
 	plt.title("Velocity (TSNE, grid)")
