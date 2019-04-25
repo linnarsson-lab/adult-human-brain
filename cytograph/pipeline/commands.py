@@ -65,9 +65,9 @@ def build(engine: str, dryrun: bool) -> None:
 	# Create the execution engine
 	execution_engine: Optional[Engine] = None
 	if engine == "local":
-		execution_engine = LocalEngine(deck)
+		execution_engine = LocalEngine(deck, dryrun)
 	elif engine == "condor":
-		execution_engine = CondorEngine(deck)
+		execution_engine = CondorEngine(deck, dryrun)
 
 	# Execute the build
 	assert(execution_engine is not None)
