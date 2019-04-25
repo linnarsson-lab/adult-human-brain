@@ -1,11 +1,12 @@
-from typing import *
-import os
 import logging
-import numpy as np
-import pandas as pd
+import os
 import re
-import loompy
+from typing import List
+
+import numpy as np
 import yaml
+
+import loompy
 
 
 class Annotation:
@@ -57,7 +58,7 @@ class AutoAnnotator(object):
 		fileext = [".yaml", ".md"]
 		errors = False
 		root_len = len(self.root)
-		for cur, dirs, files in os.walk(self.root):
+		for cur, _, files in os.walk(self.root):
 			for file in files:
 				if os.path.splitext(file)[-1] in fileext and file[-9:] != "README.md":
 					try:

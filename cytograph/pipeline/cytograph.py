@@ -1,31 +1,26 @@
-import numpy as np
-import scipy.sparse as sparse
-from scipy.interpolate import griddata
-from scipy.stats import poisson
-import loompy
-import matplotlib.pyplot as plt
-from sklearn.neighbors import BallTree, NearestNeighbors
 import logging
-from sklearn.manifold import TSNE
-from umap import UMAP
-from pynndescent import NNDescent
-from sklearn.preprocessing import normalize
-from typing import *
-import os
 import warnings
+from typing import List
+
 import community
 import networkx as nx
-from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
-from cytograph.species import Species
-from cytograph.preprocessing import PoissonPooling
-from cytograph.velocity import fit_velocity_gamma, VelocityEmbedding
-from cytograph.decomposition import identify_technical_factors
-from cytograph.clustering import PolishedLouvain
-from cytograph.metrics import jensen_shannon_distance
+import numpy as np
+import scipy.sparse as sparse
+from scipy.stats import poisson
+from umap import UMAP
+
+import loompy
 from cytograph.annotation import CellCycleAnnotator
+from cytograph.clustering import PolishedLouvain
+from cytograph.decomposition import HPF, identify_technical_factors
 from cytograph.embedding import tsne
-from cytograph.decomposition import HPF
+from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.manifold import BalancedKNN
+from cytograph.metrics import jensen_shannon_distance
+from cytograph.preprocessing import PoissonPooling
+from cytograph.species import Species
+from cytograph.velocity import VelocityEmbedding, fit_velocity_gamma
+
 from .config import config
 
 

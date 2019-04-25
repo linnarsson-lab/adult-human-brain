@@ -1,13 +1,11 @@
-from typing import *
+import matplotlib.pyplot as plt
 import numpy as np
-import logging
-import loompy
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report
-from sklearn.model_selection import train_test_split
 import numpy_groupies as npg
 from sklearn.ensemble import RandomForestClassifier
-import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
+
+import loompy
 from cytograph.decomposition import HPF
 
 

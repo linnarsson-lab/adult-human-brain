@@ -1,11 +1,10 @@
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-from sklearn.manifold.t_sne import _joint_probabilities_nn
-from typing import *
 import numpy as np
 from pynndescent import NNDescent
-from cytograph.metrics import multinomial_subspace_distance, jensen_shannon_distance
-import logging
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.manifold.t_sne import _joint_probabilities_nn
+
+from cytograph.metrics import jensen_shannon_distance, multinomial_subspace_distance
 
 
 def tsne(X: np.ndarray, *, n_components: int = 2, metric: str = "js", dof: int = 1, perplexity: int = 30, distances_nn: np.ndarray = None, neighbors_nn: np.ndarray = None, radius: float = 0.4) -> np.ndarray:

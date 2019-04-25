@@ -1,21 +1,21 @@
-from typing import *
-import logging
+import logging as lg
+import os
+import random
+import string
 from collections import defaultdict
+from typing import *
+
+import matplotlib.colors
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import numpy_groupies as npg
 import pandas as pd
-from scipy.spatial.distance import squareform, pdist
-from scipy.cluster.hierarchy import linkage, leaves_list
-import matplotlib.pyplot as plt
-import matplotlib.colors
-import matplotlib.ticker as ticker
-import loompy
-import os
-import logging as lg
-import luigi
-import random
-import string
+from scipy.cluster.hierarchy import leaves_list, linkage
+from scipy.spatial.distance import pdist, squareform
 from sklearn.preprocessing import LabelEncoder
+
+import loompy
 
 
 def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:

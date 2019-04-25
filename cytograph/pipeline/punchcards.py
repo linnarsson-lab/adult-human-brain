@@ -6,7 +6,6 @@ import logging
 import loompy
 import yaml
 import numpy as np
-import luigi
 from cytograph.annotation import AutoAutoAnnotator
 from .cytograph import Cytograph
 from .aggregator import Aggregator

@@ -1,24 +1,14 @@
-from typing import *
-import os
-import csv
 import logging
-import pickle
-import loompy
+from typing import Dict, List, Union
+
 import numpy as np
-import scipy.cluster.hierarchy as hierarchy
-import scipy
-import numpy_groupies.aggregate_numpy as npg
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
-import scipy.stats
-from sklearn.preprocessing import binarize
-import matplotlib.pyplot as plt
-from cytograph.species import species
-from cytograph.enrichment import Trinarizer, FeatureSelectionByMultilevelEnrichment
+
+import loompy
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
-from cytograph.clustering import ClusterValidator
-import cytograph.plotting as cgplot
-from .utils import Tempname
+from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
+
 from .config import config
 
 

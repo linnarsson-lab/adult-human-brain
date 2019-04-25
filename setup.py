@@ -14,7 +14,6 @@ setup(
 		'scipy',
 		'networkx',
 		'python-louvain',  # is imported as "community"
-		'luigi',
 		'hdbscan',
 		'pyyaml',
 		'statsmodels',  # for multiple testing

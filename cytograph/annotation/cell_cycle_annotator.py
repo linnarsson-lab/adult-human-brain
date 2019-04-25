@@ -1,7 +1,8 @@
-import loompy
+from typing import Tuple
+
 import numpy as np
-from typing import *
-import matplotlib.pyplot as plt
+
+import loompy
 from cytograph.species import Species
 
 

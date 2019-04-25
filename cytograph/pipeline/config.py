@@ -1,9 +1,9 @@
-from typing import *
-import logging
-import os
-import yaml
 import inspect
+import os
 from pathlib import Path
+from typing import Dict, List
+
+import yaml
 
 
 class AbstractConfig:

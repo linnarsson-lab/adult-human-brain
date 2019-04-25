@@ -176,7 +176,7 @@ queue 1\n
 
 		with open(os.path.join(exdir, "_dag.condor"), "w") as f:
 			for task in tasks.keys():
-				f.write(f"JOB {task} {task}.condor DIR {config.paths.build}\n")
+				f.write(f"JOB {task} {os.path.join(exdir, task)}.condor DIR {config.paths.build}\n")
 			for task, deps in tasks.items():
 				if len(deps) == 0:
 					continue

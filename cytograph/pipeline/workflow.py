@@ -2,7 +2,6 @@ import os
 from typing import *
 import numpy as np
 import loompy
-import luigi
 from pathlib import Path
 import logging
 import math
@@ -194,11 +193,13 @@ class RootWorkflow(Workflow):
 				for sample_id in batch:
 					full_path = os.path.join(config.paths.samples, sample_id + ".loom")
 					logging.info(f"Adding {sample_id}.loom")
-					with loompy.connect(full_path) as ds:
+					with loompy.connect(full_path, "r") as ds:
 						species = Species.detect(ds).name
 						col_attrs = dict(ds.ca)
 						for key, val in metadata.get(sample_id).items():
 							col_attrs[key] = np.array([val] * ds.shape[1])
+						if "Species" not in col_attrs:
+							col_attrs["Species"] = np.array([species] * ds.shape[1])
 						col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
 						col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 						col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])

@@ -1,6 +1,4 @@
-import logging
 import numpy as np
-from typing import *
 from sklearn.svm import SVR
 import loompy
 

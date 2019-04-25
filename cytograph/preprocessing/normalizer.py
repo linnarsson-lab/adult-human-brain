@@ -2,7 +2,6 @@ from typing import *
 import loompy
 import numpy as np
 import logging
-import luigi
 from .utils import div0
 
 

@@ -1,21 +1,18 @@
-import os
-import csv
 import numpy as np
-from typing import *
-from sklearn.decomposition import IncrementalPCA, FastICA
 from scipy.stats import ks_2samp
+from sklearn.decomposition import IncrementalPCA
+
 import loompy
-import logging
 from cytograph.preprocessing import Normalizer
 
 
 class PCAProjection:
 	"""
 	Project a dataset into a reduced feature space using PCA. The projection can be fit
-	to one dataset then used to project another. To work properly, both datasets must be normalized in the same 
+	to one dataset then used to project another. To work properly, both datasets must be normalized in the same
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str=None, nng: np.ndarray = None) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str = None, nng: np.ndarray = None) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
@@ -34,8 +31,6 @@ class PCAProjection:
 	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
-		n_cells = cells.shape[0]
-		n_genes = self.genes.shape[0]
 
 		# Support out-of-order datasets
 		if "Accession" in ds.row_attrs:
@@ -61,18 +56,12 @@ class PCAProjection:
 				vals = normalizer.transform(view[:, :], selection)
 				if self.nng is not None:
 					vals[np.where(self.nng)[0][:, None], np.where(ds.TaxonomyRank1 == "Neurons")[0]] = 0
-				#logging.info(vals[self.genes, :].transpose().shape)
+				# logging.info(vals[self.genes, :].transpose().shape)
 				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
-		n_cells = cells.shape[0]
-
-		# Support out--of-order datasets
-		if self.accessions is not None:
-			# This is magic sauce for making the order of one list be like another
-			ordering = np.where(ds.row_attrs["Accession"][None, :] == self.accessions[:, None])[1]
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0

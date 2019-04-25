@@ -1,14 +1,16 @@
-import sys
-import os
-import click
 import logging
-from typing import *
+import os
+import sys
 from pathlib import Path
-from .config import config, merge_config
-from .punchcards import PunchcardDeck
-from .engine import LocalEngine, CondorEngine, Engine
-from .workflow import RootWorkflow, SubsetWorkflow, PoolWorkflow
+from typing import Optional
+
+import click
+
 from .._version import __version__ as version
+from .config import config, merge_config
+from .engine import CondorEngine, Engine, LocalEngine
+from .punchcards import PunchcardDeck
+from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow
 
 
 def create_build_folders(path: str) -> None:
@@ -68,6 +70,7 @@ def build(engine: str, dryrun: bool) -> None:
 		execution_engine = CondorEngine(deck)
 
 	# Execute the build
+	assert(execution_engine is not None)
 	execution_engine.execute()
 
 

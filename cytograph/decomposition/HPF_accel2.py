@@ -1,25 +1,26 @@
-from typing import *
-import numpy as np
-import os
-import scipy.sparse as sparse
-from scipy.misc import logsumexp
-from scipy.special import digamma, gammaln, psi
-from tqdm import trange
-from sklearn.model_selection import train_test_split
 import logging
-from numba import jit
+import os
 from concurrent.futures import ThreadPoolExecutor
+from typing import List, Any, Tuple
 
-##
-## This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
-## of JIT precompilation through Numba, to accelerate the computation and make use of all available cores
-##
+import numpy as np
+import scipy.sparse as sparse
+from numba import jit
+from scipy.special import digamma, gammaln
+from sklearn.model_selection import train_test_split
+from tqdm import trange
+
+#
+# This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
+# of JIT precompilation through Numba, to accelerate the computation and make use of all available cores
+#
+
 
 def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
 	n_factors = factors.shape[1]
 	(row, col) = np.where(np.corrcoef(factors.T) > max_r)
 	g = sparse.coo_matrix((np.ones(len(row)), (row, col)), shape=(n_factors, n_factors))
-	(n_comps, comps) = sparse.csgraph.connected_components(g)
+	(_, comps) = sparse.csgraph.connected_components(g)
 	non_singleton_comps = np.where(np.bincount(comps) > 1)[0]
 	to_randomize: List[int] = []
 	for c in non_singleton_comps:
@@ -36,8 +37,7 @@ def find_redundant_components(beta: np.ndarray, theta: np.ndarray, max_r: float)
 	return np.intersect1d(_find_redundant_components(beta, max_r), _find_redundant_components(theta, max_r))
 
 
-def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):
-	k = gamma_shape.shape[1]
+def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):  # type: ignore
 	nnz = u.shape[0]
 	u_logdiff = (digamma(gamma_shape) - np.log(gamma_rate))
 	i_logdiff = (digamma(lambda_shape) - np.log(lambda_rate))
@@ -55,7 +55,7 @@ def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, 
 
 
 @jit(nogil=True, nopython=True)
-def max_axis1(x):
+def max_axis1(x):  # type: ignore
 	max_vals = np.empty(x.shape[0])
 	for i in range(x.shape[0]):
 		max_vals[i] = np.max(x[i, :])
@@ -63,15 +63,15 @@ def max_axis1(x):
 
 
 @jit(nogil=True, nopython=True)
-def logsumexp_axis1(x):
+def logsumexp_axis1(x):  # type: ignore
 	max_x = max_axis1(x)
 	y = (x.T - max_x).T
 	sum_of_exps = np.exp(y).sum(axis=1)
 	return max_x + np.log(sum_of_exps)
 
 
-@jit # (nogil=True, nopython=True)  # NOTE: doesn't work with nogil or nopython
-def compute_y_phi_batch(y_phi, start, u_logdiff, i_logdiff, u, i, y):
+@jit   # (nogil=True, nopython=True)  # NOTE: doesn't work with nogil or nopython
+def compute_y_phi_batch(y_phi, start, u_logdiff, i_logdiff, u, i, y):  # type: ignore
 	phi = u_logdiff[u, :] + i_logdiff[i, :]
 
 	# Multiply y by phi normalized (in log space) along the k axis
@@ -85,7 +85,7 @@ class HPF:
 	"""
 	def __init__(
 		self,
-		k: int, 
+		k: int,
 		*,
 		a: float = 0.3,
 		b: float = 1,

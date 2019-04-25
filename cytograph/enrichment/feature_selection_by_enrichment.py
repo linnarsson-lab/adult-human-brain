@@ -1,8 +1,9 @@
 import logging
+from typing import Tuple, List
+
 import numpy as np
-from typing import *
-from sklearn.svm import SVR
 from statsmodels.sandbox.stats.multicomp import multipletests
+
 import loompy
 
 

@@ -1,19 +1,17 @@
-import numpy as np
 import logging
+
 import community
 import networkx as nx
-from scipy import sparse
+import numpy as np
 from scipy.stats import mode
-from typing import *
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-from scipy.stats import t, zscore
+from sklearn.neighbors import NearestNeighbors
+
 import loompy
-import hdbscan
 
 
-def is_outlier(points, thresh=3.5):
+def is_outlier(points: np.ndarray, thresh: float = 3.5) -> np.ndarray:
 	"""
 	Returns a boolean array with True if points are outliers and False
 	otherwise.
@@ -36,7 +34,7 @@ def is_outlier(points, thresh=3.5):
 		Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
 	"""
 	if len(points.shape) == 1:
-		points = points[:,None]
+		points = points[:, None]
 	median = np.median(points, axis=0)
 	diff = np.sum((points - median)**2, axis=-1)
 	diff = np.sqrt(diff)

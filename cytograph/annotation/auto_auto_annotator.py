@@ -1,9 +1,7 @@
-from typing import *
-import os
-import logging
+from typing import Tuple, List
+
 import numpy as np
-import pandas as pd
-import re
+
 import loompy
 
 
@@ -23,7 +21,7 @@ class AutoAutoAnnotator:
 		Returns:
 			selected		The selected genes (indexes into the rows), shape (n_genes, n_clusters)
 			selectivity		The cumulative selectivity (number of clusters identified), shape (n_genes, n_clusters)
-			specificity		The cumulative specificity (difference in probabililty of identifying the cluster, 
+			specificity		The cumulative specificity (difference in probabililty of identifying the cluster,
 							relative to the second likeliest cluster), shape (n_genes, n_clusters)
 			robustness		The cumulative robustness (probability of identifying the cluster), shape (n_genes, n_clusters)
 		"""
@@ -65,7 +63,7 @@ class AutoAutoAnnotator:
 					candidates = np.intersect1d(candidates, np.where(breadth == narrowest)[0])
 					ordering = np.argsort(-enrichment[candidates, ix])
 					gene2.append(candidates[ordering][0])
-				except (IndexError, ValueError) as e:
+				except (IndexError, ValueError):
 					gene2.append(0)  # NOTE NOTE NOTE very bad patch but I want to make it run to the end
 			gene2 = np.array(gene2)
 			selected = np.vstack([selected, gene2])
@@ -104,4 +102,3 @@ class AutoAutoAnnotator:
 		ds.ca.MarkerSelectivity = [" ".join([str(x) for x in selectivity[:, ix]]) for ix in np.arange(n_clusters)]
 		ds.ca.MarkerSpecificity = [" ".join([f"{x:.2}" for x in specificity[:, ix]]) for ix in np.arange(n_clusters)]
 		ds.ca.MarkerRobustness = [" ".join([f"{x:.2}" for x in robustness[:, ix]]) for ix in np.arange(n_clusters)]
-

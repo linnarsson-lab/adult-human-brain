@@ -1,11 +1,12 @@
-from typing import *
+import logging
+from typing import Tuple, List, Any
+
 import numpy as np
 import scipy.sparse as sparse
 from scipy.misc import logsumexp
-from scipy.special import digamma, gammaln, psi
-from tqdm import trange
+from scipy.special import digamma, gammaln
 from sklearn.model_selection import train_test_split
-import logging
+from tqdm import trange
 
 
 def _find_redundant_components(factors: np.ndarray, max_r: float) -> List[int]:
@@ -36,7 +37,7 @@ class HPF:
 	"""
 	def __init__(
 		self,
-		k: int, 
+		k: int,
 		*,
 		a: float = 0.3,
 		b: float = 1,

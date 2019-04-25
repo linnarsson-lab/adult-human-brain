@@ -1,10 +1,10 @@
 import logging
+from typing import List
+
 import numpy as np
-from typing import *
-from sklearn.svm import SVR
-from statsmodels.sandbox.stats.multicomp import multipletests
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
+
 import loompy
 
 

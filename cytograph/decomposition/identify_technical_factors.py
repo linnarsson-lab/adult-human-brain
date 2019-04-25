@@ -1,6 +1,5 @@
 import numpy as np
-from typing import *
-import logging
+from typing import List
 
 
 def identify_technical_factors(theta: np.ndarray, batches: np.ndarray, replicates: np.ndarray) -> np.ndarray:
