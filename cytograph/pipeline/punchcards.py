@@ -57,17 +57,9 @@ class Punchcard:
 			result += c.get_leaves()
 		return result
 
-	def __str__(self) -> str:
-		s = "Punchcard " + self.name
-		if self.samples is not None:
-			s += f" ({len(self.samples)} sample batches) "
-		for name, subset in self.subsets.items():
-			s += name + ": " + ",".join(subset.include) + "; "
-		return s
-
 
 class PunchcardSubset:
-	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str], execution: ExecutionConfig) -> None:
+	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str], execution: Dict[str, Any]) -> None:
 		self.name = name
 		self.card = card
 		self.include = include
@@ -88,7 +80,7 @@ class PunchcardSubset:
 		else:
 			return self.card.name + "_" + self.name
 
-	def dependency(self) -> str:
+	def dependency(self) -> Optional[str]:
 		names = self.longname().split("_")
 		if len(names) == 1:
 			return None
@@ -116,20 +108,20 @@ class PunchcardDeck:
 	def get_leaves(self) -> List[PunchcardSubset]:
 		return self.root.get_leaves()
 
-	def _get_subset(self, card: Punchcard, name: str) -> PunchcardSubset:
+	def _get_subset(self, card: Punchcard, name: str) -> Optional[PunchcardSubset]:
 		for s in card.subsets.values():
 			if s.longname() == name:
 				return s
 		for c in card.children.values():
-			s = self._get_subset(c, name)
+			s = self._get_subset(c, name)  # type: ignore
 			if s is not None:
 				return s
 		return None
 
-	def get_subset(self, name: str) -> PunchcardSubset:
+	def get_subset(self, name: str) -> Optional[PunchcardSubset]:
 		return self._get_subset(self.root, name)
 
-	def _get_card(self, card: Punchcard, name: str) -> PunchcardSubset:
+	def _get_card(self, card: Punchcard, name: str) -> Optional[Punchcard]:
 		if name == card.name:
 			return card
 		for c in card.children.values():
@@ -138,5 +130,5 @@ class PunchcardDeck:
 				return temp
 		return None
 
-	def get_card(self, name: str) -> Punchcard:
+	def get_card(self, name: str) -> Optional[Punchcard]:
 		return self._get_card(self.root, name)

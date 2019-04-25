@@ -1,19 +1,37 @@
+import sys
 import os
 import shutil
 import subprocess
 import logging
+import yaml
 from typing import *
 from .punchcards import PunchcardDeck
-from .workflow import process_subset, pool_leaves
-from .config import config
+from .config import config, merge_config, ExecutionConfig
 
 
 class Engine:
-	def __init__(self, deck: PunchcardDeck) -> None:
+	'''
+	An execution engine, which takes a :class:`PunchcardDeck` and calculates an execution plan in the form
+	of a dependency graph. The Engine itself does not actually execute the graph. This is the job of
+	subclasses such as :class:`LocalEngine`` and :class:`CondorEngine`, which take the execution plan and
+	executes it in some manner (e.g. locally and serially, or on a cluster and in parallel).
+	'''
+
+	def __init__(self, deck: PunchcardDeck, dryrun: bool = True) -> None:
 		self.deck = deck
-		self.dryrun = config.execution.dryrun
+		self.dryrun = dryrun
 	
 	def build_execution_dag(self) -> Dict[str, List[str]]:
+		"""
+		Build an execution plan in the form of a dependency graph, encoded as a dictionary.
+
+		Returns:
+			Dictionary mapping tasks to their dependencies
+	
+		Remarks:
+			The tasks are named for the punchcard subset they involve (using long subset names),
+			and the pooling task is denoted by the special task name '_pool'.
+		"""
 		stack = self.deck.root.get_leaves()
 		if len(stack) > 1:
 			tasks = {"_pool": [s.longname() for s in stack]}
@@ -25,7 +43,11 @@ class Engine:
 				continue
 			dep = s.dependency()
 			if dep is not None:
-				stack.append(self.deck.get_subset(dep))
+				dep_subset = self.deck.get_subset(dep)
+				if dep_subset is None:
+					logging.error(f"Dependency '{dep}' of '{s.longname()}' was not found in punchcard deck.")
+					sys.exit(1)
+				stack.append(dep_subset)
 				tasks[s.longname()] = [dep]
 			else:
 				tasks[s.longname()] = []
@@ -36,11 +58,15 @@ class Engine:
 
 
 # From https://stackoverflow.com/questions/52432988/python-dict-key-order-based-on-values-recursive-solution
-def topological_sort(dependency_graph):
+def topological_sort(dependency_graph: Dict[str, List[str]]) -> List[str]:
+	"""
+	Sort the dependency graph topologically, i.e. such that dependencies are
+	listed before the tasks that depend on them.
+	"""
 	# reverse the graph
-	graph = {}
-	for key, nodes in dependency_graph.items():
-		for node in nodes:
+	graph: Dict[str, List[str]] = {}
+	for key, deps in dependency_graph.items():
+		for node in deps:
 			graph.setdefault(node, []).append(key)
 
 	# init the indegree for each noe
@@ -68,8 +94,11 @@ def topological_sort(dependency_graph):
 
 
 class LocalEngine(Engine):
-	def __init__(self, deck: PunchcardDeck) -> None:
-		super().__init__(deck)
+	"""
+	An execution engine that executes tasks serially and locally.
+	"""
+	def __init__(self, deck: PunchcardDeck, dryrun: bool = True) -> None:
+		super().__init__(deck, dryrun)
 
 	def execute(self) -> None:
 		tasks = self.build_execution_dag()
@@ -97,25 +126,45 @@ class LocalEngine(Engine):
 
 
 class CondorEngine(Engine):
-	def __init__(self, deck: PunchcardDeck) -> None:
-		super().__init__(deck)
+	"""
+	An engine that executes tasks in parallel on a HTCondor cluster, using the DAGman functionality
+	of condor. Tasks will be executed in parallel as much as possible while respecting the
+	dependency graph.
+	"""
+	def __init__(self, deck: PunchcardDeck, dryrun: bool = True) -> None:
+		super().__init__(deck, dryrun)
 
 	def execute(self) -> None:
 		tasks = self.build_execution_dag()
 		# Make job files
-		exdir = os.path.join(config.paths.build, "execution")
+		exdir = os.path.join(config.paths.build, "condor")
 		if not os.path.exists(exdir):
 			os.mkdir(exdir)
 		for task in tasks.keys():
-			if task != "_pool":
-				excfg = self.deck.get_subset(task).execution_config
+			cmd = ""
+			excfg: Optional[ExecutionConfig] = None
+			# Get the right execution configuration for the task (CPUs etc.)
+			if task == "_pool":
+				cfg_file = os.path.join(config.paths.build, "pool_config.yaml")
+				if os.path.exists(cfg_file):
+					merge_config(config, cfg_file)
+				excfg = config.execution
+				cmd = "pool"
 			else:
-				excfg = self.deck.pool_execution_config
+				subset = self.deck.get_subset(task)
+				if subset is None:
+					logging.error(f"Subset '{task}' not found among punchcards.")
+					sys.exit(1)
+				config.execution.merge(subset.execution)
+				excfg = config.execution
+				cmd = f"process {task}"
+
+			# Generate the condor submit file for the task
 			with open(os.path.join(exdir, task + ".condor"), "w") as f:
 				f.write(f"""
 getenv       = true
 executable   = {os.path.abspath(shutil.which('cytograph'))}
-arguments    = "process {task}"
+arguments    = "{cmd}"
 log          = {os.path.join(exdir, task)}.log
 output       = {os.path.join(exdir, task)}.out
 error        = {os.path.join(exdir, task)}.error
@@ -129,12 +178,15 @@ queue 1\n
 			for task in tasks.keys():
 				f.write(f"JOB {task} {task}.condor DIR {config.paths.build}\n")
 			for task, deps in tasks.items():
+				if len(deps) == 0:
+					continue
 				f.write(f"PARENT {' '.join(deps)} CHILD {task}\n")
 
 		if not self.dryrun:
+			logging.info(f"condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
 			subprocess.run(["condor_submit_dag", os.path.join(exdir, "_dag.condor")])
 		else:
-			logging.info(f"condor_subbmit_dag {os.path.join(exdir, '_dag.condor')}")
+			logging.info(f"(Dry run) condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
 
 # TODO: SlurmEngine using job dependencies (https://hpc.nih.gov/docs/job_dependencies.html)
 # TODO: SgeEngine using job dependencies (https://arc.leeds.ac.uk/using-the-systems/why-have-a-scheduler/advanced-sge-job-dependencies/)

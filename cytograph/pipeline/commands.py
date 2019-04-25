@@ -2,11 +2,12 @@ import sys
 import os
 import click
 import logging
+from typing import *
 from pathlib import Path
 from .config import config, merge_config
 from .punchcards import PunchcardDeck
 from .engine import LocalEngine, CondorEngine, Engine
-from .workflow import pool_leaves, process_subset, process_root
+from .workflow import RootWorkflow, SubsetWorkflow, PoolWorkflow
 from .._version import __version__ as version
 
 
@@ -53,29 +54,21 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 
 
 @cli.command()
-@click.option('--execution-engine')
-@click.option('--dryrun/--no-dryrun', is_flag=True, default=config.execution.dryrun)
-def build(execution_engine: str = None, dryrun: bool = None) -> None:
-	# Allow command-line options to override config settings
-	if execution_engine is not None:
-		config.execution.engine = execution_engine
-	if dryrun is not None:
-		config.execution.dryrun = dryrun
-
+@click.option('--engine', default="local", type=click.Choice(['local', 'condor']))
+@click.option('--dryrun/--no-dryrun', is_flag=True, default=False)
+def build(engine: str, dryrun: bool) -> None:
 	# Load the punchcard deck
 	deck = PunchcardDeck(config.paths.build)
 
 	# Create the execution engine
-	engine: Engine = None
-	if config.execution.engine == "local":
-		engine = LocalEngine(deck)
-	elif config.execution.engine == "condor":
-		engine = CondorEngine(deck)
-	else:
-		raise ValueError(f"Invalid execution engine '{config.execution.engine}'")
+	execution_engine: Optional[Engine] = None
+	if engine == "local":
+		execution_engine = LocalEngine(deck)
+	elif engine == "condor":
+		execution_engine = CondorEngine(deck)
 
 	# Execute the build
-	engine.execute()
+	execution_engine.execute()
 
 
 @cli.command()
@@ -92,15 +85,15 @@ def process(subset: str) -> None:
 	# Merge any subset-specific configs
 	config.params.merge(subset_obj.params)
 	if subset_obj.steps != [] and subset_obj.steps is not None:
-		config.steps = subsubset_objset.steps
+		config.steps = subset_obj.steps
 	config.execution.merge(subset_obj.execution)
 
 	if subset_obj.card.name == "Root":
 		# Load the punchcard deck and process it
-		process_root(deck, subset_obj)
+		RootWorkflow(deck, subset_obj).process()
 	else:
 		# Load the punchcard deck, find the subset, and process it
-		process_subset(deck, subset_obj)
+		SubsetWorkflow(deck, subset_obj).process()
 
 
 @cli.command()
@@ -108,8 +101,8 @@ def pool() -> None:
 	logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
 
 	# Merge pool-specific config
-	merge_config(config, os.path.join(config.paths.build, "Pool.yaml"))
+	merge_config(config, os.path.join(config.paths.build, "pool_config.yaml"))
 
 	# Load the punchcard deck, and pool it
 	deck = PunchcardDeck(config.paths.build)
-	pool_leaves(deck)
+	PoolWorkflow(deck).process()

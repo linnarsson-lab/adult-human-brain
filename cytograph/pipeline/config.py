@@ -45,8 +45,6 @@ class ExecutionConfig(AbstractConfig):
 	n_cpus: int = 28
 	n_gpus: int = 0
 	memory: int = 256 // 28
-	engine: str = "local"
-	dryrun: bool = False
 
 
 class Config:
@@ -82,7 +80,7 @@ def load_config() -> Config:
 	if config.paths.build == "" or config.paths.build is None:
 		config.paths.build = os.path.abspath(os.path.curdir)
 	# Build folder
-	merge_config(config, "build.config")
+	merge_config(config, "config.yaml")
 	return config
 
 

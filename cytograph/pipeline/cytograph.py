@@ -12,6 +12,7 @@ from pynndescent import NNDescent
 from sklearn.preprocessing import normalize
 from typing import *
 import os
+import warnings
 import community
 import networkx as nx
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
@@ -170,10 +171,14 @@ class Cytograph:
 			ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
 
 			logging.info(f"2D UMAP embedding from latent space")
-			ds.ca.UMAP = UMAP(n_components=2, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
+			with warnings.catch_warnings():
+				warnings.simplefilter("ignore", category=UserWarning)  # Suppress an annoying UMAP warning about meta-embedding
+				ds.ca.UMAP = UMAP(n_components=2, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 			logging.info(f"3D UMAP embedding from latent space")
-			ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
+			with warnings.catch_warnings():
+				warnings.simplefilter("ignore", category=UserWarning)
+				ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 		if "clustering" in self.steps:
 			logging.info("Clustering by polished Louvain")

@@ -23,7 +23,6 @@ from .midpoint_normalize import MidpointNormalize
 
 
 def factors(ds: loompy.LoomConnection, base_name: str) -> None:
-	logging.info(f"Plotting factors")
 	offset = 0
 	theta = ds.ca.HPF
 	beta = ds.ra.HPF
