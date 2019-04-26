@@ -1,10 +1,10 @@
+from typing import Union
+
 import numpy as np
-from typing import *
 import scipy.sparse as sparse
-import loompy
-import logging
-from numba import jit
 from tqdm import tqdm
+
+import loompy
 
 
 class NeighborhoodEnrichment:

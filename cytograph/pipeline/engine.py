@@ -1,12 +1,12 @@
-import sys
+import logging
 import os
 import shutil
 import subprocess
-import logging
-import yaml
-from typing import *
+import sys
+from typing import List, Dict, Optional
+
+from .config import ExecutionConfig, config, merge_config
 from .punchcards import PunchcardDeck
-from .config import config, merge_config, ExecutionConfig
 
 
 class Engine:
@@ -160,10 +160,14 @@ class CondorEngine(Engine):
 				cmd = f"process {task}"
 
 			# Generate the condor submit file for the task
+			cytograph_exe = shutil.which('cytograph')
+			if cytograph_exe is None:
+				logging.error("The 'cytograph' command-line tool was not found.")
+				sys.exit(1)
 			with open(os.path.join(exdir, task + ".condor"), "w") as f:
 				f.write(f"""
 getenv       = true
-executable   = {os.path.abspath(shutil.which('cytograph'))}
+executable   = {os.path.abspath(cytograph_exe)}
 arguments    = "{cmd}"
 log          = {os.path.join(exdir, task)}.log
 output       = {os.path.join(exdir, task)}.out

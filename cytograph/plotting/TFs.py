@@ -1,31 +1,17 @@
-from typing import *
-import os
-import logging
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
-import loompy
-from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
-import matplotlib.gridspec as gridspec
-import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
-from matplotlib.colors import Normalize, LinearSegmentedColormap
 from scipy.spatial import ConvexHull
-from .midpoint_normalize import MidpointNormalize
+
+import loompy
 from cytograph.species import Species
 
 
 def mad(points, thresh=2.5):  # type: ignore
 	"""
-	Returns a boolean array with True if points are outliers and False 
+	Returns a boolean array with True if points are outliers and False
 	otherwise.
 
 	Parameters:
@@ -43,10 +29,10 @@ def mad(points, thresh=2.5):  # type: ignore
 	----------
 		Boris Iglewicz and David Hoaglin (1993), "Volume 16: How to Detect and
 		Handle Outliers", The ASQC Basic References in Quality Control:
-		Statistical Techniques, Edward F. Mykytka, Ph.D., Editor. 
+		Statistical Techniques, Edward F. Mykytka, Ph.D., Editor.
 	"""
 	if len(points.shape) == 1:
-		points = points[:,None]
+		points = points[:, None]
 	median = np.median(points, axis=0)
 	diff = np.sum((points - median)**2, axis=-1)
 	diff = np.sqrt(diff)
@@ -87,13 +73,13 @@ def TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "p
 		ax.set_frame_on(False)
 		ax.set_xticks([])
 		ax.set_yticks([])
-		text = plt.text(0, 0.9, g, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
-		text = plt.text(1.001, 0.9, g, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
+		plt.text(0, 0.9, g, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
+		plt.text(1.001, 0.9, g, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=4, color="black")
 
 		cluster = top_cluster[ix]
 		if cluster < len(clusterborders) - 1:
 			xpos = clusterborders[cluster]
-			text = plt.text(0.001 + xpos, -0.5, g, horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
+			plt.text(0.001 + xpos, -0.5, g, horizontalalignment='left', verticalalignment='top', fontsize=4, color="white")
 
 		# Draw border between clusters
 		if n_clusters > 2:
@@ -110,7 +96,7 @@ def TFs(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, layer: str = "p
 			for ix in range(0, clusterborders.shape[0]):
 				left = 0 if ix == 0 else clusterborders[ix - 1]
 				right = clusterborders[ix]
-				text = plt.text(left + (right - left) / 2, -1.5, labels[ix], horizontalalignment='center', verticalalignment='top', fontsize=4, color="black")
+				plt.text(left + (right - left) / 2, -1.5, labels[ix], horizontalalignment='center', verticalalignment='top', fontsize=4, color="black")
 
 	plt.subplots_adjust(hspace=0)
 

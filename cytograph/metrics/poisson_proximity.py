@@ -1,8 +1,8 @@
-import numpy as np
-import logging
-from scipy.special import gammaln
 import math
+
 import numba
+import numpy as np
+from scipy.special import gammaln
 
 
 class PoissonProximity:
@@ -40,7 +40,6 @@ class PoissonProximity:
 		x_norm = np.sum(x)
 		y_norm = np.sum(y)
 		C = y_norm / x_norm
-		BC = B * C
 		
 		x_norm = np.sum(x)
 		y_norm = np.sum(y)

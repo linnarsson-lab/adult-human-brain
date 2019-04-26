@@ -1,8 +1,8 @@
-from typing import *
-import numpy as np
-from scipy.special import digamma, gammaln, psi
 from math import lgamma
+
 import numba
+import numpy as np
+from scipy.special import gammaln, psi
 
 
 @numba.jit("float32(float64[:], float64[:])", nopython=True, cache=True)
@@ -25,8 +25,8 @@ def kullback_leibler(pk: np.ndarray, qk: np.ndarray) -> float:
 @numba.jit(["float32(float64[:], float64[:])", "float32(float32[:], float32[:])"], nopython=True, cache=True)
 def jensen_shannon_divergence(pk: np.ndarray, qk: np.ndarray) -> float:
 	N = pk.shape[0]
-#	pk = pk / np.sum(pk)
-#	qk = qk / np.sum(qk)
+	# pk = pk / np.sum(pk)
+	# qk = qk / np.sum(qk)
 	m = (pk + qk) / 2
 
 	vec = np.zeros(N)
@@ -101,7 +101,6 @@ def multinomial_distance(p: np.ndarray, q: np.ndarray) -> float:
 	return 1 - 1 / (1 + x)
 
 
-#@numba.jit("float32(float64[:], float64[:])", nopython=True, parallel=True, nogil=True)
 @numba.jit(["float32(float64[:], float64[:])", "float32(float32[:], float32[:])"], nopython=True, cache=True)
 def multinomial_subspace_distance(pk: np.ndarray, qk: np.ndarray) -> float:
 	selected = (pk > 0) | (qk > 0)

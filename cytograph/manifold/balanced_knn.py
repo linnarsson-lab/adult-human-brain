@@ -1,11 +1,13 @@
+import logging
+from typing import Tuple, Any
+
 import numpy as np
 from numba import jit
-from sklearn.neighbors import kneighbors_graph, NearestNeighbors
-from scipy import sparse
-import logging
-from typing import *
-from cytograph.metrics import jensen_shannon_distance
 from pynndescent import NNDescent
+from scipy import sparse
+from sklearn.neighbors import NearestNeighbors
+
+from cytograph.metrics import jensen_shannon_distance
 
 
 @jit(signature_or_function="Tuple((float64[:,:], int64[:,:], int64[:]))(int64[:,:], float64[:, :], int64[:], int64, int64, boolean)", nopython=True)
@@ -71,7 +73,7 @@ def balance_knn_loop(dsi: np.ndarray, dist: np.ndarray, lsi: np.ndarray, maxl: i
 	return dist_new, dsi_new, l
 
 
-def knn_balance(dsi: np.ndarray, dist: np.ndarray=None, maxl: int=200, k: int=60) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def knn_balance(dsi: np.ndarray, dist: np.ndarray = None, maxl: int = 200, k: int = 60) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 	"""Balance a K-NN graph so that no node is the NN to more than maxl other nodes
 
 		Arguments
@@ -121,14 +123,14 @@ class BalancedKNN:
 		when no closest neighbours are allowed. If sight_k is reached then the matrix is filled
 		with the sample itself
 	maxl : int  (default=200)
-		 max degree of connectivity allowed. Avoids the presence of hubs in the graph, it is the
-		 maximum number of neighbours that are allowed to contact a node before the node is blocked
+		max degree of connectivity allowed. Avoids the presence of hubs in the graph, it is the
+		maximum number of neighbours that are allowed to contact a node before the node is blocked
 	mode : str (default="connectivity")
 		decide wich kind of utput "distance" or "connectivity"
 	n_jobs : int  (default=4)
 		parallelization of the standard KNN search preformed at initialization
 	"""
-	def __init__(self, k: int=50, sight_k: int=100, maxl: int=200, mode: str="distance", metric: str="euclidean", minkowski_p: int = 20, n_jobs: int=4) -> None:
+	def __init__(self, k: int = 50, sight_k: int = 100, maxl: int = 200, mode: str = "distance", metric: str = "euclidean", minkowski_p: int = 20, n_jobs: int = 4) -> None:
 		self.k = k
 		self.sight_k = sight_k
 		self.maxl = maxl
@@ -143,7 +145,7 @@ class BalancedKNN:
 	def n_samples(self) -> int:
 		return self.data.shape[0]
 
-	def fit(self, data: np.ndarray, sight_k: int=None) -> Any:
+	def fit(self, data: np.ndarray, sight_k: int = None) -> Any:
 		"""Fits the model
 
 		data: np.ndarray (samples, features)
@@ -168,7 +170,7 @@ class BalancedKNN:
 			self.nn.fit(self.fitdata)
 		return self
 
-	def kneighbors(self, X: np.ndarray=None, maxl: int=None, mode: str="distance") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+	def kneighbors(self, X: np.ndarray = None, maxl: int = None, mode: str = "distance") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 		"""Finds the K-neighbors of a point.
 
 			Returns indices of and distances to the neighbors of each point.
@@ -221,7 +223,7 @@ class BalancedKNN:
 		self.dist_new, self.dsi_new, self.l = knn_balance(self.dsi, self.dist, maxl=self.maxl, k=self.k)
 		return self.dist_new, self.dsi_new, self.l
 
-	def kneighbors_graph(self, X: np.ndarray=None, maxl: int=None, mode: str="distance") -> sparse.csr_matrix:
+	def kneighbors_graph(self, X: np.ndarray = None, maxl: int = None, mode: str = "distance") -> sparse.csr_matrix:
 		"""Retrun the K-neighbors graph as a sparse csr matrix
 
 			Parameters
@@ -247,15 +249,10 @@ class BalancedKNN:
 		"""
 		dist_new, dsi_new, l = self.kneighbors(X=X, maxl=maxl, mode=mode)
 		logging.debug("Returning sparse matrix")
-		self.bknn = sparse.csr_matrix((np.ravel(dist_new),
-									   np.ravel(dsi_new),
-									   np.arange(0, dist_new.shape[0] * dist_new.shape[1] + 1, dist_new.shape[1])),
-									  (self.n_samples,
-									   self.n_samples))
+		self.bknn = sparse.csr_matrix((np.ravel(dist_new), np.ravel(dsi_new), np.arange(0, dist_new.shape[0] * dist_new.shape[1] + 1, dist_new.shape[1])), (self.n_samples, self.n_samples))
 		return self.bknn
 
-	def smooth_data(self, data_to_smooth: np.ndarray, X: np.ndarray=None, maxl: int=None,
-					mutual: bool=False, only_increase: bool=True) -> np.ndarray:
+	def smooth_data(self, data_to_smooth: np.ndarray, X: np.ndarray = None, maxl: int = None, mutual: bool = False, only_increase: bool = True) -> np.ndarray:
 		"""Use the wights learned from knn to smooth any data matrix
 
 		Arguments
@@ -293,7 +290,7 @@ class BalancedKNN:
 # Mutual KNN version
 
 
-def knn_distance_matrix(data: np.ndarray, metric: str=None, k: int=40, mode: str='connectivity', n_jobs: int=4) -> sparse.csr_matrix:
+def knn_distance_matrix(data: np.ndarray, metric: str = None, k: int = 40, mode: str = 'connectivity', n_jobs: int = 4) -> sparse.csr_matrix:
 	"""Calculate a nearest neighbour distance matrix
 
 	Notice that k is meant as the actual number of neighbors NOT INCLUDING itself
@@ -316,7 +313,7 @@ def make_mutual(knn: sparse.csr.csr_matrix) -> sparse.coo_matrix:
 	return knn.minimum(knn.T)
 
 
-def connectivity_to_weights(mknn: sparse.csr.csr_matrix, axis: int=1) -> sparse.lil_matrix:
+def connectivity_to_weights(mknn: sparse.csr.csr_matrix, axis: int = 1) -> sparse.lil_matrix:
 	"""Convert a binary connectivity matrix to weights ready to be multiplied to smooth a data matrix
 	"""
 	if type(mknn) is not sparse.csr.csr_matrix:
@@ -357,8 +354,7 @@ def convolve_by_sparse_weights(data: np.ndarray, w: sparse.csr_matrix) -> np.nda
 	return sparse.csr_matrix.dot(data, w_)
 
 
-def knn_smooth_weights(matrix: np.ndarray, metric: str="euclidean", k_search: int=20,
-					   k_mutual: int=10, n_jobs: int=10) -> Tuple[sparse.spmatrix, sparse.csr_matrix]:
+def knn_smooth_weights(matrix: np.ndarray, metric: str = "euclidean", k_search: int = 20, k_mutual: int = 10, n_jobs: int = 10) -> Tuple[sparse.spmatrix, sparse.csr_matrix]:
 	"""Find the weights to smooth the dataset using efficient sparse matrix operations
 	
 	Arguments:

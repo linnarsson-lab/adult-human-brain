@@ -1,25 +1,6 @@
-from typing import *
-import os
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
 import loompy
-from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
-import matplotlib.gridspec as gridspec
-import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
-from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
-from matplotlib.colors import Normalize, LinearSegmentedColormap
-from scipy.spatial import ConvexHull
-from .midpoint_normalize import MidpointNormalize
 
 
 def umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:

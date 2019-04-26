@@ -1,12 +1,11 @@
-from typing import *
-import os
 import logging
 from math import exp, lgamma, log
-import loompy
-from scipy.special import beta, betainc, betaln
+from typing import Tuple
+
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import binarize
+
+import loompy
 
 
 def credible_discordance(X: np.ndarray, pep: float = 0.05) -> np.ndarray:

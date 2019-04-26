@@ -1,10 +1,8 @@
 import numpy as np
 import scipy.sparse as sparse
-from skfeature.utility.construct_W import construct_W
-from typing import *
 
 
-# TODO: license (see https://github.com/jundongl/scikit-feature/blob/master/skfeature/function/similarity_based/lap_score.py)
+# TODO: (see https://github.com/jundongl/scikit-feature/blob/master/skfeature/function/similarity_based/lap_score.py)
 def laplacian_score(X: np.ndarray, W: sparse.coo_matrix) -> np.ndarray:
 	"""
 	This function implements the laplacian score feature selection, steps are as follows:

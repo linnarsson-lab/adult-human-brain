@@ -1,26 +1,13 @@
-from typing import *
-import os
-import logging
+from typing import List
+
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
-import loompy
-from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
-import matplotlib.gridspec as gridspec
-import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
-from cytograph.species import species
-from matplotlib.colors import Normalize, LinearSegmentedColormap
-from scipy.spatial import ConvexHull
-from .midpoint_normalize import MidpointNormalize
+from matplotlib.colors import colorConverter
+from sklearn.neighbors import NearestNeighbors
+
+import loompy
+
 from .colors import colors75
 
 

@@ -1,10 +1,11 @@
+from typing import Union, Tuple
+
 import numpy as np
-from typing import *
-import loompy
-import logging
 import scipy.sparse as sparse
+from sklearn.linear_model import Lasso, LinearRegression, Ridge
 from sklearn.neighbors import NearestNeighbors
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
+
+import loompy
 
 
 def linspace_ndim(min_vals, max_vals, num_steps):  # type: ignore

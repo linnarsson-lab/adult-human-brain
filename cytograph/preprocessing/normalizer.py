@@ -1,7 +1,7 @@
-from typing import *
-import loompy
 import numpy as np
-import logging
+
+import loompy
+
 from .utils import div0
 
 

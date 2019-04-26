@@ -1,7 +1,9 @@
-import numpy as np
-from typing import *
-import loompy
 import logging
+from typing import List
+
+import numpy as np
+
+import loompy
 
 
 class GSEA:

@@ -1,24 +1,9 @@
-from typing import *
-import os
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
-import loompy
 from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
-import matplotlib.gridspec as gridspec
-import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
-from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
-from matplotlib.colors import Normalize, LinearSegmentedColormap
-from scipy.spatial import ConvexHull
+
+import loompy
+
 from .midpoint_normalize import MidpointNormalize
 
 
@@ -47,10 +32,10 @@ def factors(ds: loompy.LoomConnection, base_name: str) -> None:
 			ax.text(.99, .9, f"{nnc}", horizontalalignment='right', transform=ax.transAxes, fontsize=12)
 			if "HPFVelocity" in ds.ca:
 				ax.text(.5, .9, f"{np.percentile(v_hpf[nnc], 98):.2}", horizontalalignment='right', transform=ax.transAxes)
-				vcmap = LinearSegmentedColormap.from_list("", ["red","whitesmoke","green"])
+				vcmap = LinearSegmentedColormap.from_list("", ["red", "whitesmoke", "green"])
 				norm = MidpointNormalize(midpoint=0)
 				ax = plt.subplot(4, 4, (nnc - offset) * 2 + 2)
-				plt.scatter(ds.ca.TSNE[:,0], ds.ca.TSNE[:,1],vmin=np.percentile(v_hpf[:,nnc], 2),vmax=np.percentile(v_hpf[:,nnc], 98), c=v_hpf[:,nnc],norm=norm, cmap=vcmap, marker='.',s=10)
+				plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], vmin=np.percentile(v_hpf[:, nnc], 2), vmax=np.percentile(v_hpf[:, nnc], 98), c=v_hpf[:, nnc], norm=norm, cmap=vcmap, marker='.', s=10)
 				plt.axis("off")
 		plt.savefig(base_name + f"{offset}.png", dpi=144)
 		offset += 8

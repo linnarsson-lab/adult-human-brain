@@ -1,9 +1,12 @@
-import loompy
-import numpy as np
-from typing import *
-from .human import cc_genes_human, TFs_human, s_human, g1_human, g2m_human
-from .mouse import cc_genes_mouse, TFs_mouse, s_mouse, g1_mouse, g2m_mouse
 from types import SimpleNamespace
+from typing import Any, List
+
+import numpy as np
+
+import loompy
+
+from .human import TFs_human, cc_genes_human, g1_human, g2m_human, s_human
+from .mouse import TFs_mouse, cc_genes_mouse, g1_mouse, g2m_mouse, s_mouse
 
 
 class Species:

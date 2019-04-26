@@ -1,21 +1,6 @@
-import logging as lg
-import os
-import random
-import string
-from collections import defaultdict
-from typing import *
+from typing import List
 
-import matplotlib.colors
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
-import numpy_groupies as npg
-import pandas as pd
-from scipy.cluster.hierarchy import leaves_list, linkage
-from scipy.spatial.distance import pdist, squareform
-from sklearn.preprocessing import LabelEncoder
-
-import loompy
 
 
 def div0(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -33,7 +18,7 @@ def cap_select(labels: np.ndarray, items: np.ndarray, max_n: int) -> np.ndarray:
 	"""
 	n_labels = np.max(labels) + 1
 	sizes = np.bincount(labels, minlength=n_labels)
-	result = []  # type: List[int]
+	result: List[int] = []
 	for lbl in range(n_labels):
 		n = min(max_n, sizes[lbl])
 		selected = np.where(labels == lbl)[0]

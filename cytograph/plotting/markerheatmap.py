@@ -1,26 +1,13 @@
-from typing import *
-import os
-import logging
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
-import loompy
-from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
+from typing import Set, List
+
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
+
+import loompy
 from cytograph.species import Species
-from matplotlib.colors import Normalize, LinearSegmentedColormap
-from scipy.spatial import ConvexHull
-from .midpoint_normalize import MidpointNormalize
 
 
 def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_markers_per_cluster: int = 10, out_file: str = None) -> None:
@@ -30,7 +17,6 @@ def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_mar
 	enrichment = dsagg.layer["enrichment"][:n_markers, :]
 	cells = ds.ca["Clusters"] >= 0
 	data = np.log(ds[layer][:n_markers, :][:, cells] + 1)
-	agg = np.log(dsagg[:n_markers, :] + 1)
 
 	clusterborders = np.cumsum(dsagg.col_attrs["NCells"])
 	gene_pos = clusterborders[np.argmax(enrichment, axis=1)]

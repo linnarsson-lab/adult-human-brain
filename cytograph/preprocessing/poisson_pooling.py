@@ -1,14 +1,15 @@
-import numpy as np
-from typing import *
-import loompy
 import logging
+
+import numpy as np
 import scipy.sparse as sparse
 from pynndescent import NNDescent
-from cytograph.species import Species
-from .normalizer import Normalizer
-from cytograph.enrichment import FeatureSelectionByVariance
+
+import loompy
 from cytograph.decomposition import HPF, identify_technical_factors
+from cytograph.enrichment import FeatureSelectionByVariance
 from cytograph.metrics import jensen_shannon_distance
+
+from .normalizer import Normalizer
 
 
 class PoissonPooling:
@@ -23,11 +24,9 @@ class PoissonPooling:
 		self.knn: sparse.coo_matrix = None  # Make this available after fitting in case it's useful downstream
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
-		n_samples = ds.shape[1]
 		logging.debug(f"Selecting {self.n_genes} genes")
 		normalizer = Normalizer(False)
 		normalizer.fit(ds)
-		mask = None
 		genes = FeatureSelectionByVariance(self.n_genes, mask=self.mask).fit(ds)
 		self.genes = genes
 		data = ds.sparse(rows=genes).T
@@ -60,7 +59,7 @@ class PoissonPooling:
 		indices, distances = nn.query(theta, k=self.k_pooling)
 		# Note: we convert distances to similarities here, to support Poisson smoothing below
 		knn = sparse.csr_matrix(
-			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), 		(theta.shape[0], theta.shape[0])
+			(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (theta.shape[0], theta.shape[0])
 		)
 		knn.setdiag(1)
 		self.knn = knn

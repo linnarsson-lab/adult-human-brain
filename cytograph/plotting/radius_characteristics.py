@@ -1,26 +1,9 @@
-from typing import *
-import os
-import logging
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import sparse
-import math
-import networkx as nx
-import loompy
-from matplotlib.colors import LinearSegmentedColormap
-import numpy_groupies.aggregate_numpy as npg
-import scipy.cluster.hierarchy as hc
-import matplotlib.gridspec as gridspec
-import matplotlib.patheffects as path_effects
-import matplotlib.colors as mcolors
-from matplotlib.colors import colorConverter
 from matplotlib.collections import LineCollection
-from sklearn.neighbors import BallTree, NearestNeighbors, kneighbors_graph
-import community
-from cytograph.species import Species
-from matplotlib.colors import Normalize, LinearSegmentedColormap
-from scipy.spatial import ConvexHull
-from .midpoint_normalize import MidpointNormalize
+from scipy import sparse
+
+import loompy
 
 
 def radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> None:
@@ -50,7 +33,7 @@ def radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> N
 	plt.suptitle(f"Neighborhood characteristics (radius = {radius:.02})\n{n_cells - n_cells_inside} of {n_cells} cells lack neighbors ({cells_pct}%)\n{n_edges_outside} of {n_edges} edges removed ({edges_pct}%)", fontsize=14)
 
 	ax = plt.subplot(321)
-	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey',s=1)
+	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', s=1)
 	cax = ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=dmax[cells], vmax=radius, cmap="viridis_r", s=1)
 	plt.colorbar(cax)
 	plt.title("Distance to farthest neighbor")

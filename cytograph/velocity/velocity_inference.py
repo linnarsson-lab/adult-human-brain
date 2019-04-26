@@ -1,8 +1,7 @@
+from typing import List, Tuple
+
 import numpy as np
-import scipy.sparse as sparse
-from scipy.stats import linregress
 from scipy.optimize import minimize_scalar
-from typing import *
 
 
 def _fit1_slope_weighted(y: np.ndarray, x: np.ndarray, w: np.ndarray, limit_gamma: bool = False, bounds: Tuple[float, float] = (0, 20)) -> float:

@@ -1,23 +1,21 @@
-import os
-from typing import *
-import numpy as np
-import loompy
-from pathlib import Path
 import logging
-import math
-import random
+import os
 import sys
+from typing import Dict, List
+
+import numpy as np
 import pandas as pd
-import click
+
 import cytograph.plotting as cgplot
-from cytograph.annotation import AutoAutoAnnotator, AutoAnnotator, CellCycleAnnotator
+import loompy
 from cytograph.clustering import ClusterValidator
-from cytograph.species import Species
 from cytograph.preprocessing import Scrublet, doublet_finder
+from cytograph.species import Species
+
+from .aggregator import Aggregator
 from .config import config
 from .cytograph import Cytograph
-from .punchcards import Punchcard, PunchcardSubset, PunchcardDeck
-from .aggregator import Aggregator
+from .punchcards import Punchcard, PunchcardDeck, PunchcardSubset
 from .utils import Tempname
 
 #
@@ -60,7 +58,6 @@ class Metadata:
 		Return metadata for the given sample as a dictionary
 		"""
 		if self.metadata is not None:
-			attrs = self.metadata.loc[sample]
 			if self.sid == "SampleID:string":
 				return {k.split(":")[0]: v for k, v in self.metadata.loc[sample].items()}
 			else:
