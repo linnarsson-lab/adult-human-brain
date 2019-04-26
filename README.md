@@ -88,4 +88,127 @@ $ cytograph --build-location {build} process MySamples
 ```
 
 This tells cytograph to process the Punchcard subset `MySamples`, which we defined in `Root.yaml`. Cytograph will run through a standard set of algorithms (pooling the samples, removing doublets,
-Poisson pooling, matrix factorization, manifold learning, clustering, embedding and velocity inference).
+Poisson pooling, matrix factorization, manifold learning, clustering, embedding and velocity inference). Several outputs will be produced, resulting in the following build folder:
+
+```
+/data
+    MySamples.loom
+    MySamples.agg.loom
+/exported
+    MySamples/
+        .
+        . Lots of plots
+        .
+/punchcards
+    Root.yaml  # root punchcard, which defines the samples to include in the build
+config.yaml    # optional build-specific config
+
+```
+
+
+### Splitting the data, and running a complete build
+
+The commmand in the previous section runs a single punchcard subset (`MySamples`). In this section, we will learn how to sequentially split the analysis using auto-annotation, and
+how to run a complete set of punchcards (a "deck") both locally and on a compute cluster.
+
+Start by adding another punchcard, named `MySamples.yaml`, with the following content:
+
+```
+Microglia:
+  include: [M-MGL]
+Erythrocytes:
+  include: [M-ERY]
+Endothelial:
+  include: [M-ENDO]
+Fibroblast:
+  include: [M-VLMC]
+Floorplate:
+  include: [P-FPE, P-FPL]
+NeuralCrest:
+  include: [NE-SCHWL]
+RadialGlia:
+  include: [S-CC]
+Neuronal:
+  include: []
+```
+
+The name of the punchcard (`MySamples.yaml`) indicates that this is a punchcard that takes its cells from the `MySamples` subset in `Root.yaml`. The name is case-sensitive.
+
+Each section in the punchcard (e.g. `Microglia`) defines a new subset. However, this time we are not getting cells from raw samples, but rather selecting cells using auto-annotation,
+and taking them from the parent punchcard (i.e. `MySamples.loom`). The statement `include: [P-FPE, P-FPL]` means *include all clusters that were annotated with `P-FPE` or `P-FPL`*. 
+Note that the subsets are evaluated in order, and cells are assigned to the first subset that matches. The empty subset `[]` is special; it means 
+*include all cells that have not yet been included*. In the case above, any cell that was not assigned to any of the previous
+subsets, is assigned to `Neuronal`.
+
+
+#### Processing the new subsets
+
+Now we have two punchcards, defining nine subsets (`MySamples` in `Root.yaml`, and `Microglia`, ...., `Neuronal` in `MySamples.yaml`). Assuming you have already processed `MySamples` as above, you can now do:
+
+```
+cytograph process MySamples_Microglia
+```
+
+(Note: if you run this command in the build folder, you can omit the `--build-location` parameter as we did here.)
+
+Each subset is designated by its "long name", which is the sequence of punchcards you have to go through to get to it (but 
+omitting `Root`). If you had defined another punchcard `Microglia.yaml`, with another subset `ActivatedMicroglia`, then the long name of that subset would be `MySamples_Microglia_ActivatedMicroglia`.
+
+#### Running a complete build automatically
+
+It gets tedious to run all these subsets one by one using `cytograph process {subset}`. Cytograph therefore has a `build`
+command that automates the process of figuring out what all the punchcards are, and how the subsets defined in them depend on each other:
+
+```
+cytograph build --engine local
+```
+
+Cytograph computes an execution graph based on the punchcard dependencies, sorts it so that dependencies come before the
+subsets that depends on them, and then runs `cytograph process` on them sequentially.
+
+As a bonus, cytograph also runs `cytograph pool` on the result, which pools all the leaf subsets into a merged file `_pool.loom` and corresponding `_pool.agg.loom` and `exported/_pool`. Pooling does not involve re-clustering, but does
+include embeddings (e.g. tSNE), matrix factorization etc. and all the standard plots.
+
+#### Running a complete build on a compute cluster
+
+Finally, instead of running the build locally and sequentially, you can run it on a cluster and in parallel. Simply change
+the engine:
+
+```
+cytograph build --engine condor
+```
+
+This will use DAGman to run the build according to the dependency graph. Log files and outputs from the individual steps
+are saved in `condor/` in the build folder, which now looks like this:
+
+```
+/condor
+    _dag.condor
+    MySamples_Microglia.condor
+    MySamples_Erythrocytes.condor
+    MySamples_Endothelial.condor
+    MySamples_Fibroblast.condor
+    MySamples_Floorplate.condor
+    MySamples_NeuralCrest.condor
+    MySamples_RadialGlia.condor
+    MySamples.condor
+    MySamples_Neuronal.condor
+    _pool.condor
+    ...log files etc...
+/data
+    MySamples.loom
+    MySamples.agg.loom
+/exported
+    MySamples/
+        .
+        . Lots of plots
+        .
+    _pool/
+        ...plots...
+    ...more folders...
+/punchcards
+    Root.yaml  # root punchcard, which defines the samples to include in the build
+config.yaml    # optional build-specific config
+```
+
+
