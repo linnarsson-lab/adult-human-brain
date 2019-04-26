@@ -205,8 +205,8 @@ class RootWorkflow(Workflow):
 						doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
 						col_attrs["ScrubletScore"] = doublet_scores
 						col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
-						logging.info("Scoring doublets using DoubletFinder")
-						col_attrs["DoubletFinderScore"] = doublet_finder(ds)
+						#logging.info("Scoring doublets using DoubletFinder")
+						#col_attrs["DoubletFinderScore"] = doublet_finder(ds)
 						logging.info(f"Computing total UMIs")
 						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 						col_attrs["TotalUMI"] = totals
