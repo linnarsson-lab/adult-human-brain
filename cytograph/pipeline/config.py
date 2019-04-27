@@ -39,6 +39,7 @@ class ParamsConfig(AbstractConfig):
 	doublets_action: str = "remove"
 	doublets_method: str = "scrublet"
 	mask: List[str] = ["cellcycle", "sex", "ieg", "mt"]
+	min_fraction_good_cells: float = 0.4
 
 
 class ExecutionConfig(AbstractConfig):

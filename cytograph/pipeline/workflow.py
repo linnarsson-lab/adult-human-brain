@@ -201,22 +201,30 @@ class RootWorkflow(Workflow):
 						col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 						col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
 						logging.info("Scoring doublets using Scrublet")
-						data = ds[:, :].T
-						doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
-						col_attrs["ScrubletScore"] = doublet_scores
-						col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
-						#logging.info("Scoring doublets using DoubletFinder")
-						#col_attrs["DoubletFinderScore"] = doublet_finder(ds)
+						if "doublets" in config.steps:
+							if config.params.doublets_method == "scrublet":
+								data = ds[:, :].T
+								doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
+								col_attrs["ScrubletScore"] = doublet_scores
+								col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
+							elif config.params.doublets_method == "doublet-finder":
+								logging.info("Scoring doublets using DoubletFinder")
+								col_attrs["DoubletFinderScore"] = doublet_finder(ds)
 						logging.info(f"Computing total UMIs")
 						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 						col_attrs["TotalUMI"] = totals
 						col_attrs["NGenes"] = genes
 						good_cells = (totals >= config.params.min_umis)
-						if config.params.doublets_action == "remove":
+						if config.params.doublets_method == "scrublet" and config.params.doublets_action == "remove":
 							logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
 							good_cells = good_cells & (~predicted_doublets)
-						logging.info(f"Collecting {good_cells.sum()} of {data.shape[0]} cells")
-						dsout.add_columns(ds.layers[:, good_cells], {att: vals[good_cells] for att, vals in col_attrs.items()}, row_attrs=ds.row_attrs)
+						else:
+							logging.info(f"Removing {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
+						if good_cells.sum() / ds.shape[1] > config.params.min_fraction_good_cells:
+							logging.info(f"Collecting {good_cells.sum()} of {ds.shape[1]} cells")
+							dsout.add_columns(ds.layers[:, good_cells], {att: vals[good_cells] for att, vals in col_attrs.items()}, row_attrs=ds.row_attrs)
+						else:
+							logging.warn(f"Skipping {sample_id}.loom because less than {config.params.min_fraction_good_cells * 100}% cells passed QC.")
 					replicate_id += 1
 				batch_id += 1
 
