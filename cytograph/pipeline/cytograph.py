@@ -75,7 +75,7 @@ class Cytograph:
 		logging.debug(f"Data shape is {data.shape}")
 
 		# HPF factorization
-		hpf = HPF(k=config.params.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf = HPF(k=config.params.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=config.execution.n_cpus)
 		hpf.fit(data)
 		beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 		beta_all[genes] = hpf.beta

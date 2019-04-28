@@ -1,3 +1,4 @@
+import os
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, List, Tuple
@@ -8,8 +9,6 @@ from numba import jit
 from scipy.special import digamma, gammaln
 from sklearn.model_selection import train_test_split
 from tqdm import trange
-
-from cytograph.pipeline import config
 
 #
 # This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
@@ -129,7 +128,10 @@ class HPF:
 		self.validation_fraction = validation_fraction
 		self.n_threads = n_threads
 		if n_threads == 0:
-			self.n_threads = 2 * config.execution.n_cpus
+			if os.cpu_count() is not None:
+				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
+			else:
+				self.n_threads = 1
 		logging.info(f"HPF to {k} factors using {self.n_threads} threads")
 
 		self.beta: np.ndarray = None
