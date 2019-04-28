@@ -72,11 +72,11 @@ class AutoAnnotator(object):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
 						self.definitions.append(tag)
-					except ValueError as e:
+					except Exception as e:
 						logging.error(file + ": " + str(e))
 						errors = True
-		if errors:
-			raise ValueError("Error loading cell tag definitions")
+		# if errors:
+		# 	raise ValueError("Error loading cell tag definitions")
 	
 	def fit(self, ds: loompy.LoomConnection) -> np.ndarray:
 		"""
