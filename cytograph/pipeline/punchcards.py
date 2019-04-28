@@ -4,6 +4,7 @@ import sys
 from typing import List, Dict, Union, Any, Optional
 
 import yaml
+import re
 
 
 class Punchcard:
@@ -29,6 +30,9 @@ class Punchcard:
 		subsets = []
 		logging.debug(f"Loading punchcard spec for {name}")
 		for s, items in spec.items():
+			if not re.match("[A-Za-z0-9]+", s):
+				logging.error(f"Subset names can only contain letters and numbers, and '{s}' is therefore invalid")
+				sys.exit(1)
 			subsets.append(PunchcardSubset(s, p, items.get("include"), items.get("onlyif"), items.get("params"), items.get("steps"), items.get("execution")))
 		p.subsets = {s.name: s for s in subsets}
 

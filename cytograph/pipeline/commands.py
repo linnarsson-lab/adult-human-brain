@@ -59,53 +59,62 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 @click.option('--engine', default="local", type=click.Choice(['local', 'condor']))
 @click.option('--dryrun/--no-dryrun', is_flag=True, default=False)
 def build(engine: str, dryrun: bool) -> None:
-	# Load the punchcard deck
-	deck = PunchcardDeck(config.paths.build)
+	try:
+		# Load the punchcard deck
+		deck = PunchcardDeck(config.paths.build)
 
-	# Create the execution engine
-	execution_engine: Optional[Engine] = None
-	if engine == "local":
-		execution_engine = LocalEngine(deck, dryrun)
-	elif engine == "condor":
-		execution_engine = CondorEngine(deck, dryrun)
+		# Create the execution engine
+		execution_engine: Optional[Engine] = None
+		if engine == "local":
+			execution_engine = LocalEngine(deck, dryrun)
+		elif engine == "condor":
+			execution_engine = CondorEngine(deck, dryrun)
 
-	# Execute the build
-	assert(execution_engine is not None)
-	execution_engine.execute()
+		# Execute the build
+		assert(execution_engine is not None)
+		execution_engine.execute()
+	except Exception:
+		logging.exception("'build' command failed")
 
 
 @cli.command()
 @click.argument("subset")
 def process(subset: str) -> None:
-	logging.info(f"Processing '{subset}'")
+	try:
+		logging.info(f"Processing '{subset}'")
 
-	deck = PunchcardDeck(config.paths.build)
-	subset_obj = deck.get_subset(subset)
-	if subset_obj is None:
-		logging.error(f"Subset {subset} not found.")
-		sys.exit(1)
+		deck = PunchcardDeck(config.paths.build)
+		subset_obj = deck.get_subset(subset)
+		if subset_obj is None:
+			logging.error(f"Subset {subset} not found.")
+			sys.exit(1)
 
-	# Merge any subset-specific configs
-	config.params.merge(subset_obj.params)
-	if subset_obj.steps != [] and subset_obj.steps is not None:
-		config.steps = subset_obj.steps
-	config.execution.merge(subset_obj.execution)
+		# Merge any subset-specific configs
+		config.params.merge(subset_obj.params)
+		if subset_obj.steps != [] and subset_obj.steps is not None:
+			config.steps = subset_obj.steps
+		config.execution.merge(subset_obj.execution)
 
-	if subset_obj.card.name == "Root":
-		# Load the punchcard deck and process it
-		RootWorkflow(deck, subset_obj).process()
-	else:
-		# Load the punchcard deck, find the subset, and process it
-		SubsetWorkflow(deck, subset_obj).process()
+		if subset_obj.card.name == "Root":
+			# Load the punchcard deck and process it
+			RootWorkflow(deck, subset_obj).process()
+		else:
+			# Load the punchcard deck, find the subset, and process it
+			SubsetWorkflow(deck, subset_obj).process()
+	except Exception:
+		logging.exception("'process' command failed")
 
 
 @cli.command()
 def pool() -> None:
-	logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
+	try:
+		logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
 
-	# Merge pool-specific config
-	merge_config(config, os.path.join(config.paths.build, "pool_config.yaml"))
+		# Merge pool-specific config
+		merge_config(config, os.path.join(config.paths.build, "pool_config.yaml"))
 
-	# Load the punchcard deck, and pool it
-	deck = PunchcardDeck(config.paths.build)
-	PoolWorkflow(deck).process()
+		# Load the punchcard deck, and pool it
+		deck = PunchcardDeck(config.paths.build)
+		PoolWorkflow(deck).process()
+	except Exception:
+		logging.exception("'pool' command failed")
