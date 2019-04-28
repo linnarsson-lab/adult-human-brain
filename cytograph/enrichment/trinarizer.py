@@ -4,6 +4,7 @@ from typing import Tuple
 
 import numpy as np
 from sklearn.preprocessing import binarize
+from scipy.special import betainc, betaln
 
 import loompy
 
