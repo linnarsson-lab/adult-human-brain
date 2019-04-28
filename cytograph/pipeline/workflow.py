@@ -177,7 +177,7 @@ class RootWorkflow(Workflow):
 				if not os.path.exists(full_path):
 					logging.error(f"Sample file '{full_path}' not found")
 					err = True
-		if err:
+		if err and config.params.skip_missing_samples:
 			sys.exit(1)
 
 		metadata = Metadata(config.paths.metadata)
@@ -189,6 +189,8 @@ class RootWorkflow(Workflow):
 				replicate_id = 0
 				for sample_id in batch:
 					full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+					if not os.path.exists(full_path):
+						continue
 					logging.info(f"Adding {sample_id}.loom")
 					with loompy.connect(full_path, "r") as ds:
 						species = Species.detect(ds).name

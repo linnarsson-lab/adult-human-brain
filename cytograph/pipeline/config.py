@@ -40,6 +40,7 @@ class ParamsConfig(AbstractConfig):
 	doublets_method: str = "scrublet"
 	mask: List[str] = ["cellcycle", "sex", "ieg", "mt"]
 	min_fraction_good_cells: float = 0.4
+	skip_missing_samples: bool = False
 
 
 class ExecutionConfig(AbstractConfig):
