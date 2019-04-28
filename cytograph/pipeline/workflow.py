@@ -244,7 +244,7 @@ class RootWorkflow(Workflow):
 		logging.info(f"Adding column attributes")
 		with loompy.connect(out_file) as ds:
 			for attr in new_col_attrs[0].keys():
-				ds.ca[attr] = np.concatenate([x[attr] for x in new_col_attrs])
+				ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
 
 
 class OldRootWorkflow(Workflow):
