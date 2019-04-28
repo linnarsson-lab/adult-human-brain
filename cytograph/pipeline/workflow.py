@@ -183,6 +183,94 @@ class RootWorkflow(Workflow):
 		metadata = Metadata(config.paths.metadata)
 		logging.info(f"Collecting cells for {self.name}")
 		logging.debug(out_file)
+		batch_id = 0
+		n_cells = 0
+		files: List[str] = []
+		selections: List[str] = []
+		new_col_attrs: List[Dict[str, np.ndarray]] = []
+		for batch in self.subset.include:
+			replicate_id = 0
+			for sample_id in batch:
+				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+				if not os.path.exists(full_path):
+					continue
+				logging.info(f"Adding {sample_id}.loom")
+				with loompy.connect(full_path, "r") as ds:
+					species = Species.detect(ds).name
+					col_attrs = dict(ds.ca)
+					for key, val in metadata.get(sample_id).items():
+						col_attrs[key] = np.array([val] * ds.shape[1])
+					if "Species" not in col_attrs:
+						col_attrs["Species"] = np.array([species] * ds.shape[1])
+					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
+					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
+					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
+					logging.info("Scoring doublets using Scrublet")
+					if "doublets" in config.steps:
+						if config.params.doublets_method == "scrublet":
+							data = ds[:, :].T
+							doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
+							col_attrs["ScrubletScore"] = doublet_scores
+							if predicted_doublets is None:  # Sometimes scrublet gives up and returns None
+								predicted_doublets = np.zeros(ds.shape[1], dtype=bool)
+								col_attrs["ScrubletFlag"] = np.zeros(ds.shape[1])
+							else:
+								col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
+						elif config.params.doublets_method == "doublet-finder":
+							logging.info("Scoring doublets using DoubletFinder")
+							col_attrs["DoubletFinderScore"] = doublet_finder(ds)
+					logging.info(f"Computing total UMIs")
+					(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+					col_attrs["TotalUMI"] = totals
+					col_attrs["NGenes"] = genes
+					good_cells = (totals >= config.params.min_umis)
+					if config.params.doublets_method == "scrublet" and config.params.doublets_action == "remove":
+						logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
+						good_cells = good_cells & (~predicted_doublets)
+					else:
+						logging.info(f"Removing {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
+					if good_cells.sum() / ds.shape[1] > config.params.min_fraction_good_cells:
+						logging.info(f"Collecting {good_cells.sum()} of {ds.shape[1]} cells")
+						n_cells += good_cells.sum()
+						files.append(full_path)
+						selections.append(good_cells)
+						new_col_attrs.append(col_attrs)
+					else:
+						logging.warn(f"Skipping {sample_id}.loom because less than {config.params.min_fraction_good_cells * 100}% cells passed QC.")
+				replicate_id += 1
+			batch_id += 1
+		logging.info(f"Collecting a total of {n_cells} cells.")
+		loompy.combine_faster(files, out_file, {}, selections)
+		logging.info(f"Adding column attributes")
+		with loompy.connect(out_file) as ds:
+			for attr in new_col_attrs[0].keys():
+				ds.ca[attr] = np.concatenate([x[attr] for x in new_col_attrs])
+
+
+class OldRootWorkflow(Workflow):
+	"""
+	A workflow for the root, which collects its cells directly from input samples
+	"""
+	def __init__(self, deck: PunchcardDeck, subset: PunchcardSubset) -> None:
+		super().__init__(deck, subset.longname())
+		self.subset = subset
+		self.deck = deck
+
+	def collect_cells(self, out_file: str) -> None:
+		# Make sure all the sample files exist
+		err = False
+		for batch in self.subset.include:
+			for sample_id in batch:
+				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+				if not os.path.exists(full_path):
+					logging.error(f"Sample file '{full_path}' not found")
+					err = True
+		if err and config.params.skip_missing_samples:
+			sys.exit(1)
+
+		metadata = Metadata(config.paths.metadata)
+		logging.info(f"Collecting cells for {self.name}")
+		logging.debug(out_file)
 		with loompy.new(out_file) as dsout:
 			batch_id = 0
 			for batch in self.subset.include:
