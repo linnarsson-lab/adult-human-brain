@@ -1,7 +1,7 @@
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Any, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 import scipy.sparse as sparse
@@ -9,6 +9,8 @@ from numba import jit
 from scipy.special import digamma, gammaln
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+
+from cytograph.pipeline import config
 
 #
 # This is intended to be a drop-in replacement for HPF.py that uses multithreding and a little bit
@@ -126,13 +128,9 @@ class HPF:
 		self.max_r = max_r
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
-		self.minibatch_size = 100_000_000  # WARNING: minibatches are unstable, so they are not used currently
 		self.n_threads = n_threads
 		if n_threads == 0:
-			if os.cpu_count() is not None:
-				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
-			else:
-				self.n_threads = 1
+			self.n_threads = 2 * config.execution.n_cpus
 		logging.info(f"HPF to {k} factors using {self.n_threads} threads")
 
 		self.beta: np.ndarray = None
@@ -234,49 +232,39 @@ class HPF:
 		with trange(self.max_iter + 1) as t:
 			t.set_description(f"HPF.fit(nnz={nnz})")
 			for n_iter in t:
-				minibatch_offset = 0
-				while minibatch_offset < nnz:
-					# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
-					# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
-					# Shape of phi will be (nnz, k)
-					minibatch_size = min(self.minibatch_size, u.shape[0] - minibatch_offset)
-					if minibatch_size != self.minibatch_size:  # Last iteration may be less than a full minibatch
-						y_phi = np.empty((minibatch_size, k), dtype="float32")
-					u_mb = u[minibatch_offset: minibatch_offset + minibatch_size]
-					i_mb = i[minibatch_offset: minibatch_offset + minibatch_size]
-					y_mb = y[minibatch_offset: minibatch_offset + minibatch_size]
-					compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u_mb, i_mb, y_mb, self.n_threads)
+				# Compute y * phi only for the nonzero values, which are indexed by u and i in the sparse matrix
+				# phi is calculated on log scale from expectations of the gammas, hence the digamma and log terms
+				# Shape of phi will be (nnz, k)
+				compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, self.n_threads)
 
-					# Upate the variational parameters corresponding to theta (the users)
-					# Sum of y_phi over users, for each k
-					y_phi_sum_u = np.zeros((n_users, k))
+				# Upate the variational parameters corresponding to theta (the users)
+				# Sum of y_phi over users, for each k
+				y_phi_sum_u = np.zeros((n_users, k))
 
-					def u_sum_for_ix(ix: int) -> None:
-						y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u_mb, i_mb)), X.shape).sum(axis=1).A.T[0]
-						
+				def u_sum_for_ix(ix: int) -> None:
+					y_phi_sum_u[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=1).A.T[0]
+					
+				with ThreadPoolExecutor(max_workers=self.n_threads) as tx:
+					tx.map(u_sum_for_ix, range(k))
+
+				gamma_shape = a + y_phi_sum_u
+				gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
+				kappa_rate = (b / bp) + (gamma_shape / gamma_rate).sum(axis=1)
+
+				if not beta_precomputed:
+					# Upate the variational parameters corresponding to beta (the items)
+					# Sum of y_phi over items, for each k
+					y_phi_sum_i = np.zeros((n_items, k))
+
+					def i_sum_for_ix(ix: int) -> None:
+						y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u, i)), X.shape).sum(axis=0).A
+
 					with ThreadPoolExecutor(max_workers=self.n_threads) as tx:
-						tx.map(u_sum_for_ix, range(k))
+						tx.map(i_sum_for_ix, range(k))
 
-					gamma_shape = a + y_phi_sum_u
-					gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
-					kappa_rate = (b / bp) + (gamma_shape / gamma_rate).sum(axis=1)
-
-					if not beta_precomputed:
-						# Upate the variational parameters corresponding to beta (the items)
-						# Sum of y_phi over items, for each k
-						y_phi_sum_i = np.zeros((n_items, k))
-
-						def i_sum_for_ix(ix: int) -> None:
-							y_phi_sum_i[:, ix] = sparse.coo_matrix((y_phi[:, ix], (u_mb, i_mb)), X.shape).sum(axis=0).A
-
-						with ThreadPoolExecutor(max_workers=self.n_threads) as tx:
-							tx.map(i_sum_for_ix, range(k))
-
-						lambda_shape = c + y_phi_sum_i
-						lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
-						tau_rate = (d / dp) + (lambda_shape / lambda_rate).sum(axis=1)
-
-					minibatch_offset += self.minibatch_size
+					lambda_shape = c + y_phi_sum_i
+					lambda_rate = (tau_shape / tau_rate)[:, None] + (gamma_shape / gamma_rate).sum(axis=0)
+					tau_rate = (d / dp) + (lambda_shape / lambda_rate).sum(axis=1)
 
 				if n_iter % self.stop_interval == 0:
 					# Compute the log likelihood and assess convergence
