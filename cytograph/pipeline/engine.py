@@ -137,9 +137,11 @@ class CondorEngine(Engine):
 	def execute(self) -> None:
 		tasks = self.build_execution_dag()
 		# Make job files
-		exdir = os.path.join(config.paths.build, "condor")
-		if not os.path.exists(exdir):
-			os.mkdir(exdir)
+		exdir = os.path.abspath(os.path.join(config.paths.build, "condor"))
+		if os.path.exists(exdir):
+			logging.warn("Removing previous build logs from 'condor' directory.")
+			shutil.rmtree(exdir)
+		os.mkdir(exdir)
 		for task in tasks.keys():
 			cmd = ""
 			excfg: Optional[ExecutionConfig] = None
@@ -164,6 +166,8 @@ class CondorEngine(Engine):
 			if cytograph_exe is None:
 				logging.error("The 'cytograph' command-line tool was not found.")
 				sys.exit(1)
+			# Must set 'request_gpus' only if non-zero, because even asking for zero GPUs requires a node that has GPUs (weirdly)
+			request_gpus = f"request_gpus = {excfg.n_gpus}" if excfg.n_gpus > 0 else ""
 			with open(os.path.join(exdir, task + ".condor"), "w") as f:
 				f.write(f"""
 getenv       = true
@@ -173,7 +177,7 @@ log          = {os.path.join(exdir, task)}.log
 output       = {os.path.join(exdir, task)}.out
 error        = {os.path.join(exdir, task)}.error
 request_cpus = {excfg.n_cpus}
-request_gpus = {excfg.n_gpus}
+{request_gpus}
 request_memory = {excfg.memory * 1024}
 queue 1\n
 """)

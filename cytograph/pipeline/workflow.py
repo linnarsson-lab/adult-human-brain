@@ -194,7 +194,7 @@ class RootWorkflow(Workflow):
 				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
 				if not os.path.exists(full_path):
 					continue
-				logging.info(f"Adding {sample_id}.loom")
+				logging.info(f"Examining {sample_id}.loom")
 				with loompy.connect(full_path, "r") as ds:
 					species = Species.detect(ds).name
 					col_attrs = dict(ds.ca)
