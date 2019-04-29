@@ -244,7 +244,10 @@ class RootWorkflow(Workflow):
 		logging.info(f"Adding column attributes")
 		with loompy.connect(out_file) as ds:
 			for attr in new_col_attrs[0].keys():
-				ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
+				if all([attr in attrs for attrs in new_col_attrs]):
+					ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
+				else:
+					logging.warn(f"Skipping column attribute {attr} because it was only present in some of the inputs")
 
 
 class SubsetWorkflow(Workflow):
