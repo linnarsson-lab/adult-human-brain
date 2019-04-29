@@ -34,7 +34,7 @@ class Annotation:
 		else:
 			raise ValueError(os.path.basename(filename) + " did not contain a 'definition' attribute, which is required.")
 
-		if "categories" in doc:
+		if "categories" in doc and doc["categories"] is not None:
 			self.categories = re.split(r"\W+", doc["categories"].strip())
 		else:
 			self.categories = []
