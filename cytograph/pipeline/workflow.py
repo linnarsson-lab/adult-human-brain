@@ -313,6 +313,6 @@ class PoolWorkflow(Workflow):
 					next_cluster = max(clusters) + 1
 					for (ix, selection, view) in ds.scan(axis=1, key="Accession"):
 						dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
-			ds.ca.Punchcard = punchcards
-			ds.ca.PunchcardClusters = punchcard_clusters
-			ds.ca.Clusters = clusters
+			dsout.ca.Punchcard = punchcards
+			dsout.ca.PunchcardClusters = punchcard_clusters
+			dsout.ca.Clusters = clusters
