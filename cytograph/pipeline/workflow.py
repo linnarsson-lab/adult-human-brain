@@ -5,12 +5,15 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 
 import cytograph.plotting as cgplot
 import loompy
 from cytograph.clustering import ClusterValidator
 from cytograph.preprocessing import Scrublet, doublet_finder
 from cytograph.species import Species
+from cytograph.annotation import AutoAnnotator
+from cytograph.plotting import punchcard_selection
 
 from .aggregator import Aggregator
 from .config import config
@@ -59,9 +62,9 @@ class Metadata:
 		"""
 		if self.metadata is not None:
 			if self.sid == "SampleID:string":
-				return {k.split(":")[0]: v for k, v in self.metadata.loc[sample].items()}
+				return {k.split(":")[0]: v for k, v in self.metadata.loc[sample].items() if pd.notnull(v)}
 			else:
-				return {k: v for k, v in self.metadata.loc[sample].items()}
+				return {k: v for k, v in self.metadata.loc[sample].items() if pd.notnull(v)}
 		else:
 			return {}
 
@@ -85,18 +88,33 @@ class Workflow:
 
 	def compute_subsets(self, card: Punchcard) -> None:
 		logging.info(f"Computing subset assignments for {card.name}")
+		# Load auto-annotation
+		annotator = AutoAnnotator(root=config.paths.autoannotation)
+		categories_dict = defaultdict(list)
+		for d in annotator.definitions: 
+				for c in d.categories:
+						categories_dict[c].append(d.abbreviation)
+		# Load loom file
 		with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".loom"), mode="r+") as ds:
 			subset_per_cell = np.zeros(ds.shape[1], dtype=object)
 			taken = np.zeros(ds.shape[1], dtype=bool)
 			with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".agg.loom"), mode="r") as dsagg:
 				for subset in card.subsets.values():
+					logging.info(f"{subset.include}")
 					selected = np.zeros(ds.shape[1], dtype=bool)
 					if len(subset.include) > 0:
-						# Include clusters that have any of the given auto-annotations
-						for aa in subset.include:
-							for ix in range(dsagg.shape[1]):
-								if aa in dsagg.ca.AutoAnnotation[ix].split(" "):
-									selected = selected | (ds.ca.Clusters == ix)
+						# Include clusters that have any of the given tags
+						for tag in subset.include:
+							# If annotation is a category, check all category auto-annotations
+							if tag in categories_dict.keys():
+								for aa in categories_dict[tag]:
+									for ix in range(dsagg.shape[1]):
+										if aa in dsagg.ca.AutoAnnotation[ix].split(" "):
+											selected = selected | (ds.ca.Clusters == ix)
+							else:
+								for ix in range(dsagg.shape[1]):
+									if tag in dsagg.ca.AutoAnnotation[ix].split(" "):
+										selected = selected | (ds.ca.Clusters == ix)
 					else:
 						selected = ~taken
 					# Exclude cells that don't match the onlyif expression
@@ -105,7 +123,11 @@ class Workflow:
 					# Don't include cells that were already taken
 					selected = selected & ~taken
 					subset_per_cell[selected] = subset.name
+					taken[selected] = True
+					logging.info(f"{selected.sum()}")
 			ds.ca.Subset = subset_per_cell
+			# plot subsets
+			punchcard_selection(ds, out_file=os.path.join(config.paths.build, "exported", card.name, "punchcard.png"))
 
 	def process(self) -> None:
 		# STEP 1: build the .loom file and perform manifold learning (Cytograph)
