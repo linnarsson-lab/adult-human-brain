@@ -98,18 +98,18 @@ class Cytograph:
 		ds.ca.HPF = theta
 
 		# HPF factorization of spliced/unspliced
-		if "spliced" in ds.layers:
+		if "velocity" in self.steps and "spliced" in ds.layers:
 			logging.info(f"HPF of spliced molecules")
 			data_spliced = ds[spliced_layer].sparse(rows=genes).T
 			theta_spliced = hpf.transform(data_spliced)
-			theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
+			# theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
 			if "batch_correction" in self.steps and "Batch" in ds.ca and "Replicate" in ds.ca:
 				theta_spliced = theta_spliced[:, ~technical]
 			ds.ca.HPF_spliced = theta_spliced
 			logging.info(f"HPF of unspliced molecules")
 			data_unspliced = ds[unspliced_layer].sparse(rows=genes).T
 			theta_unspliced = hpf.transform(data_unspliced)
-			theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
+			# theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
 			if "batch_correction" in self.steps and "Batch" in ds.ca and "Replicate" in ds.ca:
 				theta_unspliced = theta_unspliced[:, ~technical]
 			ds.ca.HPF_unspliced = theta_unspliced
@@ -123,17 +123,18 @@ class Cytograph:
 		start = 0
 		batch_size = 6400
 		if "velocity" in self.steps and "spliced" in ds.layers:
+			beta = ds.ra.HPF_beta  # The unnormalized beta
 			ds["spliced_exp"] = 'float32'
 			ds['unspliced_exp'] = 'float32'
 		while start < n_samples:
 			# Compute PPV (using normalized theta)
-			ds["expected"][:, start: start + batch_size] = beta_all @ theta[start: start + batch_size, :].T
+			ds["expected"][:, start: start + batch_size] = beta @ theta[start: start + batch_size, :].T
 			# Compute PPV using raw theta, for calculating posterior probability of the observations
 			ppv_unnormalized = beta @ theta_unnormalized[start: start + batch_size, :].T
 			log_posterior_proba[start: start + batch_size] = poisson.logpmf(data.T[:, start: start + batch_size], ppv_unnormalized).sum(axis=0)
 			if "velocity" in self.steps and "spliced" in ds.layers:
-				ds["spliced_exp"][:, start: start + batch_size] = beta_all @ theta_spliced[start: start + batch_size, :].T
-				ds["unspliced_exp"][:, start: start + batch_size] = beta_all @ theta_unspliced[start: start + batch_size, :].T
+				ds["spliced_exp"][:, start: start + batch_size] = beta @ theta_spliced[start: start + batch_size, :].T
+				ds["unspliced_exp"][:, start: start + batch_size] = beta @ theta_unspliced[start: start + batch_size, :].T
 			start += batch_size
 		ds.ca.HPF_LogPP = log_posterior_proba
 

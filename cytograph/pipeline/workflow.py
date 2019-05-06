@@ -289,13 +289,13 @@ class PoolWorkflow(Workflow):
 		self.deck = deck
 
 	def collect_cells(self, out_file: str) -> None:
-		logging.info(f"Collecting cells for 'Pool.loom'")
 		punchcards: List[str] = []
 		clusters: List[int] = []
 		punchcard_clusters: List[int] = []
 		next_cluster = 0
 
 		# Check that all the inputs exist
+		logging.info(f"Checking that all input files are present")
 		err = False
 		for subset in self.deck.get_leaves():
 			if not os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
@@ -306,6 +306,7 @@ class PoolWorkflow(Workflow):
 
 		with loompy.new(out_file) as dsout:
 			for subset in self.deck.get_leaves():
+				logging.info(f"Collecting cells from {subset.longname()}")
 				with loompy.connect(os.path.join(config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
 					punchcards = punchcards + [subset.longname()] * ds.shape[1]
 					punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
