@@ -11,3 +11,4 @@ from .gene_velocity import gene_velocity
 from .embedded_velocity import embedded_velocity
 from .buckets import buckets
 from .cell_cycle import cell_cycle
+from .punchcard_selection import punchcard_selection
