@@ -90,8 +90,8 @@ class Workflow:
 		logging.info(f"Computing subset assignments for {card.name}")
 		# Load auto-annotation
 		annotator = AutoAnnotator(root=config.paths.autoannotation)
-		categories_dict = defaultdict(list)
-		for d in annotator.definitions: 
+		categories_dict: Dict[str, List] = defaultdict(list)
+		for d in annotator.definitions:
 				for c in d.categories:
 						categories_dict[c].append(d.abbreviation)
 		# Load loom file
@@ -100,14 +100,15 @@ class Workflow:
 			taken = np.zeros(ds.shape[1], dtype=bool)
 			with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".agg.loom"), mode="r") as dsagg:
 				for subset in card.subsets.values():
-					logging.info(f"{subset.include}")
+					logging.debug(f"{subset.name}: {subset.include}")
 					selected = np.zeros(ds.shape[1], dtype=bool)
 					if len(subset.include) > 0:
 						# Include clusters that have any of the given tags
 						for tag in subset.include:
 							# If annotation is a category, check all category auto-annotations
 							if tag in categories_dict.keys():
-								for aa in categories_dict[tag]:
+								# tag can be a list of strings only for the root punchcard, which doesn't have a loom file, so this method will never be called on it, hence we can ignore the type error
+								for aa in categories_dict[tag]:  # type: ignore
 									for ix in range(dsagg.shape[1]):
 										if aa in dsagg.ca.AutoAnnotation[ix].split(" "):
 											selected = selected | (ds.ca.Clusters == ix)
@@ -124,7 +125,7 @@ class Workflow:
 					selected = selected & ~taken
 					subset_per_cell[selected] = subset.name
 					taken[selected] = True
-					logging.info(f"{selected.sum()}")
+					logging.debug(f"Selected {selected.sum()} cells")
 			ds.ca.Subset = subset_per_cell
 			# plot subsets
 			punchcard_selection(ds, out_file=os.path.join(config.paths.build, "exported", card.name, "punchcard.png"))
