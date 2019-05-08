@@ -10,7 +10,7 @@ from .._version import __version__ as version
 from .config import config, merge_config
 from .engine import CondorEngine, Engine, LocalEngine
 from .punchcards import PunchcardDeck
-from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow
+from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, Workflow
 
 
 def create_build_folders(path: str) -> None:
@@ -118,3 +118,21 @@ def pool() -> None:
 		PoolWorkflow(deck).process()
 	except Exception:
 		logging.exception("'pool' command failed")
+
+
+@cli.command()
+@click.argument("punchcard")
+def subset(punchcard: str) -> None:
+	logging.info(f"Computing subsets for '{punchcard}'")
+
+	deck = PunchcardDeck(config.paths.build)
+	card = deck.get_card(punchcard)
+	if card is None:
+		logging.error(f"Punchcard {punchcard} not found.")
+		sys.exit(1)
+
+	loom_file = os.path.join(config.paths.build, "data", card.name + ".loom")
+	if os.path.exists(loom_file):
+		Workflow(deck, "").compute_subsets(card)
+	else:
+		logging.error(f"Loom file '{loom_file}' not found")
