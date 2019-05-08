@@ -13,7 +13,6 @@ from cytograph.clustering import ClusterValidator
 from cytograph.preprocessing import Scrublet, doublet_finder
 from cytograph.species import Species
 from cytograph.annotation import AutoAnnotator
-from cytograph.plotting import punchcard_selection
 
 from .aggregator import Aggregator
 from .config import config
@@ -126,9 +125,12 @@ class Workflow:
 					subset_per_cell[selected] = subset.name
 					taken[selected] = True
 					logging.debug(f"Selected {selected.sum()} cells")
-			ds.ca.Subset = subset_per_cell
-			# plot subsets
-			punchcard_selection(ds, out_file=os.path.join(config.paths.build, "exported", card.name, "punchcard.png"))
+				ds.ca.Subset = subset_per_cell
+				# plot subsets
+				parent_dir = os.path.join(config.paths.build, "exported", card.name)
+				if os.path.exists(parent_dir):
+					cgplot.punchcard_selection(ds, os.path.join(parent_dir, f"{card.name}_subsets.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
+
 
 	def process(self) -> None:
 		# STEP 1: build the .loom file and perform manifold learning (Cytograph)
@@ -160,9 +162,8 @@ class Workflow:
 				os.mkdir(out_dir)
 				with loompy.connect(self.loom_file) as ds:
 					with loompy.connect(self.agg_file) as dsagg:
-						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.aa.png"), list(dsagg.ca.AutoAnnotation))
-						cgplot.manifold(ds, os.path.join(out_dir, pool + "_TSNE_manifold.aaa.png"), list(dsagg.ca.MarkerGenes))
-						cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.aaa.png"), list(dsagg.ca.MarkerGenes), embedding="UMAP")
+						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
+						cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
 						cgplot.markerheatmap(ds, dsagg, n_markers_per_cluster=10, out_file=os.path.join(out_dir, pool + "_heatmap.pdf"))
 						cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
 						cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))

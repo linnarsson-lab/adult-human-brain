@@ -11,7 +11,7 @@ import loompy
 from .colors import colors75
 
 
-def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, embedding: str = "TSNE") -> None:
+def manifold(ds: loompy.LoomConnection, out_file: str, tag1: List[str] = None, tag2: List[str] = None, embedding: str = "TSNE") -> None:
 	n_cells = ds.shape[1]
 	has_edges = False
 	if "RNN" in ds.col_graphs:
@@ -38,8 +38,8 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 	k_radius = knn.max(axis=1).toarray()
 	epsilon = (2500 / (pos.max() - pos.min())) * np.percentile(k_radius, eps_pct)
 
-	fig = plt.figure(figsize=(10, 10))
-	ax = fig.add_subplot(111)
+	fig = plt.figure(figsize=(25, 10))
+	ax = fig.add_axes([0, 0, 0.4, 1])
 
 	# Draw edges
 	if has_edges:
@@ -48,24 +48,35 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 
 	# Draw nodes
 	plots = []
-	names = []
+	tag1_names = []
+	tag2_names = []
 	for i in range(max(labels) + 1):
 		cluster = labels == i
 		n_cells = cluster.sum()
 		if np.all(outliers[labels == i] == 1):
 			edgecolor = colorConverter.to_rgba('red', alpha=.1)
 			plots.append(plt.scatter(x=pos[outliers == 1, 0], y=pos[outliers == 1, 1], c='grey', marker='.', edgecolors=edgecolor, alpha=0.1, s=epsilon))
-			names.append(f"{i}/n={n_cells}  (outliers)")
+			tag1_names.append(f"{i}/n={n_cells}  (outliers)")
 		else:
 			plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=[colors75[np.mod(i, 75)]], marker='.', lw=0, s=epsilon, alpha=0.5))
 			txt = str(i)
 			if "ClusterName" in ds.ca:
 				txt = ds.ca.ClusterName[ds.ca["Clusters"] == i][0]
-			if tags is not None:
-				names.append(f"{txt}/n={n_cells} " + tags[i].replace("\n", " "))
+			if tag1 is not None:
+				tag1_names.append(f"{txt}/n={n_cells} " + tag1[i].replace("\n", " "))
 			else:
-				names.append(f"{txt}/n={n_cells}")
-	plt.legend(plots, names, scatterpoints=1, markerscale=2, loc='upper left', bbox_to_anchor=(1, 1), fancybox=True, framealpha=0.5, fontsize=10)
+				tag1_names.append(f"{txt}/n={n_cells}")
+			if tag2 is not None:
+				tag2_names.append(f"{txt} " + tag2[i].replace("\n", " "))
+	
+	# Add legends
+	ax2 = fig.add_axes([0.4, 0, 0.3, 1])
+	ax2.axis("off")
+	ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
+	if tag2 is not None:
+		ax3 = fig.add_axes([0.7, 0, 0.3, 1])
+		ax3.axis("off")
+		ax3.legend(plots, tag2_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
 
 	for lbl in range(0, max(labels) + 1):
 		txt = str(lbl)
@@ -77,6 +88,7 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tags: List[str] = None, e
 			continue
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
 		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
-	plt.axis("off")
+		
+	ax.axis("off")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')
 	plt.close()
