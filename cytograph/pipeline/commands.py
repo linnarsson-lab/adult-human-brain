@@ -123,8 +123,6 @@ def pool() -> None:
 @cli.command()
 @click.argument("punchcard")
 def subset(punchcard: str) -> None:
-	logging.info(f"Computing subsets for '{punchcard}'")
-
 	deck = PunchcardDeck(config.paths.build)
 	card = deck.get_card(punchcard)
 	if card is None:
