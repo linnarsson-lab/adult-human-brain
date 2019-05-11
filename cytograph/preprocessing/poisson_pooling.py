@@ -70,10 +70,10 @@ class PoissonPooling:
 		if self.compute_velocity and "spliced" in ds.layers:
 			ds["spliced_pooled"] = 'int32'
 			ds["unspliced_pooled"] = 'int32'
-			for (ix, indexes, view) in ds.scan(axis=0, layers=["spliced", "unspliced"]):
+			for (ix, indexes, view) in ds.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
 				ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
 				ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
 		else:
-			for (ix, indexes, view) in ds.scan(axis=0, layers=[""]):
+			for (ix, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T

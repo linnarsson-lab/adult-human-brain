@@ -43,7 +43,7 @@ class NeighborhoodEnrichment:
 			knn_matrix = knn
 		k = knn_matrix.count_nonzero() / knn_matrix.shape[0]
 		with tqdm(total=ds.shape[0], desc="Neighborhood enrichment") as pbar:
-			for ix, selection, view in ds.scan(axis=0):
+			for ix, selection, view in ds.scan(axis=0, what=["layers"]):
 				for j in range(view.shape[0]):
 					ds[tolayer][j + ix, :] = self.fit(view[j, :], knn_matrix, k)
 				pbar.update(view.shape[0])

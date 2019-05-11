@@ -300,7 +300,7 @@ class SubsetWorkflow(Workflow):
 		with loompy.new(out_file) as dsout:
 			# Collect from a previous punchard subset
 			with loompy.connect(parent, mode="r") as ds:
-				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == self.subset.name), axis=1, key="Accession"):
+				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == self.subset.name), axis=1, key="Accession", what=["layers", "col_attrs", "row_attrs"]):
 					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
 
 
@@ -336,7 +336,7 @@ class PoolWorkflow(Workflow):
 					punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
 					clusters = clusters + list(ds.ca.Clusters + next_cluster)
 					next_cluster = max(clusters) + 1
-					for (ix, selection, view) in ds.scan(axis=1, key="Accession"):
+					for (ix, selection, view) in ds.scan(axis=1, key="Accession", what=["layers", "col_attrs", "row_attrs"]):
 						dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
 			dsout.ca.Punchcard = punchcards
 			dsout.ca.PunchcardClusters = punchcard_clusters

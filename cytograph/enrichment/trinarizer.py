@@ -45,7 +45,7 @@ class Trinarizer:
 		self.trinary_prob = np.empty((ds.shape[0], n_labels))
 		self.genes = ds.ra.Gene
 
-		for (ix, selection, view) in ds.scan(axis=0):
+		for (ix, selection, view) in ds.scan(axis=0, what=["layers"]):
 			vals = view[:, cells]
 			for j, row in enumerate(selection):
 				data = np.round(vals[j, :])
