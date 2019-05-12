@@ -3,7 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 
 from .config import ExecutionConfig, config, merge_config
 from .punchcards import PunchcardDeck
@@ -57,40 +57,22 @@ class Engine:
 		pass
 
 
-# From https://stackoverflow.com/questions/52432988/python-dict-key-order-based-on-values-recursive-solution
-def topological_sort(dependency_graph: Dict[str, List[str]]) -> List[str]:
-	"""
-	Sort the dependency graph topologically, i.e. such that dependencies are
-	listed before the tasks that depend on them.
-	"""
-	# reverse the graph
-	graph: Dict[str, List[str]] = {}
-	for key, deps in dependency_graph.items():
-		for node in deps:
-			graph.setdefault(node, []).append(key)
+def topological_sort(graph: Dict[str, List[str]]) -> List[str]:
+	result: List[str] = []
+	seen: Set[str] = set()
 
-	# init the indegree for each noe
-	nodes = graph.keys() | set([node for adjacents in graph.values() for node in adjacents])
-	in_degree = {node: 0 for node in nodes}
+	def recursive_helper(node: str) -> None:
+		for neighbor in graph.get(node, []):
+			if neighbor not in seen:
+				seen.add(neighbor)
+				recursive_helper(neighbor)
+		if node not in result:
+			result.append(node)
 
-	# compute the indegree
-	for k, adjacents in graph.items():
-		for node in adjacents:
-			in_degree[node] += 1
+	for key in graph.keys():
+		recursive_helper(key)
+	return result
 
-	# init the heap with the nodes with indegree 0 and priority given by key
-	heap = [node for node, degree in in_degree.items() if degree == 0]
-
-	top_order = []
-	while heap:  # heap is not empty
-		node = heap.pop()  # get the element with highest priority and remove from heap
-		top_order.append(node)  # add to topological order
-		for adjacent in graph.get(node, []):  # iter over the neighbors of the node
-			in_degree[adjacent] -= 1
-			if in_degree[adjacent] == 0:  # if the node has in_degree 0 add to the heap with priority given by key
-				heap.append(adjacent)
-
-	return top_order
 
 
 class LocalEngine(Engine):
@@ -102,10 +84,15 @@ class LocalEngine(Engine):
 
 	def execute(self) -> None:
 		tasks = self.build_execution_dag()
-		logging.debug(tasks)
+		for task, deps in tasks.items():
+			if len(deps) > 0:
+				logging.debug(f"Task {task} depends on {','.join(deps)}")
+			else:
+				logging.debug(f"Task {task} has no dependencies")
 
 		# Figure out a linear execution order consistent with the DAG
 		ordered_tasks = topological_sort(tasks)
+		logging.debug(f"Execution order: {','.join(ordered_tasks)}")
 
 		# Now we have the tasks ordered by the DAG, and run them
 		if self.dryrun:
