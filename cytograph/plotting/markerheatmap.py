@@ -121,7 +121,7 @@ def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, n_mar
 
 	# Cluster IDs
 	labels = ["#" + str(x) for x in np.arange(n_clusters)]
-	if "ClusterName" in ds.ca:
+	if "ClusterName" in dsagg.ca:
 		labels = dsagg.ca.ClusterName
 	for ix in range(0, clusterborders.shape[0]):
 		left = 0 if ix == 0 else clusterborders[ix - 1]

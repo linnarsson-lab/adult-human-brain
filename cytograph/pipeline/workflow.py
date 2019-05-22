@@ -166,9 +166,12 @@ class Workflow:
 						if "UMAP" in ds.ca:
 							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
 						cgplot.markerheatmap(ds, dsagg, n_markers_per_cluster=10, out_file=os.path.join(out_dir, pool + "_heatmap.pdf"))
-						cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
-						cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
-						cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
+						if "HPF" in ds.ca:
+							cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
+						if "CellCycle_G1" in ds.ca:
+							cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
+						if "KNN" in ds.col_graphs:
+							cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
 						cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
 						if "velocity" in ds.layers:
