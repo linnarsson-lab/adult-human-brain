@@ -71,7 +71,8 @@ class AutoAnnotator(object):
 							if len(self.genes) > 0 and (neg not in self.genes):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
-						self.definitions.append(tag)
+						if not errors:
+							self.definitions.append(tag)
 					except Exception as e:
 						logging.error(file + ": " + str(e))
 						errors = True
