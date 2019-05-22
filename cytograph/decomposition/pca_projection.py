@@ -28,9 +28,11 @@ class PCAProjection:
 		self.sigs = None  # type: np.ndarray
 		self.accessions = None  # type: np.ndarray
 
-	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
+	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer = None, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
+		if normalizer is None:
+			normalizer = Normalizer().fit(ds)
 
 		# Support out-of-order datasets
 		if "Accession" in ds.row_attrs:

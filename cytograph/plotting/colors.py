@@ -17,3 +17,26 @@ def colorize(x: np.ndarray, *, bgval: Any = None) -> np.ndarray:
 	if bgval is not None:
 		colors[x == bgval, :] = np.array([0.8, 0.8, 0.8])
 	return colors
+
+
+tube_color_dict = {
+	"Bakerloo": "#B36305",
+	"Central": "#E32017",
+	"Circle": "#FFD300",
+	"District": "#00782A",
+	"Hammersmith and City": "#F3A9BB",
+	"Jubilee": "#A0A5A9",
+	"Metropolitan": "#9B0056",
+	"Northern": "#000000",
+	"Piccadilly": "#003688",
+	"Victoria": "#0098D4",
+	"Waterloo and City": "#95CDBA",
+	"DLR": "#00A4A7",
+	"Overground": "#EE7C0E",
+	"Tramlink": "#84B817",
+	"Cable Car": "#E21836",	
+	"Crossrail": "#7156A5"
+}
+
+
+tube_colors = np.array([c for c in tube_color_dict.values()])

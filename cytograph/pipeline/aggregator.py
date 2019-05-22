@@ -8,6 +8,7 @@ from scipy.spatial.distance import pdist
 import loompy
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
+from cytograph.manifold import GraphSkeletonizer
 
 from .config import config
 
@@ -94,7 +95,11 @@ class Aggregator:
 			dsout.permute(gene_order, axis=0)
 
 			logging.info("Computing auto-annotation")
-			AutoAnnotator(root=config.paths.autoannotation).annotate(dsout)
+			AutoAnnotator(root=config.paths.autoannotation, ds=dsout).annotate(dsout)
 
 			logging.info("Computing auto-auto-annotation")
 			AutoAutoAnnotator(n_genes=6).annotate(dsout)
+
+			logging.info("Graph skeletonization")
+			GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+			

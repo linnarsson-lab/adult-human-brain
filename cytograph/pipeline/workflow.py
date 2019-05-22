@@ -172,6 +172,8 @@ class Workflow:
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
 						cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
 						cgplot.TFs(ds, dsagg, out_file_root=os.path.join(out_dir, pool))
+						if "GA" in dsagg.col_graphs:
+							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 						if "cluster-validation" in config.steps:
 							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
 

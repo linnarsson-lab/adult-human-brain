@@ -49,10 +49,10 @@ class Annotation:
 
 
 class AutoAnnotator(object):
-	def __init__(self, root: str) -> None:
+	def __init__(self, root: str, ds: loompy.LoomConnection = None) -> None:
 		self.root = root
 		self.definitions: List[Annotation] = []
-		self.genes: List[str] = []
+		self.genes: List[str] = [] if ds is None else ds.ra.Gene
 		self.annotations = None  # type: np.ndarray
 	
 		fileext = [".yaml", ".md"]
@@ -87,16 +87,22 @@ class AutoAnnotator(object):
 		Returns:
 			An array of strings giving the auto-annotation for each cluster
 		"""
-		self.genes = ds.row_attrs["Gene"]
-		trinaries = ds.layer["trinaries"]
+		self.genes = ds.ra.Gene
+		trinaries = ds.layers["trinaries"]
 		self.annotations = np.empty((len(self.definitions), trinaries.shape[1]))
 		for ix, tag in enumerate(self.definitions):
 			for cluster in range(trinaries.shape[1]):
 				p = 1
 				for pos in tag.positives:
+					if pos not in self.genes:
+						logging.error(f"Auto-annotation gene {pos} (used for {tag}) not found in file")
+						continue
 					index = np.where(self.genes == pos)[0][0]
 					p = p * trinaries[index, cluster]
 				for neg in tag.negatives:
+					if neg not in self.genes:
+						logging.error(f"Auto-annotation gene {neg} (used for {tag}) not found in file")
+						continue
 					index = np.where(self.genes == neg)[0][0]
 					p = p * (1 - trinaries[index, cluster])
 				self.annotations[ix, cluster] = p

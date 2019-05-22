@@ -12,6 +12,7 @@ from .mouse import TFs_mouse, cc_genes_mouse, g1_mouse, g2m_mouse, s_mouse
 class Species:
 	@staticmethod
 	def detect(ds: loompy.LoomConnection) -> Any:  # Really returns Species, but mypy doesn't understand that
+		name: str = None
 		if "species" in ds.attrs:
 			name = ds.attrs.species
 		elif "Gene" in ds.ra:
@@ -29,8 +30,8 @@ class Species:
 			}.items():
 				if gene in ds.ra.Gene:
 					name = species
-		else:
-			raise ValueError("Failed to auto-detect species")
+		if name is None:
+			raise ValueError("Failed to auto-detect species (to override auto-detection, set ds.attrs.species to the species name, like 'Homo sapiens')")
 
 		return Species(name)
 		

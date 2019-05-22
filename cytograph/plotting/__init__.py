@@ -1,4 +1,4 @@
-from .colors import colors75, colorize
+from .colors import colors75, colorize, tube_colors
 from .midpoint_normalize import MidpointNormalize
 from .manifold import manifold
 from .markerheatmap import markerheatmap
@@ -12,3 +12,4 @@ from .embedded_velocity import embedded_velocity
 from .buckets import buckets
 from .cell_cycle import cell_cycle
 from .punchcard_selection import punchcard_selection
+from .metromap import metromap
