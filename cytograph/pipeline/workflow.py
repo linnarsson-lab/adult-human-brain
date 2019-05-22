@@ -163,14 +163,16 @@ class Workflow:
 				with loompy.connect(self.loom_file) as ds:
 					with loompy.connect(self.agg_file) as dsagg:
 						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
-						cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
+						if "UMAP" in ds.ca:
+							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
 						cgplot.markerheatmap(ds, dsagg, n_markers_per_cluster=10, out_file=os.path.join(out_dir, pool + "_heatmap.pdf"))
 						cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
 						cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
 						cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
 						cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
-						cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
+						if "velocity" in ds.layers:
+							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
 						cgplot.TFs(ds, dsagg, out_file_root=os.path.join(out_dir, pool))
 						if "GA" in dsagg.col_graphs:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
