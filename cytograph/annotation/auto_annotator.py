@@ -56,10 +56,10 @@ class AutoAnnotator(object):
 		self.annotations = None  # type: np.ndarray
 	
 		fileext = [".yaml", ".md"]
-		errors = False
 		root_len = len(self.root)
 		for cur, _, files in os.walk(self.root):
 			for file in files:
+				errors = False
 				if os.path.splitext(file)[-1] in fileext and file[-9:] != "README.md":
 					try:
 						tag = Annotation(cur[root_len:], os.path.join(cur, file))

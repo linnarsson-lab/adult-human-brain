@@ -134,7 +134,7 @@ class Cytograph:
 		start = 0
 		batch_size = 6400
 		if "velocity" in self.steps and "spliced" in ds.layers:
-			beta_all = ds.ra.HPF_beta  # The unnormalized beta
+			beta_all = ds.ra.HPF_beta[:, ~technical] if "batch_correction" in self.steps else hpf.beta # The unnormalized beta
 			ds["spliced_exp"] = 'float32'
 			ds['unspliced_exp'] = 'float32'
 		while start < n_samples:
@@ -150,7 +150,7 @@ class Cytograph:
 		ds.ca.HPF_LogPP = log_posterior_proba
 
 		if "nn" in self.steps or "clustering" in self.steps:
-			if "pca" in steps:
+			if "pca" in self.steps:
 				k = min(config.params.k, n_samples - 1)
 				logging.info("Generating multiscale KNN graph (k = %d)", k)
 				bnn = cg.BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
