@@ -165,7 +165,7 @@ class Workflow:
 						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
 						if "UMAP" in ds.ca:
 							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
-						cgplot.markerheatmap(ds, dsagg, n_markers_per_cluster=10, out_file=os.path.join(out_dir, pool + "_heatmap.pdf"))
+						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"))
 						if "HPF" in ds.ca:
 							cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
 						if "CellCycle_G1" in ds.ca:
@@ -176,7 +176,7 @@ class Workflow:
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
 						if "velocity" in ds.layers:
 							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
-						cgplot.TFs(ds, dsagg, out_file_root=os.path.join(out_dir, pool))
+						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"))
 						if "GA" in dsagg.col_graphs:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 						if "cluster-validation" in config.steps:

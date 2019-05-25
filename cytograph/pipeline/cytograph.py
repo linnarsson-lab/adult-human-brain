@@ -72,11 +72,11 @@ class Cytograph:
 
 		if "pca" in self.steps:
 			logging.info("Normalization for PCA")
-			normalizer = cg.Normalizer(False)
+			normalizer = Normalizer(False)
 			normalizer.fit(ds)
 			n_components = min(config.params.k, n_samples)
 			logging.info("PCA projection to %d components", n_components)
-			pca = cg.PCAProjection(genes, max_n_components=n_components)
+			pca = PCAProjection(genes, max_n_components=n_components)
 			pca.fit(ds, normalizer)
 			# Note that here we're transforming all cells; we just did the fit on the selection
 			transformed = pca.transform(ds, normalizer)
@@ -150,16 +150,16 @@ class Cytograph:
 		ds.ca.HPF_LogPP = log_posterior_proba
 
 		if "nn" in self.steps or "clustering" in self.steps:
-			if "pca" in steps:
+			if "pca" in self.steps:
 				k = min(config.params.k, n_samples - 1)
 				logging.info("Generating multiscale KNN graph (k = %d)", k)
-				bnn = cg.BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
+				bnn = BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
 				bnn.fit(transformed)
 				knn = bnn.kneighbors(mode='connectivity')[1][:, 1:]
 				n_cells = knn.shape[0]
 				a = np.tile(np.arange(n_cells), k)
 				b = np.reshape(knn.T, (n_cells * k,))
-				w = np.repeat(1 / np.power(np.arange(1, k + 1), self.alpha), n_cells)
+				w = np.repeat(1 / np.power(np.arange(1, k + 1), 1), n_cells)
 				knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
 				threshold = w > 0.025
 				mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
@@ -192,7 +192,10 @@ class Cytograph:
 
 		if "embeddings" in self.steps or "clustering" in self.steps:
 			logging.info(f"2D tSNE embedding from latent space")
-			ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
+			if "pca" in self.steps:
+				ds.ca.TSNE = tsne(transformed)
+			else:
+				ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
 
 			logging.info(f"2D UMAP embedding from latent space")
 			with warnings.catch_warnings():

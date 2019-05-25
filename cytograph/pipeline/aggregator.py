@@ -102,4 +102,3 @@ class Aggregator:
 
 			logging.info("Graph skeletonization")
 			GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
-			

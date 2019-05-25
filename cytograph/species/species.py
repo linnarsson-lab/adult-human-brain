@@ -48,6 +48,29 @@ class Species:
 				"g2m": g2m_human,
 				"mt": ['MT-CYB', 'MT-ND6', 'MT-CO3', 'MT-ND1', 'MT-ND4', 'MT-CO1', 'MT-ND2', 'MT-CO2', 'MT-ATP8', 'MT-ND4L', 'MT-ATP6', 'MT-ND5', 'MT-ND3']
 			}
+			self.markers = {
+				"CellCycle": ["PCNA", "CDK1", "TOP2A"],
+				"RadialGlia": ["FABP7", "FABP5", "HOPX"],
+				"Macrophages": ["AIF1", "HEXB", "MRC1"], 
+				"Fibroblasts": ["LUM", "DCN", "COL1A1"], 
+				"Endothelial": ["CLDN5"], 
+				"VSMC": ["ACTA2", "TAGLN"],
+				"Ependymal": ["TMEM212", "FOXJ1"],
+				"Astrocytes": ["AQP4", "GJA1"],
+				"Neurons": ["RBFOX3"],
+				"Neuroblasts": ["NHLH1", "NHLH2"],
+				"GABAergic": ["GAD1", "GAD2", "SLC32A1"], 
+				"Glycinergic": ["SLC6A5", "SLC6A9"],
+				"Excitatory": ["SLC17A7", "SLC17A8", "SLC17A6"],
+				"Serotonergic": ["TPH2", "FEV"],
+				"Dopaminergic": ["TH", "SLC6A3"],
+				"Cholinergic": ["CHAT", "SLC5A7", "SLC18A3"],
+				"Monoamine": ["SLC18A1", "SLC18A2"],
+				"Noradrenergic": ["DBH"],
+				"Adrenergic": ["PNMT"],
+				"Oligodendrocytes": ["PLP1", "SOX10", "MOG", "MBP"],
+				"Schwann": ["MPZ"]
+			}
 		elif name == "Mus musculus":
 			genes = {
 				"TFs": TFs_mouse,
@@ -58,6 +81,29 @@ class Species:
 				"s": s_mouse,
 				"g2m": g2m_mouse,
 				"mt": ['mt-Nd1', 'mt-Nd2', 'mt-Co1', 'mt-Co2', 'mt-Atp8', 'mt-Atp6', 'mt-Co3', 'mt-Nd3', 'mt-Nd4l', 'mt-Nd4', 'mt-Nd5', 'mt-Cytb', 'mt-Nd6']
+			}
+			self.markers = {
+				"CellCycle": ["Pcna", "Cdk1", "Top2a"],
+				"RadialGlia": ["Fabp7", "Fabp5", "Hopx"],
+				"Macrophages": ["Aif1", "Hexb", "Mrc1"], 
+				"Fibroblasts": ["Lum", "Dcn", "Col1a1"], 
+				"Endothelial": ["Cldn5"], 
+				"VSMC": ["Acta2", "Tagln"],
+				"Ependymal": ["Tmem212", "Foxj1"],
+				"Astrocytes": ["Aqp4", "Gja1"],
+				"Neurons": ["Rbfox3"],
+				"Neuroblasts": ["Nhlh1", "Nhlh2"],
+				"GABAergic": ["Gad1", "Gad2", "Slc32a1"], 
+				"Glycinergic": ["Slc6a5", "Slc6a9"],
+				"Excitatory": ["Slc17a7", "Slc17a8", "Slc17a6"],
+				"Serotonergic": ["Tph2", "Fev"],
+				"Dopaminergic": ["Th", "Slc6a3"],
+				"Cholinergic": ["Chat", "Slc5a7", "Slc18a3"],
+				"Monoamine": ["Slc18a1", "Slc18a2"],
+				"Noradrenergic": ["Dbh"],
+				"Adrenergic": ["Pnmt"],
+				"Oligodendrocytes": ["Plp1", "Sox10", "Mog", "Mbp"],
+				"Schwann": ["Mpz"]
 			}
 		else:
 			genes = {
@@ -70,8 +116,9 @@ class Species:
 				"g2m": [],
 				"mt": []
 			}
+			self.markers = {}
 		self.genes = SimpleNamespace(**genes)
-	
+
 	@staticmethod
 	def mask(ds: loompy.LoomConnection, categories: List[str]) -> np.ndarray:
 		"""
