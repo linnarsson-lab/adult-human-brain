@@ -119,7 +119,7 @@ class Workflow:
 						selected = ~taken
 					# Exclude cells that don't match the onlyif expression
 					if subset.onlyif != "" and subset.onlyif is not None:
-						selected = selected & eval(subset.onlyif, globals(), ds.ca)
+						selected = selected & eval(subset.onlyif, globals(), {k: v for k, v in ds.ca.items()})
 					# Don't include cells that were already taken
 					selected = selected & ~taken
 					subset_per_cell[selected] = subset.name
@@ -236,9 +236,9 @@ class RootWorkflow(Workflow):
 					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
 					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-					logging.info("Scoring doublets using Scrublet")
 					if "doublets" in config.steps:
 						if config.params.doublets_method == "scrublet":
+							logging.info("Scoring doublets using Scrublet")
 							data = ds[:, :].T
 							doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
 							col_attrs["ScrubletScore"] = doublet_scores

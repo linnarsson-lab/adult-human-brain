@@ -134,7 +134,7 @@ class Cytograph:
 		start = 0
 		batch_size = 6400
 		if "velocity" in self.steps and "spliced" in ds.layers:
-			beta_all = ds.ra.HPF_beta  # The unnormalized beta
+			beta_all = ds.ra.HPF_beta[:, ~technical] if "batch_correction" in self.steps else hpf.beta # The unnormalized beta
 			ds["spliced_exp"] = 'float32'
 			ds['unspliced_exp'] = 'float32'
 		while start < n_samples:
