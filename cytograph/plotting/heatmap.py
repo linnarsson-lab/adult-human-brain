@@ -5,8 +5,10 @@ import numpy as np
 from matplotlib.collections import LineCollection
 
 import loompy
-from cytograph.plotting import colorize, dendrogram
 from cytograph.species import Species
+
+from .colors import colorize
+from .dendrogram import dendrogram
 
 
 class Heatmap():
@@ -66,8 +68,11 @@ class Heatmap():
 		if "linkage" in dsagg.attrs:
 			ax = plt.subplot2grid(grid, (offset, 0), rowspan=dendr_height)
 			offset += 10
-			lc = dendrogram(dsagg.attrs.linkage, leaf_positions=clustermiddles)
-			ax.add_collection(lc)
+			try:
+				lc = dendrogram(dsagg.attrs.linkage, leaf_positions=clustermiddles)
+				ax.add_collection(lc)
+			except:
+				pass
 
 		for attr, spec in self.attrs.items():
 			if attr not in ds.ca:
