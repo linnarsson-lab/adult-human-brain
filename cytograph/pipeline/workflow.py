@@ -143,6 +143,7 @@ class Workflow:
 				with loompy.connect(out_file) as ds:
 					logging.info(f"Collected {ds.shape[1]} cells")
 					Cytograph(steps=config.steps).fit(ds)
+					# TODO: save config in loom
 
 		# STEP 2: aggregate and create the .agg.loom file
 		if os.path.exists(self.agg_file):
@@ -151,6 +152,7 @@ class Workflow:
 			with loompy.connect(self.loom_file) as dsout:
 				with Tempname(self.agg_file) as out_file:
 					Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
+					# TODO: save config in loom
 
 		# STEP 3: export plots
 		if os.path.exists(self.export_dir):
@@ -165,7 +167,8 @@ class Workflow:
 						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
 						if "UMAP" in ds.ca:
 							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
-						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"))
+						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
+						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
 						if "HPF" in ds.ca:
 							cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
 						if "CellCycle_G1" in ds.ca:
@@ -176,7 +179,8 @@ class Workflow:
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
 						if "velocity" in ds.layers:
 							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
-						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"))
+						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
+						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
 						if "GA" in dsagg.col_graphs:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 						if "cluster-validation" in config.steps:

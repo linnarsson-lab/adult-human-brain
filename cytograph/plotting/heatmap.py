@@ -42,6 +42,7 @@ class Heatmap():
 
 		clusterborders = np.cumsum(dsagg.ca.NCells)
 		clustermiddles = clusterborders[:-1] + (clusterborders[1:] - clusterborders[:-1]) / 2
+		clustermiddles = np.hstack([[clusterborders[0]/2], clustermiddles])  # Add the first cluster
 		gene_pos = clusterborders[np.array(top_cluster)[ordering]]
 
 		# Calculate the plot height
@@ -67,12 +68,12 @@ class Heatmap():
 
 		if "linkage" in dsagg.attrs:
 			ax = plt.subplot2grid(grid, (offset, 0), rowspan=dendr_height)
-			offset += 10
-			try:
-				lc = dendrogram(dsagg.attrs.linkage, leaf_positions=clustermiddles)
-				ax.add_collection(lc)
-			except:
-				pass
+			offset += dendr_height
+			lc = dendrogram(dsagg.attrs.linkage, leaf_positions=clustermiddles)
+			ax.add_collection(lc)
+			plt.xlim(0,clusterborders[-1])
+			plt.ylim(0, dsagg.attrs.linkage[:, 2].max() * 1.1)
+			plt.axis("off")
 
 		for attr, spec in self.attrs.items():
 			if attr not in ds.ca:

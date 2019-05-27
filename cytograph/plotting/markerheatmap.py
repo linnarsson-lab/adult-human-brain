@@ -3,9 +3,10 @@ import loompy
 from .heatmap import Heatmap
 
 
-def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, out_file: str = "") -> None:
+def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, out_file: str = "", layer: str = "pooled") -> None:
 	n_clusters = ds.ca.Clusters.max() + 1
 	hm = Heatmap(np.arange(10 * n_clusters), attrs={
+		"Clusters": "categorical",
 		"SampleName": "categorical",
 		"SampleID": "categorical",
 		"Tissue": "ticker",
@@ -16,7 +17,6 @@ def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, out_f
 		"CellCycle_S": "viridis:log",
 		"CellCycle_G2M": "viridis:log",
 		"ScrubletScore": "viridis",
-		"ScrubletFlag": "PiYG_r",
-		"Clusters": "categorical"
-	})
+		"ScrubletFlag": "PiYG_r"
+	}, layer=layer)
 	hm.plot(ds, dsagg, out_file=out_file)

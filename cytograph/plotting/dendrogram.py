@@ -43,4 +43,4 @@ def dendrogram(z: np.ndarray, *, leaf_positions: np.ndarray = None, orientation:
 			lines.append([[left_x, left_y], [left_x, crossbar_y], [right_x, crossbar_y], [right_x, right_y]])
 		else:
 			raise NotImplementedError("Only 'top' orientation is supported")
-	return LineCollection(lines)
+	return LineCollection(lines, colors="black")

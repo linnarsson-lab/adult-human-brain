@@ -53,6 +53,7 @@ class FeatureSelectionByMultilevelEnrichment:
 		n_levels = len(self.n_clusters_per_level)
 		if n_levels > 0:
 			logging.info(f"Analyzing {n_levels} higher level{'s' if n_levels > 1 else ''} with {self.n_clusters_per_level} clusters")
+			multilevel_markers = np.zeros((ds.shape[0], n_levels))
 
 			# Find markers at the leaf level
 			(all_markers, all_enrichment, means) = self._fit(ds, labels)
@@ -76,8 +77,10 @@ class FeatureSelectionByMultilevelEnrichment:
 				(markers, enrichment, _) = self._fit(ds, labels)
 				logging.info(f"Found {markers.sum()} marker genes at level {i + 1}")
 				logging.debug(ds.ra.Gene[markers])
+				multilevel_markers[markers, i] = 1
 				all_markers = (all_markers | markers)
 				i += 1
+			ds.ra.MultilevelMarkers = multilevel_markers
 		else:
 			logging.info("Not enough clusters for multilevel marker selection (using level 0 markers only)")
 			# Find markers at the leaf level
