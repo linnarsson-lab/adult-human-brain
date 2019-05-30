@@ -68,7 +68,7 @@ class Species:
 				"Monoamine": ["SLC18A1", "SLC18A2"],
 				"Noradrenergic": ["DBH"],
 				"Adrenergic": ["PNMT"],
-				"Oligodendrocytes": ["PLP1", "SOX10", "MOG", "MBP"],
+				"Oligodendrocytes": ["PDGFRA", "PLP1", "SOX10", "MOG", "MBP"],
 				"Schwann": ["MPZ"]
 			}
 		elif name == "Mus musculus":
@@ -102,7 +102,7 @@ class Species:
 				"Monoamine": ["Slc18a1", "Slc18a2"],
 				"Noradrenergic": ["Dbh"],
 				"Adrenergic": ["Pnmt"],
-				"Oligodendrocytes": ["Plp1", "Sox10", "Mog", "Mbp"],
+				"Oligodendrocytes": ["Pdgfra", "Plp1", "Sox10", "Mog", "Mbp"],
 				"Schwann": ["Mpz"]
 			}
 		else:
