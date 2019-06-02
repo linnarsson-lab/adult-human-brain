@@ -11,7 +11,7 @@ from umap import UMAP
 
 import loompy
 from cytograph.annotation import CellCycleAnnotator
-from cytograph.clustering import PolishedLouvain
+from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.decomposition import HPF, identify_technical_factors, PCAProjection
 from cytograph.embedding import tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
@@ -69,17 +69,6 @@ class Cytograph:
 			genes = FeatureSelectionByVariance(config.params.n_genes, main_layer, Species.mask(ds, config.params.mask)).select(ds)
 		
 		logging.info(f"Selected {genes.sum()} genes")
-
-		if "pca" in self.steps:
-			logging.info("Normalization for PCA")
-			normalizer = Normalizer(False)
-			normalizer.fit(ds)
-			n_components = min(config.params.k, n_samples)
-			logging.info("PCA projection to %d components", n_components)
-			pca = PCAProjection(genes, max_n_components=n_components)
-			pca.fit(ds, normalizer)
-			# Note that here we're transforming all cells; we just did the fit on the selection
-			transformed = pca.transform(ds, normalizer)
 
 		# Load the data for the selected genes
 		data = ds[main_layer].sparse(rows=genes).T
@@ -150,52 +139,32 @@ class Cytograph:
 		ds.ca.HPF_LogPP = log_posterior_proba
 
 		if "nn" in self.steps or "clustering" in self.steps:
-			if "pca" in self.steps:
-				k = min(config.params.k, n_samples - 1)
-				logging.info("Generating multiscale KNN graph (k = %d)", k)
-				bnn = BalancedKNN(k=k, maxl=2 * k, sight_k=2 * k)
-				bnn.fit(transformed)
-				knn = bnn.kneighbors(mode='connectivity')[1][:, 1:]
-				n_cells = knn.shape[0]
-				a = np.tile(np.arange(n_cells), k)
-				b = np.reshape(knn.T, (n_cells * k,))
-				w = np.repeat(1 / np.power(np.arange(1, k + 1), 1), n_cells)
-				knn = sparse.coo_matrix((w, (a, b)), shape=(n_cells, n_cells))
-				threshold = w > 0.025
-				mknn = sparse.coo_matrix((w[threshold], (a[threshold], b[threshold])), shape=(n_cells, n_cells))
-				mknn = mknn.minimum(mknn.transpose()).tocoo()
-				ds.col_graphs.MKNN = mknn
-				ds.col_graphs.KNN = knn
-			else:
-				logging.info(f"Computing balanced KNN (k = {config.params.k}) in HPF latent space")
-				bnn = BalancedKNN(k=config.params.k, metric="js", maxl=2 * config.params.k, sight_k=2 * config.params.k, n_jobs=-1)
-				bnn.fit(theta)
-				knn = bnn.kneighbors_graph(mode='distance')
-				knn.eliminate_zeros()
-				mknn = knn.minimum(knn.transpose())
-				# Convert distances to similarities
-				knn.data = 1 - knn.data
-				mknn.data = 1 - mknn.data
-				ds.col_graphs.KNN = knn
-				ds.col_graphs.MKNN = mknn
-				# Compute the effective resolution
-				d = 1 - knn.data
-				d = d[d < 1]
-				radius = np.percentile(d, 90)
-				logging.info(f"90th percentile radius: {radius:.02}")
-				ds.attrs.radius = radius
-				knn = knn.tocoo()
-				knn.setdiag(0)
-				inside = knn.data > 1 - radius
-				rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
-				ds.col_graphs.RNN = rnn
+			logging.info(f"Computing balanced KNN (k = {config.params.k}) in HPF latent space")
+			bnn = BalancedKNN(k=config.params.k, metric="js", maxl=2 * config.params.k, sight_k=2 * config.params.k, n_jobs=-1)
+			bnn.fit(theta)
+			knn = bnn.kneighbors_graph(mode='distance')
+			knn.eliminate_zeros()
+			mknn = knn.minimum(knn.transpose())
+			# Convert distances to similarities
+			knn.data = 1 - knn.data
+			mknn.data = 1 - mknn.data
+			ds.col_graphs.KNN = knn
+			ds.col_graphs.MKNN = mknn
+			# Compute the effective resolution
+			d = 1 - knn.data
+			d = d[d < 1]
+			radius = np.percentile(d, 90)
+			logging.info(f"90th percentile radius: {radius:.02}")
+			ds.attrs.radius = radius
+			knn = knn.tocoo()
+			knn.setdiag(0)
+			inside = knn.data > 1 - radius
+			rnn = sparse.coo_matrix((knn.data[inside], (knn.row[inside], knn.col[inside])), shape=knn.shape)
+			ds.col_graphs.RNN = rnn
 
 		if "embeddings" in self.steps or "clustering" in self.steps:
 			logging.info(f"2D tSNE embedding from latent space")
-			if "pca" in self.steps:
-				ds.ca.TSNE = tsne(transformed)
-			else:
-				ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
+			ds.ca.TSNE = tsne(theta, metric="js", radius=radius)
 
 			logging.info(f"2D UMAP embedding from latent space")
 			with warnings.catch_warnings():
@@ -208,12 +177,14 @@ class Cytograph:
 				ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 		if "clustering" in self.steps:
-			logging.info("Clustering by polished Louvain")
-			pl = PolishedLouvain(outliers=False)
-			if "pca" in self.steps:
-				labels = pl.fit_predict(ds, graph="MKNN", embedding="TSNE")
-			else:
+			if config.params.clusterer == "louvain":
+				logging.info("Clustering by polished Louvain")
+				pl = PolishedLouvain(outliers=False)
 				labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
+			elif config.params.clusterer == "surprise":
+				logging.info("Clustering by polished Surprise")
+				ps = PolishedSurprise(embedding="TSNE")
+				labels = ps.fit_predict(ds)
 			ds.ca.Clusters = labels + min(labels)
 			ds.ca.Outliers = (labels == -1).astype('int')
 			logging.info(f"Found {labels.max() + 1} clusters")

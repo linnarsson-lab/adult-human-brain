@@ -41,6 +41,7 @@ class ParamsConfig(AbstractConfig):
 	mask: List[str] = ["cellcycle", "sex", "ieg", "mt"]
 	min_fraction_good_cells: float = 0.4
 	skip_missing_samples: bool = False
+	clusterer: str = "louvain"  # or "surprise"
 
 
 class ExecutionConfig(AbstractConfig):
