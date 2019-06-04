@@ -244,7 +244,12 @@ class RootWorkflow(Workflow):
 						if config.params.doublets_method == "scrublet":
 							logging.info("Scoring doublets using Scrublet")
 							data = ds[:, :].T
-							doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
+							try:
+								doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
+							except ValueError as ve:
+								logging.info("Scrublet error: " + ve.msg)
+								doublet_scores = np.zeros(ds.shape[0])
+								predicted_doublets = np.zeros(ds.shape[1])
 							col_attrs["ScrubletScore"] = doublet_scores
 							if predicted_doublets is None:  # Sometimes scrublet gives up and returns None
 								predicted_doublets = np.zeros(ds.shape[1], dtype=bool)

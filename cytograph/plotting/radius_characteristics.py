@@ -62,9 +62,10 @@ def radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> N
 	d = 1 - knn.data
 	d = d[d < 1]
 	hist = plt.hist(d, bins=200)
+	kl = np.power(2, 7.26 * radius - 3.5)
 	plt.ylabel("Number of cells")
 	plt.xlabel("Jensen-Shannon distance to neighbors")
-	plt.title(f"90th percentile JSD={radius:.2}")
+	plt.title(f"90th percentile JSD={radius:.2} ({kl:.2} bits)")
 	plt.plot([radius, radius], [0, hist[0].max()], "r--")
 
 	plt.subplot(326)
