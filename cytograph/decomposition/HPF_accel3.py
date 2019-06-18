@@ -71,7 +71,6 @@ class HPF:
 		stop_interval: int = 10,
 		epsilon: float = 0.001,
 		max_r: float = 0.99,
-		covariates: np.ndarray = None,
 		compute_X_ppv: bool = True,
 		validation_fraction: float = 0,
 		n_threads: int = 0) -> None:
@@ -101,7 +100,6 @@ class HPF:
 		self.stop_interval = stop_interval
 		self.epsilon = epsilon
 		self.max_r = max_r
-		self.covariates = covariates
 		self.compute_X_ppv = compute_X_ppv
 		self.validation_fraction = validation_fraction
 		self.n_threads = n_threads
@@ -173,7 +171,6 @@ class HPF:
 	def _fit(self, X: sparse.coo_matrix, beta_precomputed: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 		# Create local variables for convenience
 		(n_users, n_items) = X.shape
-		n_covariates = self.covariates.shape[1] if self.covariates is not None else 0
 		k = self.k
 		(u, i, y) = (X.row, X.col, X.data)  # u and i are indices of the nonzero entries; y are the values of those entries
 		(a, b, c, d) = (self.a, self.b, self.c, self.d)
@@ -200,10 +197,6 @@ class HPF:
 		gamma_shape = np.random.uniform(0.5 * a, 1.5 * a, (n_users, k)).astype('float32')
 		gamma_rate = np.random.uniform(0.5 * b, 1.5 * b, (n_users, k)).astype('float32')
 		
-		if n_covariates > 0:
-			# Hold the expected values of the covariates fixed
-			gamma_shape[:, :n_covariates] = self.covariates * gamma_rate[:, :n_covariates]
-
 		if beta_precomputed:
 			tau_shape = self._tau_shape
 			tau_rate = self._tau_rate
@@ -238,9 +231,6 @@ class HPF:
 
 				gamma_shape = a + y_phi_sum_u
 				gamma_rate = (kappa_shape / kappa_rate)[:, None] + (lambda_shape / lambda_rate).sum(axis=0)
-				if n_covariates > 0:
-					# Hold the expected values of the covariates fixed
-					gamma_shape[:, :n_covariates] = self.covariates * gamma_rate[:, :n_covariates]
 				kappa_rate = (b / bp) + (gamma_shape / gamma_rate).sum(axis=1)
 
 				if not beta_precomputed:
