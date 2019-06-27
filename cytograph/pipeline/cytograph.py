@@ -12,12 +12,12 @@ from umap import UMAP
 import loompy
 from cytograph.annotation import CellCycleAnnotator
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
-from cytograph.decomposition import HPF, identify_technical_factors, PCAProjection
+from cytograph.decomposition import HPF
 from cytograph.embedding import tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
-from cytograph.preprocessing import PoissonPooling, Normalizer
+from cytograph.preprocessing import PoissonPooling
 from cytograph.species import Species
 from cytograph.velocity import VelocityEmbedding, fit_velocity_gamma
 
@@ -87,12 +87,6 @@ class Cytograph:
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 		beta = (hpf.beta.T / hpf.beta.sum(axis=1)).T
 		beta_all[genes] = beta
-		if "batch_correction" in self.steps and "Batch" in ds.ca and "Replicate" in ds.ca:
-			technical = identify_technical_factors(theta, ds.ca.Batch, ds.ca.Replicate)
-			logging.info(f"Removing {technical.sum()} technical factors")
-			theta = theta[:, ~technical]
-			beta = beta[:, ~technical]
-			beta_all = beta_all[:, ~technical]
 		# Save the normalized factors
 		ds.ra.HPF = beta_all
 		ds.ca.HPF = theta
@@ -102,27 +96,21 @@ class Cytograph:
 			logging.info(f"HPF of spliced molecules")
 			data_spliced = ds[spliced_layer].sparse(rows=genes).T
 			theta_spliced = hpf.transform(data_spliced)
-			# theta_spliced = (theta_spliced.T / theta_spliced.sum(axis=1)).T
-			if "batch_correction" in self.steps and "Batch" in ds.ca and "Replicate" in ds.ca:
-				theta_spliced = theta_spliced[:, ~technical]
 			ds.ca.HPF_spliced = theta_spliced
 			logging.info(f"HPF of unspliced molecules")
 			data_unspliced = ds[unspliced_layer].sparse(rows=genes).T
 			theta_unspliced = hpf.transform(data_unspliced)
-			# theta_unspliced = (theta_unspliced.T / theta_unspliced.sum(axis=1)).T
-			if "batch_correction" in self.steps and "Batch" in ds.ca and "Replicate" in ds.ca:
-				theta_unspliced = theta_unspliced[:, ~technical]
 			ds.ca.HPF_unspliced = theta_unspliced
 
 		# Expected values
 		logging.info(f"Computing expected values")
 		ds["expected"] = 'float32'  # Create a layer of floats
 		log_posterior_proba = np.zeros(n_samples)
-		theta_unnormalized = hpf.theta[:, ~technical] if "batch_correction" in self.steps else hpf.theta
+		theta_unnormalized = hpf.theta
 		data = data.toarray()
 		start = 0
 		batch_size = 6400
-		beta_all = ds.ra.HPF_beta[:, ~technical] if "batch_correction" in self.steps else ds.ra.HPF_beta  # The unnormalized beta
+		beta_all = ds.ra.HPF_beta  # The unnormalized beta
 		if "velocity" in self.steps and "spliced" in ds.layers:
 			ds["spliced_exp"] = 'float32'
 			ds['unspliced_exp'] = 'float32'
@@ -177,17 +165,23 @@ class Cytograph:
 				ds.ca.UMAP3D = UMAP(n_components=3, metric=jensen_shannon_distance, n_neighbors=config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(theta)
 
 		if "clustering" in self.steps:
+			logging.info("Clustering by polished Louvain")
+			pl = PolishedLouvain(outliers=False)
+			labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
+			ds.ca.ClustersModularity = labels + min(labels)
+			ds.ca.OutliersModularity = (labels == -1).astype('int')
 			if config.params.clusterer == "louvain":
-				logging.info("Clustering by polished Louvain")
-				pl = PolishedLouvain(outliers=False)
-				labels = pl.fit_predict(ds, graph="RNN", embedding="UMAP3D")
-			elif config.params.clusterer == "surprise":
-				logging.info("Clustering by polished Surprise")
-				ps = PolishedSurprise(embedding="TSNE")
-				labels = ps.fit_predict(ds)
-			ds.ca.Clusters = labels + min(labels)
-			ds.ca.Outliers = (labels == -1).astype('int')
-			logging.info(f"Found {labels.max() + 1} clusters")
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
+			logging.info("Clustering by polished Surprise")
+			ps = PolishedSurprise(embedding="TSNE")
+			labels = ps.fit_predict(ds)
+			ds.ca.ClustersSurprise = labels + min(labels)
+			ds.ca.OutliersSurprise = (labels == -1).astype('int')
+			if config.params.clusterer == "surprise":
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
+			logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
 
 		if "velocity" in self.steps and "spliced" in ds.layers:
 			logging.info("Fitting gamma for velocity inference")
