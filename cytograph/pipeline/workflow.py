@@ -1,23 +1,24 @@
 import logging
 import os
 import sys
+from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 
 import cytograph.plotting as cgplot
 import loompy
+from cytograph.annotation import AutoAnnotator
 from cytograph.clustering import ClusterValidator
 from cytograph.preprocessing import Scrublet, doublet_finder
 from cytograph.species import Species
-from cytograph.annotation import AutoAnnotator
 
 from .aggregator import Aggregator
 from .config import config
 from .cytograph import Cytograph
-from .punchcards import Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView
+from .punchcards import (Punchcard, PunchcardDeck, PunchcardSubset,
+                         PunchcardView)
 from .utils import Tempname
 
 #
@@ -393,8 +394,8 @@ class ViewWorkflow(Workflow):
 		logging.debug("Combining files")
 		loompy.combine_faster(files, out_file, None, selections, key="Accession")
 		with loompy.connect(out_file) as ds:
-			ds.ca.SourceClusters = previous_clusters
-			ds.ca.Source = previous_file
+			ds.ca.SourceClusters = np.concatenate(previous_clusters)
+			ds.ca.Source = np.concatenate(previous_file)
 
 
 class PoolWorkflow(Workflow):

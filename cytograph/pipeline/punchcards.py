@@ -89,9 +89,17 @@ class PunchcardView:
 		with open(path) as f:
 			spec = yaml.load(f)
 		self.steps = spec.get("steps")
+		if self.steps is not None and not isinstance(self.steps, list):
+			raise ValueError(f"'steps' in the view '{self.name}' must be a list of named analysis steps")
 		self.sources = spec.get("sources")
+		if not isinstance(self.sources, list):
+			raise ValueError(f"'sources' in the view '{self.name}' must be a list of names of punchcard subsets")
 		self.include = spec.get("include")
+		if self.include is not None and not isinstance(self.include, list):
+			raise ValueError(f"'include' in the view '{self.name}' must be a list of auto-annotation tags or categories")
 		self.onlyif = spec.get("onlyif")
+		if self.onlyif is not None and not isinstance(self.onlyif, str):
+			raise ValueError(f"'onlyif' in the view '{self.name}' must be a Python expression in a string")
 		self.params = spec.get("params")
 		self.execution = spec.get("execution")
 
