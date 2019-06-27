@@ -390,7 +390,7 @@ class ViewWorkflow(Workflow):
 			selections.append(selected)
 			with loompy.connect(f, mode="r") as ds:
 				previous_clusters.append(ds.ca.Clusters[selected])
-			previous_file.append([s] * selected.shape[0])
+			previous_file.append([s] * selected.sum())
 		logging.debug("Combining files")
 		loompy.combine_faster(files, out_file, None, selections, key="Accession")
 		with loompy.connect(out_file) as ds:
