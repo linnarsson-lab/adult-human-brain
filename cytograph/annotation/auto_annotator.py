@@ -14,7 +14,7 @@ class Annotation:
 
 	def __init__(self, category: str, filename: str) -> None:
 		with open(filename) as f:
-			doc = next(yaml.load_all(f))
+			doc = next(yaml.load_all(f, Loader=yaml.SafeLoader))
 
 		if "name" in doc:
 			self.name = doc["name"]
