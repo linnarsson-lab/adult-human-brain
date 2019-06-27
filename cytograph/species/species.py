@@ -46,6 +46,7 @@ class Species:
 				"g1": g1_human,
 				"s": s_human,
 				"g2m": g2m_human,
+				"ery": ["HBA-A2", "ALAS2"],
 				"mt": ['MT-CYB', 'MT-ND6', 'MT-CO3', 'MT-ND1', 'MT-ND4', 'MT-CO1', 'MT-ND2', 'MT-CO2', 'MT-ATP8', 'MT-ND4L', 'MT-ATP6', 'MT-ND5', 'MT-ND3']
 			}
 			self.markers = {
@@ -80,6 +81,7 @@ class Species:
 				"g1": g1_mouse,
 				"s": s_mouse,
 				"g2m": g2m_mouse,
+				"ery": ["Hba-a2", "Alas2"],
 				"mt": ['mt-Nd1', 'mt-Nd2', 'mt-Co1', 'mt-Co2', 'mt-Atp8', 'mt-Atp6', 'mt-Co3', 'mt-Nd3', 'mt-Nd4l', 'mt-Nd4', 'mt-Nd5', 'mt-Cytb', 'mt-Nd6']
 			}
 			self.markers = {
@@ -114,6 +116,7 @@ class Species:
 				"g1": [],
 				"s": [],
 				"g2m": [],
+				"ery": [],
 				"mt": []
 			}
 			self.markers = {}
