@@ -323,16 +323,54 @@ class SubsetWorkflow(Workflow):
 class ViewWorkflow(Workflow):
 	"""
 	A workflow for views, which collects its cells from arbitrary punchcard subsets
+
+	Views
+			Collect cells from punchcard subsets and/or from the pool
+			Cannot collect from other views
+			Can use include and onlyif to filter the sources
+			Adds column attributes Source (the name of the source punchcard) and SourceClusters
 	"""
 	def __init__(self, deck: PunchcardDeck, view: PunchcardView) -> None:
 		super().__init__(deck, "View_" + view.name)
 		self.view = view
 		self.deck = deck
 
+	def _compute_cells_for_view(self, subset: str, include: List[str], onlyif: str) -> np.ndarray:
+		# Load auto-annotation
+		annotator = AutoAnnotator(root=config.paths.autoannotation)
+		categories_dict: Dict[str, List] = defaultdict(list)
+		for d in annotator.definitions:
+				for c in d.categories:
+						categories_dict[c].append(d.abbreviation)
+		# Load loom file
+		with loompy.connect(os.path.join(config.paths.build, "data", subset + ".loom"), mode="r+") as ds:
+			with loompy.connect(os.path.join(config.paths.build, "data", subset + ".agg.loom"), mode="r") as dsagg:
+				selected = np.zeros(ds.shape[1], dtype=bool)
+				if len(include) > 0:
+					# Include clusters that have any of the given tags
+					for tag in include:
+						# If annotation is a category, check all category auto-annotations
+						if tag in categories_dict.keys():
+							# tag can be a list of strings only for the root punchcard, which doesn't have a loom file, so this method will never be called on it, hence we can ignore the type error
+							for aa in categories_dict[tag]:  # type: ignore
+								for ix in range(dsagg.shape[1]):
+									if aa in dsagg.ca.AutoAnnotation[ix].split(" "):
+										selected = selected | (ds.ca.Clusters == ix)
+						else:
+							for ix in range(dsagg.shape[1]):
+								if tag in dsagg.ca.AutoAnnotation[ix].split(" "):
+									selected = selected | (ds.ca.Clusters == ix)
+				else:
+					selected = np.ones(ds.shape[1], dtype=bool)
+				# Exclude cells that don't match the onlyif expression
+				if onlyif != "" and onlyif is not None:
+					selected = selected & eval(onlyif, globals(), {k: v for k, v in ds.ca.items()})
+				return selected
+
 	def collect_cells(self, out_file: str) -> None:
 		# Verify that the previous punchard subsets exist
-		for i in self.view.include:
-			parent = os.path.join(config.paths.build, "data", i + ".loom")
+		for s in self.view.sources:
+			parent = os.path.join(config.paths.build, "data", s + ".loom")
 			if not os.path.exists(parent):
 				logging.error(f"Punchcard file '{parent}' was missing.")
 				sys.exit(1)
@@ -342,27 +380,21 @@ class ViewWorkflow(Workflow):
 		selections = []
 		previous_clusters = []
 		previous_file = []
-		for i in self.view.include:
-			logging.info(f"Collecting cells from '{i}'")
-			f = os.path.join(config.paths.build, "data", i + ".loom")
-			# Verify that there are some cells in the subset
+		for s in self.view.sources:
+			logging.info(f"Collecting cells from '{s}'")
+			f = os.path.join(config.paths.build, "data", s + ".loom")
+			selected = self._compute_cells_for_view(s, self.view.include, self.view.onlyif)
+			logging.info(f"Collecting {selected.sum()} cells from '{s}'")
+			files.append(f)
+			selections.append(selected)
 			with loompy.connect(f, mode="r") as ds:
-				# Exclude cells that don't match the onlyif expression
-				if self.view.onlyif != "" and self.view.onlyif is not None:
-					selected = eval(self.view.onlyif, globals(), {k: v for k, v in ds.ca.items()})
-				if selected.sum() == 0:
-					logging.info(f"Skipping {self.name} because the view was empty")
-					continue
-				logging.info(f"Collecting {selected.sum()} cells from '{i}'")
-				files.append(f)
-				selections.append(selected)
 				previous_clusters.append(ds.ca.Clusters[selected])
-				previous_file.append([i] * selected.shape[0])
+			previous_file.append([s] * selected.shape[0])
 		logging.debug("Combining files")
 		loompy.combine_faster(files, out_file, None, selections, key="Accession")
 		with loompy.connect(out_file) as ds:
 			ds.ca.SourceClusters = previous_clusters
-			ds.ca.SourcePunchcard = previous_file
+			ds.ca.Source = previous_file
 
 
 class PoolWorkflow(Workflow):

@@ -89,6 +89,7 @@ class PunchcardView:
 		with open(path) as f:
 			spec = yaml.load(f)
 		self.steps = spec.get("steps")
+		self.sources = spec.get("sources")
 		self.include = spec.get("include")
 		self.onlyif = spec.get("onlyif")
 		self.params = spec.get("params")
