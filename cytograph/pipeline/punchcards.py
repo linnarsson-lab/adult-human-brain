@@ -1,10 +1,10 @@
 import logging
 import os
+import re
 import sys
-from typing import List, Dict, Union, Any, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
-import re
 
 
 class Punchcard:
@@ -57,6 +57,8 @@ class Punchcard:
 
 class PunchcardSubset:
 	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str], execution: Dict[str, Any]) -> None:
+		if name == "Pool" or name == "View":
+			raise ValueError(f"Subset '{name}' in punchcard '{card.name}' not allowed ('Pool' and 'View' are reserved names).")
 		self.name = name
 		self.card = card
 		self.include = include
@@ -66,12 +68,6 @@ class PunchcardSubset:
 		self.execution = execution
 
 	def longname(self) -> str:
-		# name = self.name
-		# p: Optional[Punchcard] = self.card
-		# while p is not None:
-		# 	name = p.name + "_" + name
-		# 	p = p.parent
-		# return name
 		if self.card.name == "Root":
 			return self.name
 		else:
@@ -84,12 +80,37 @@ class PunchcardSubset:
 		return "_".join(names[:-1])
 
 
+class PunchcardView:
+	def __init__(self, path: str) -> None:
+		self.name = os.path.basename(path).split(".")[0]
+		if not os.path.exists(path):
+			logging.error(f"View {path} not found.")
+			sys.exit(1)
+		with open(path) as f:
+			spec = yaml.load(f)
+		self.steps = spec.get("steps")
+		self.include = spec.get("include")
+		self.onlyif = spec.get("onlyif")
+		self.params = spec.get("params")
+		self.execution = spec.get("execution")
+
+	@staticmethod
+	def load_all(path: str) -> List["PunchcardView"]:
+		result: List[PunchcardView] = []
+		if os.path.exists(path):
+			for f in os.listdir(path):
+				if f.lower().endswith(".yaml"):
+					result.append(PunchcardView(os.path.join(path, f)))
+		return result
+
+
 class PunchcardDeck:
 	def __init__(self, build_path: str) -> None:
 		self.path = build_path
 		self.root = Punchcard.load_recursive(os.path.join(build_path, "punchcards", "Root.yaml"), None)
+		self.views = PunchcardView.load_all(os.path.join(build_path, "views"))
 
-		# Check the samples specifications, and make sure they makes sense
+		# Check the samples specifications, and make sure they make sense
 		for subset in self.root.subsets.values():
 			if not isinstance(subset.include, list):
 				logging.error(f"Error in '{subset.longname()}'; every 'include' in Root.yaml must be a non-empty list of lists of samples.")
@@ -129,3 +150,9 @@ class PunchcardDeck:
 
 	def get_card(self, name: str) -> Optional[Punchcard]:
 		return self._get_card(self.root, name)
+
+	def get_view(self, name: str) -> Optional[PunchcardView]:
+		for v in self.views:
+			if v.name == name:
+				return v
+		return None

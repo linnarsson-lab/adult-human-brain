@@ -166,7 +166,7 @@ cytograph build --engine local
 Cytograph computes an execution graph based on the punchcard dependencies, sorts it so that dependencies come before the
 subsets that depends on them, and then runs `cytograph process` on them sequentially.
 
-As a bonus, cytograph also runs `cytograph pool` on the result, which pools all the leaf subsets into a merged file `_pool.loom` and corresponding `_pool.agg.loom` and `exported/_pool`. Pooling does not involve re-clustering, but does
+As a bonus, cytograph also runs `cytograph pool` on the result, which pools all the leaf subsets into a merged file `Pool.loom` and corresponding `Pool.agg.loom` and `exported/Pool`. Pooling does not involve re-clustering, but does
 include embeddings (e.g. tSNE), matrix factorization etc. and all the standard plots.
 
 #### Running a complete build on a compute cluster
@@ -193,7 +193,7 @@ are saved in `condor/` in the build folder, which now looks like this:
     MySamples_RadialGlia.condor
     MySamples.condor
     MySamples_Neuronal.condor
-    _pool.condor
+    Pool.condor
     ...log files etc...
 /data
     MySamples.loom
@@ -203,7 +203,7 @@ are saved in `condor/` in the build folder, which now looks like this:
         .
         . Lots of plots
         .
-    _pool/
+    Pool/
         ...plots...
     ...more folders...
 /punchcards

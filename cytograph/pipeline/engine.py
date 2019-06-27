@@ -30,11 +30,11 @@ class Engine:
 	
 		Remarks:
 			The tasks are named for the punchcard subset they involve (using long subset names),
-			and the pooling task is denoted by the special task name '_pool'.
+			or the view name ("View_xxx"), and the pooling task is denoted by the special task name 'Pool'.
 		"""
 		stack = self.deck.root.get_leaves()
 		if len(stack) > 1:
-			tasks = {"_pool": [s.longname() for s in stack]}
+			tasks = {"Pool": [s.longname() for s in stack]}
 		else:
 			tasks = {}
 		while len(stack) > 0:
@@ -51,6 +51,13 @@ class Engine:
 				tasks[s.longname()] = [dep]
 			else:
 				tasks[s.longname()] = []
+		# Add views
+		for view in self.deck.views:
+			for i in view.include:
+				if i not in tasks.keys():
+					logging.error(f"Dependency '{i}' of view '{view.name}' was not found in punchcard deck.")
+					sys.exit(1)
+			tasks[view.name] = view.include
 		return tasks
 	
 	def execute(self) -> None:
@@ -94,19 +101,32 @@ class LocalEngine(Engine):
 		ordered_tasks = topological_sort(tasks)
 		logging.debug(f"Execution order: {','.join(ordered_tasks)}")
 
+		# Figure out which tasks have already been completed
+		filtered_tasks: List[str] = []
+		for task in ordered_tasks:
+			if not os.path.exists(os.path.join(config.paths.build, "data", task + ".loom")):
+				filtered_tasks.append(task)
+				continue
+			if not os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom")):
+				filtered_tasks.append(task)
+				continue
+			if not os.path.exists(os.path.join(config.paths.build, "exported", task)):
+				filtered_tasks.append(task)
+				continue
+
 		# Now we have the tasks ordered by the DAG, and run them
 		if self.dryrun:
 			logging.info("Dry run only, with the following execution plan")
-		for ix, task in enumerate(ordered_tasks):
-			if task == "_pool":
+		for ix, task in enumerate(filtered_tasks):
+			if task == "Pool":
 				if not self.dryrun:
-					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(ordered_tasks)}: cytograph pool\033[0m")
+					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(filtered_tasks)}: cytograph pool\033[0m")
 					subprocess.run(["cytograph", "--hide-message", "pool"])
 				else:
 					logging.info("cytograph pool")
 			else:
 				if not self.dryrun:
-					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(ordered_tasks)}: cytograph process {task}\033[0m")
+					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(filtered_tasks)}: cytograph process {task}\033[0m")
 					subprocess.run(["cytograph", "--hide-message", "process", task])
 				else:
 					logging.info(f"cytograph process {task}")
@@ -130,10 +150,15 @@ class CondorEngine(Engine):
 			shutil.rmtree(exdir)
 		os.mkdir(exdir)
 		for task in tasks.keys():
+			# Figure out which tasks have already been completed
+			if os.path.exists(os.path.join(config.paths.build, "data", task + ".loom"))\
+				and os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom"))\
+				and os.path.exists(os.path.join(config.paths.build, "exported", task)):
+				continue
 			cmd = ""
 			excfg: Optional[ExecutionConfig] = None
 			# Get the right execution configuration for the task (CPUs etc.)
-			if task == "_pool":
+			if task == "Pool":
 				cfg_file = os.path.join(config.paths.build, "pool_config.yaml")
 				if os.path.exists(cfg_file):
 					merge_config(config, cfg_file)

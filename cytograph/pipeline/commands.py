@@ -2,15 +2,15 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import click
 
 from .._version import __version__ as version
 from .config import config, merge_config
 from .engine import CondorEngine, Engine, LocalEngine
-from .punchcards import PunchcardDeck
-from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, Workflow
+from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
+from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, ViewWorkflow, Workflow
 
 
 def create_build_folders(path: str) -> None:
@@ -78,16 +78,18 @@ def build(engine: str, dryrun: bool) -> None:
 
 
 @cli.command()
-@click.argument("subset")
-def process(subset: str) -> None:
+@click.argument("subset_or_view")
+def process(subset_or_view: str) -> None:
 	try:
-		logging.info(f"Processing '{subset}'")
+		logging.info(f"Processing '{subset_or_view}'")
 
 		deck = PunchcardDeck(config.paths.build)
-		subset_obj = deck.get_subset(subset)
+		subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = deck.get_subset(subset_or_view)
 		if subset_obj is None:
-			logging.error(f"Subset {subset} not found.")
-			sys.exit(1)
+			subset_obj = deck.get_view(subset_or_view)
+			if subset_obj is None:
+				logging.error(f"Subset or view {subset_or_view} not found.")
+				sys.exit(1)
 
 		# Merge any subset-specific configs
 		config.params.merge(subset_obj.params)
@@ -95,7 +97,9 @@ def process(subset: str) -> None:
 			config.steps = subset_obj.steps
 		config.execution.merge(subset_obj.execution)
 
-		if subset_obj.card.name == "Root":
+		if isinstance(subset_obj, PunchcardView):
+			ViewWorkflow(deck, subset_obj).process()
+		elif subset_obj.card.name == "Root":
 			# Load the punchcard deck and process it
 			RootWorkflow(deck, subset_obj).process()
 		else:

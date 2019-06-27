@@ -17,7 +17,7 @@ from cytograph.annotation import AutoAnnotator
 from .aggregator import Aggregator
 from .config import config
 from .cytograph import Cytograph
-from .punchcards import Punchcard, PunchcardDeck, PunchcardSubset
+from .punchcards import Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView
 from .utils import Tempname
 
 #
@@ -316,8 +316,53 @@ class SubsetWorkflow(Workflow):
 		with loompy.new(out_file) as dsout:
 			# Collect from a previous punchard subset
 			with loompy.connect(parent, mode="r") as ds:
-				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == self.subset.name), axis=1, key="Accession", what=["layers", "col_attrs", "row_attrs"]):
+				for (ix, selection, view) in ds.scan(items=(ds.ca.Subset == self.subset.name), axis=1, key="Accession", layers=["", "spliced", "unspliced"], what=["layers", "col_attrs", "row_attrs"]):
 					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
+
+
+class ViewWorkflow(Workflow):
+	"""
+	A workflow for views, which collects its cells from arbitrary punchcard subsets
+	"""
+	def __init__(self, deck: PunchcardDeck, view: PunchcardView) -> None:
+		super().__init__(deck, "View_" + view.name)
+		self.view = view
+		self.deck = deck
+
+	def collect_cells(self, out_file: str) -> None:
+		# Verify that the previous punchard subsets exist
+		for i in self.view.include:
+			parent = os.path.join(config.paths.build, "data", i + ".loom")
+			if not os.path.exists(parent):
+				logging.error(f"Punchcard file '{parent}' was missing.")
+				sys.exit(1)
+		
+		logging.info(f"Collecting cells for {self.name}")
+		files = []
+		selections = []
+		previous_clusters = []
+		previous_file = []
+		for i in self.view.include:
+			logging.info(f"Collecting cells from '{i}'")
+			f = os.path.join(config.paths.build, "data", i + ".loom")
+			# Verify that there are some cells in the subset
+			with loompy.connect(f, mode="r") as ds:
+				# Exclude cells that don't match the onlyif expression
+				if self.view.onlyif != "" and self.view.onlyif is not None:
+					selected = eval(self.view.onlyif, globals(), {k: v for k, v in ds.ca.items()})
+				if selected.sum() == 0:
+					logging.info(f"Skipping {self.name} because the view was empty")
+					continue
+				logging.info(f"Collecting {selected.sum()} cells from '{i}'")
+				files.append(f)
+				selections.append(selected)
+				previous_clusters.append(ds.ca.Clusters[selected])
+				previous_file.append([i] * selected.shape[0])
+		logging.debug("Combining files")
+		loompy.combine_faster(files, out_file, None, selections, key="Accession")
+		with loompy.connect(out_file) as ds:
+			ds.ca.SourceClusters = previous_clusters
+			ds.ca.SourcePunchcard = previous_file
 
 
 class PoolWorkflow(Workflow):
