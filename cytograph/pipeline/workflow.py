@@ -344,7 +344,7 @@ class ViewWorkflow(Workflow):
 				for c in d.categories:
 						categories_dict[c].append(d.abbreviation)
 		# Load loom file
-		with loompy.connect(os.path.join(config.paths.build, "data", subset + ".loom"), mode="r+") as ds:
+		with loompy.connect(os.path.join(config.paths.build, "data", subset + ".loom"), mode="r") as ds:
 			with loompy.connect(os.path.join(config.paths.build, "data", subset + ".agg.loom"), mode="r") as dsagg:
 				selected = np.zeros(ds.shape[1], dtype=bool)
 				if len(include) > 0:
