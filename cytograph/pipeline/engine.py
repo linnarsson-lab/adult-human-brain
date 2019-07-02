@@ -147,7 +147,7 @@ class CondorEngine(Engine):
 		exdir = os.path.abspath(os.path.join(config.paths.build, "condor"))
 		if os.path.exists(exdir):
 			logging.warn("Removing previous build logs from 'condor' directory.")
-			shutil.rmtree(exdir)
+			shutil.rmtree(exdir, ignore_errors=True)
 		os.mkdir(exdir)
 		for task in tasks.keys():
 			if is_task_complete(task):
