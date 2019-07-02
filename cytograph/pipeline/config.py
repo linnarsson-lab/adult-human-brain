@@ -59,7 +59,7 @@ class Config:
 
 def merge_config(config: Config, path: str) -> None:
 	if not os.path.exists(path):
-		return
+		raise IOError(f"Config path {path} not found.")
 
 	with open(path) as f:
 		defs = yaml.load(f)
@@ -85,6 +85,3 @@ def load_config() -> Config:
 	# Build folder
 	merge_config(config, "config.yaml")
 	return config
-
-
-config = load_config()

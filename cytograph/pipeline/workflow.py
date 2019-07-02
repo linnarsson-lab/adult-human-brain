@@ -15,7 +15,7 @@ from cytograph.preprocessing import Scrublet, doublet_finder
 from cytograph.species import Species
 
 from .aggregator import Aggregator
-from .config import config
+from .config import load_config
 from .cytograph import Cytograph
 from .punchcards import (Punchcard, PunchcardDeck, PunchcardSubset,
                          PunchcardView)
@@ -76,6 +76,7 @@ class Workflow:
 	Subclasses implement workflows that vary by the way cells are collected
 	"""
 	def __init__(self, deck: PunchcardDeck, name: str) -> None:
+		config = load_config()
 		self.deck = deck
 		self.name = name
 		self.loom_file = os.path.join(config.paths.build, "data", name + ".loom")
@@ -87,6 +88,7 @@ class Workflow:
 		pass
 
 	def compute_subsets(self, card: Punchcard) -> None:
+		config = load_config()
 		logging.info(f"Computing subset assignments for {card.name}")
 		# Load auto-annotation
 		annotator = AutoAnnotator(root=config.paths.autoannotation)
@@ -132,8 +134,8 @@ class Workflow:
 				if os.path.exists(parent_dir):
 					cgplot.punchcard_selection(ds, os.path.join(parent_dir, f"{card.name}_subsets.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
 
-
 	def process(self) -> None:
+		config = load_config()
 		# STEP 1: build the .loom file and perform manifold learning (Cytograph)
 		# Maybe we're already done?
 		if os.path.exists(self.loom_file):
@@ -205,6 +207,7 @@ class RootWorkflow(Workflow):
 		self.deck = deck
 
 	def collect_cells(self, out_file: str) -> None:
+		config = load_config()
 		# Make sure all the sample files exist
 		err = False
 		for batch in self.subset.include:
@@ -301,6 +304,7 @@ class SubsetWorkflow(Workflow):
 		self.deck = deck
 
 	def collect_cells(self, out_file: str) -> None:
+		config = load_config()
 		# Verify that the previous punchard subset exists
 		parent = os.path.join(config.paths.build, "data", self.subset.card.name + ".loom")
 		if not os.path.exists(parent):
@@ -337,6 +341,7 @@ class ViewWorkflow(Workflow):
 		self.deck = deck
 
 	def _compute_cells_for_view(self, subset: str, include: List[str], onlyif: str) -> np.ndarray:
+		config = load_config()
 		# Load auto-annotation
 		annotator = AutoAnnotator(root=config.paths.autoannotation)
 		categories_dict: Dict[str, List] = defaultdict(list)
@@ -369,6 +374,7 @@ class ViewWorkflow(Workflow):
 				return selected
 
 	def collect_cells(self, out_file: str) -> None:
+		config = load_config()
 		# Verify that the previous punchard subsets exist
 		for s in self.view.sources:
 			parent = os.path.join(config.paths.build, "data", s + ".loom")
@@ -407,6 +413,7 @@ class PoolWorkflow(Workflow):
 		self.deck = deck
 
 	def collect_cells(self, out_file: str) -> None:
+		config = load_config()
 		punchcards: List[str] = []
 		clusters: List[int] = []
 		punchcard_clusters: List[int] = []

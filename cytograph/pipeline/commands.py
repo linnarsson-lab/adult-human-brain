@@ -7,7 +7,7 @@ from typing import Optional, Union
 import click
 
 from .._version import __version__ as version
-from .config import config, merge_config
+from .config import load_config, merge_config
 from .engine import CondorEngine, Engine, LocalEngine
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, ViewWorkflow, Workflow
@@ -23,6 +23,7 @@ def create_build_folders(path: str) -> None:
 @click.option('--show-message/--hide-message', default=True)
 @click.option('--verbosity', default="info", type=click.Choice(['error', 'warning', 'info', 'debug']))
 def cli(build_location: str = None, show_message: bool = True, verbosity: str = "info") -> None:
+	config = load_config()
 	level = {"error": 40, "warning": 30, "info": 20, "debug": 10}[verbosity]
 	logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(message)s', level=level)
 	logging.captureWarnings(True)
@@ -60,6 +61,7 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 @click.option('--dryrun/--no-dryrun', is_flag=True, default=False)
 def build(engine: str, dryrun: bool) -> None:
 	try:
+		config = load_config()
 		# Load the punchcard deck
 		deck = PunchcardDeck(config.paths.build)
 
@@ -81,6 +83,7 @@ def build(engine: str, dryrun: bool) -> None:
 @click.argument("subset_or_view")
 def process(subset_or_view: str) -> None:
 	try:
+		config = load_config()
 		logging.info(f"Processing '{subset_or_view}'")
 
 		deck = PunchcardDeck(config.paths.build)
@@ -112,6 +115,7 @@ def process(subset_or_view: str) -> None:
 @cli.command()
 def pool() -> None:
 	try:
+		config = load_config()
 		logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
 
 		# Merge pool-specific config
@@ -127,6 +131,7 @@ def pool() -> None:
 @cli.command()
 @click.argument("punchcard")
 def subset(punchcard: str) -> None:
+	config = load_config()
 	deck = PunchcardDeck(config.paths.build)
 	card = deck.get_card(punchcard)
 	if card is None:

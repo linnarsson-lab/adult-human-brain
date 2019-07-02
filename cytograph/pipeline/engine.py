@@ -5,16 +5,16 @@ import subprocess
 import sys
 from typing import List, Dict, Optional, Set, Union
 
-from .config import ExecutionConfig, config, merge_config
+from .config import ExecutionConfig, load_config, merge_config
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
-def is_task_complete(task: str) -> bool:
-	if not os.path.exists(os.path.join(config.paths.build, "data", task + ".loom")):
+def is_task_complete(path: str, task: str) -> bool:
+	if not os.path.exists(os.path.join(path, "data", task + ".loom")):
 		return False
-	if not os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom")):
+	if not os.path.exists(os.path.join(path, "data", task + ".agg.loom")):
 		return False
-	if not os.path.exists(os.path.join(config.paths.build, "exported", task)):
+	if not os.path.exists(os.path.join(path, "exported", task)):
 		return False
 	return True
 
@@ -91,7 +91,6 @@ def topological_sort(graph: Dict[str, List[str]]) -> List[str]:
 	return result
 
 
-
 class LocalEngine(Engine):
 	"""
 	An execution engine that executes tasks serially and locally.
@@ -100,6 +99,7 @@ class LocalEngine(Engine):
 		super().__init__(deck, dryrun)
 
 	def execute(self) -> None:
+		config = load_config()
 		tasks = self.build_execution_dag()
 		for task, deps in tasks.items():
 			if len(deps) > 0:
@@ -112,7 +112,7 @@ class LocalEngine(Engine):
 		logging.debug(f"Execution order: {','.join(ordered_tasks)}")
 
 		# Figure out which tasks have already been completed
-		filtered_tasks = [t for t in ordered_tasks if not is_task_complete(t)]
+		filtered_tasks = [t for t in ordered_tasks if not is_task_complete(config.paths.build, t)]
 
 		# Now we have the tasks ordered by the DAG, and run them
 		if self.dryrun:
@@ -142,6 +142,7 @@ class CondorEngine(Engine):
 		super().__init__(deck, dryrun)
 
 	def execute(self) -> None:
+		config = load_config()
 		tasks = self.build_execution_dag()
 		# Make job files
 		exdir = os.path.abspath(os.path.join(config.paths.build, "condor"))
@@ -151,7 +152,7 @@ class CondorEngine(Engine):
 		if not os.path.exists(exdir):
 			os.mkdir(exdir)
 		for task in tasks.keys():
-			if is_task_complete(task):
+			if is_task_complete(config.paths.build, task):
 				continue
 			cmd = ""
 			excfg: Optional[ExecutionConfig] = None
@@ -196,11 +197,11 @@ queue 1\n
 
 		with open(os.path.join(exdir, "_dag.condor"), "w") as f:
 			for task in tasks.keys():
-				if is_task_complete(task):
+				if is_task_complete(config.paths.build, task):
 					continue
 				f.write(f"JOB {task} {os.path.join(exdir, task)}.condor DIR {config.paths.build}\n")
 			for task, deps in tasks.items():
-				filtered_deps = [d for d in deps if not is_task_complete(d)]
+				filtered_deps = [d for d in deps if not is_task_complete(config.paths.build, d)]
 				if len(filtered_deps) == 0:
 					continue
 				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")

@@ -10,7 +10,7 @@ from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
 
-from .config import config
+from .config import load_config
 
 
 class Aggregator:
@@ -19,7 +19,7 @@ class Aggregator:
 		self.mask = mask
 
 	def aggregate(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
-
+		config = load_config()
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",

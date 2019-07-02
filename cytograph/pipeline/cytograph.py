@@ -21,7 +21,7 @@ from cytograph.preprocessing import PoissonPooling
 from cytograph.species import Species
 from cytograph.velocity import VelocityEmbedding, fit_velocity_gamma
 
-from .config import config
+from .config import load_config
 
 
 class Cytograph:
@@ -39,6 +39,8 @@ class Cytograph:
 		self.steps = steps
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
+		config = load_config()
+
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
 		n_samples = ds.shape[1]
 
