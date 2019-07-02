@@ -3,10 +3,10 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Union
 
 from .config import ExecutionConfig, config, merge_config
-from .punchcards import PunchcardDeck
+from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
 class Engine:
@@ -165,10 +165,12 @@ class CondorEngine(Engine):
 				excfg = config.execution
 				cmd = "pool"
 			else:
-				subset = self.deck.get_subset(task)
+				subset: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = self.deck.get_subset(task)
 				if subset is None:
-					logging.error(f"Subset '{task}' not found among punchcards.")
-					sys.exit(1)
+					subset = self.deck.get_view(task)
+					if subset is None:
+						logging.error(f"Subset or view {task} not found.")
+						sys.exit(1)
 				config.execution.merge(subset.execution)
 				excfg = config.execution
 				cmd = f"process {task}"
