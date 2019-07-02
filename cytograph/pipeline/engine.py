@@ -9,6 +9,16 @@ from .config import ExecutionConfig, config, merge_config
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
+def is_task_complete(task: str) -> bool:
+	if not os.path.exists(os.path.join(config.paths.build, "data", task + ".loom")):
+		return False
+	if not os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom")):
+		return False
+	if not os.path.exists(os.path.join(config.paths.build, "exported", task)):
+		return False
+	return True
+
+
 class Engine:
 	'''
 	An execution engine, which takes a :class:`PunchcardDeck` and calculates an execution plan in the form
@@ -102,17 +112,7 @@ class LocalEngine(Engine):
 		logging.debug(f"Execution order: {','.join(ordered_tasks)}")
 
 		# Figure out which tasks have already been completed
-		filtered_tasks: List[str] = []
-		for task in ordered_tasks:
-			if not os.path.exists(os.path.join(config.paths.build, "data", task + ".loom")):
-				filtered_tasks.append(task)
-				continue
-			if not os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom")):
-				filtered_tasks.append(task)
-				continue
-			if not os.path.exists(os.path.join(config.paths.build, "exported", task)):
-				filtered_tasks.append(task)
-				continue
+		filtered_tasks = [t for t in ordered_tasks if not is_task_complete(t)]
 
 		# Now we have the tasks ordered by the DAG, and run them
 		if self.dryrun:
@@ -150,10 +150,7 @@ class CondorEngine(Engine):
 			shutil.rmtree(exdir)
 		os.mkdir(exdir)
 		for task in tasks.keys():
-			# Figure out which tasks have already been completed
-			if os.path.exists(os.path.join(config.paths.build, "data", task + ".loom"))\
-				and os.path.exists(os.path.join(config.paths.build, "data", task + ".agg.loom"))\
-				and os.path.exists(os.path.join(config.paths.build, "exported", task)):
+			if is_task_complete(task):
 				continue
 			cmd = ""
 			excfg: Optional[ExecutionConfig] = None
@@ -198,11 +195,14 @@ queue 1\n
 
 		with open(os.path.join(exdir, "_dag.condor"), "w") as f:
 			for task in tasks.keys():
+				if is_task_complete(task):
+					continue
 				f.write(f"JOB {task} {os.path.join(exdir, task)}.condor DIR {config.paths.build}\n")
 			for task, deps in tasks.items():
-				if len(deps) == 0:
+				filtered_deps = [d for d in deps if not is_task_complete(d)]
+				if len(filtered_deps) == 0:
 					continue
-				f.write(f"PARENT {' '.join(deps)} CHILD {task}\n")
+				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")
 
 		if not self.dryrun:
 			logging.info(f"condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
