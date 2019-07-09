@@ -144,9 +144,9 @@ class Workflow:
 			with Tempname(self.loom_file) as out_file:
 				self.collect_cells(out_file)
 				with loompy.connect(out_file) as ds:
+					ds.attrs.config = config.to_string()
 					logging.info(f"Collected {ds.shape[1]} cells")
 					Cytograph(steps=config.steps).fit(ds)
-					# TODO: save config in loom
 
 		# STEP 2: aggregate and create the .agg.loom file
 		if os.path.exists(self.agg_file):
@@ -155,7 +155,8 @@ class Workflow:
 			with loompy.connect(self.loom_file) as dsout:
 				with Tempname(self.agg_file) as out_file:
 					Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
-					# TODO: save config in loom
+				with loompy.connect(self.agg_file) as dsagg:
+					ds.attrs.config = config.to_string()
 
 		# STEP 3: export plots
 		if os.path.exists(self.export_dir):

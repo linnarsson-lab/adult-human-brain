@@ -208,7 +208,7 @@ queue 1\n
 				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")
 
 		if not self.dryrun:
-			logging.info(f"condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
+			logging.debug(f"condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
 			subprocess.run(["condor_submit_dag", os.path.join(exdir, "_dag.condor")])
 		else:
 			logging.info(f"(Dry run) condor_submit_dag {os.path.join(exdir, '_dag.condor')}")
