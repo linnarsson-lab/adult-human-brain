@@ -57,8 +57,8 @@ class Punchcard:
 
 class PunchcardSubset:
 	def __init__(self, name: str, card: Punchcard, include: Union[List[str], List[List[str]]], onlyif: str, params: Dict[str, Any], steps: List[str], execution: Dict[str, Any]) -> None:
-		if name == "Pool" or name == "View":
-			raise ValueError(f"Subset '{name}' in punchcard '{card.name}' not allowed ('Pool' and 'View' are reserved names).")
+		if name == "Pool":
+			raise ValueError(f"Subset '{name}' in punchcard '{card.name}' not allowed ('Pool' is a reserved name).")
 		self.name = name
 		self.card = card
 		self.include = include
@@ -118,7 +118,12 @@ class PunchcardDeck:
 		self.path = build_path
 		self.root = Punchcard.load_recursive(os.path.join(build_path, "punchcards", "Root.yaml"), None)
 		self.views = PunchcardView.load_all(os.path.join(build_path, "views"))
-
+		# Check that the views have distinct names
+		for view in self.views:
+			subset = self.get_subset(view.name)
+			if subset is not None:
+				logging.error(f"View '{view.name}' conflicts with punchcard subset '{subset.longname()}'")
+				sys.exit(1)
 		# Check the samples specifications, and make sure they make sense
 		for subset in self.root.subsets.values():
 			if not isinstance(subset.include, list):
