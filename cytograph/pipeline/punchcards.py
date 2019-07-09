@@ -122,7 +122,7 @@ class PunchcardDeck:
 		for view in self.views:
 			subset = self.get_subset(view.name)
 			if subset is not None:
-				logging.error(f"View '{view.name}' conflicts with punchcard subset '{subset.longname()}'")
+				logging.error(f"View named '{view.name}' conflicts with punchcard subset named '{subset.longname()}' (views must have unique names)")
 				sys.exit(1)
 		# Check the samples specifications, and make sure they make sense
 		for subset in self.root.subsets.values():
