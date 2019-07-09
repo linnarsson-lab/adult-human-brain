@@ -87,6 +87,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
 		if subset_obj.steps != [] and subset_obj.steps is not None:
 			config.steps = subset_obj.steps
-		merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
+		if subset_obj.execution is not None:
+			merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
 
 	return config
