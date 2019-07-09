@@ -6,7 +6,7 @@ import sys
 from typing import List, Dict, Optional, Set, Union
 from types import SimpleNamespace
 
-from .config import Config, load_config, merge_namespaces
+from .config import load_config, merge_namespaces
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 

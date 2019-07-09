@@ -1,9 +1,8 @@
-import inspect
 import os
 from pathlib import Path
-from typing import Dict, Tuple
-from dataclasses import dataclass
+from typing import Union, Optional
 from types import SimpleNamespace
+from .punchcards import PunchcardSubset, PunchcardView
 
 import yaml
 
@@ -44,7 +43,7 @@ class Config(SimpleNamespace):
 			merge_namespaces(self.execution, SimpleNamespace(**defs["execution"]))
 
 
-def load_config() -> Config:
+def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = None) -> Config:
 	config = Config(**{
 		"paths": Config(**{
 			"build": "",
@@ -83,4 +82,11 @@ def load_config() -> Config:
 	f = os.path.join(config.paths.build, "config.yaml")
 	if os.path.exists(f):
 		config.merge_with(f)
+	# Current subset or view
+	if subset_obj is not None:
+		merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
+		if subset_obj.steps != [] and subset_obj.steps is not None:
+			config.steps = subset_obj.steps
+		merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
+
 	return config

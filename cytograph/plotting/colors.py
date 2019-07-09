@@ -34,7 +34,7 @@ tube_color_dict = {
 	"DLR": "#00A4A7",
 	"Overground": "#EE7C0E",
 	"Tramlink": "#84B817",
-	"Cable Car": "#E21836",	
+	"Cable Car": "#E21836",
 	"Crossrail": "#7156A5"
 }
 

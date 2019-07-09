@@ -7,7 +7,7 @@ from typing import Optional, Union
 import click
 
 from .._version import __version__ as version
-from .config import load_config, merge_config
+from .config import load_config
 from .engine import CondorEngine, Engine, LocalEngine
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, ViewWorkflow, Workflow
@@ -52,7 +52,6 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 			print(f"         Metadata: {config.paths.metadata}")
 		else:
 			print(f"         Metadata: {config.paths.metadata} \033[1;31;40m-- DIRECTORY DOES NOT EXIST --\033[0m")
-		print(f"            Steps: {', '.join(config.steps)}")
 		print()
 
 
@@ -83,7 +82,7 @@ def build(engine: str, dryrun: bool) -> None:
 @click.argument("subset_or_view")
 def process(subset_or_view: str) -> None:
 	try:
-		config = load_config()
+		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
 		logging.info(f"Processing '{subset_or_view}'")
 
 		deck = PunchcardDeck(config.paths.build)
@@ -93,12 +92,6 @@ def process(subset_or_view: str) -> None:
 			if subset_obj is None:
 				logging.error(f"Subset or view {subset_or_view} not found.")
 				sys.exit(1)
-
-		# Merge any subset-specific configs
-		config.params.merge(subset_obj.params)
-		if subset_obj.steps != [] and subset_obj.steps is not None:
-			config.steps = subset_obj.steps
-		config.execution.merge(subset_obj.execution)
 
 		if isinstance(subset_obj, PunchcardView):
 			ViewWorkflow(deck, subset_obj).process()
@@ -115,11 +108,8 @@ def process(subset_or_view: str) -> None:
 @cli.command()
 def pool() -> None:
 	try:
-		config = load_config()
+		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
 		logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
-
-		# Merge pool-specific config
-		merge_config(config, os.path.join(config.paths.build, "pool_config.yaml"))
 
 		# Load the punchcard deck, and pool it
 		deck = PunchcardDeck(config.paths.build)

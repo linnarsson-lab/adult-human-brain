@@ -17,8 +17,7 @@ from cytograph.species import Species
 from .aggregator import Aggregator
 from .config import load_config
 from .cytograph import Cytograph
-from .punchcards import (Punchcard, PunchcardDeck, PunchcardSubset,
-                         PunchcardView)
+from .punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
 from .utils import Tempname
 
 #
@@ -39,9 +38,6 @@ from .utils import Tempname
 
 
 class Metadata:
-	"""
-	Parse a semicolon-delimited metadata table
-	"""
 	def __init__(self, path: str) -> None:
 		self.sid = "SampleID"
 		self.metadata = None
@@ -76,31 +72,30 @@ class Workflow:
 	Subclasses implement workflows that vary by the way cells are collected
 	"""
 	def __init__(self, deck: PunchcardDeck, name: str) -> None:
-		config = load_config()
+		self.config = load_config()
 		self.deck = deck
 		self.name = name
-		self.loom_file = os.path.join(config.paths.build, "data", name + ".loom")
-		self.agg_file = os.path.join(config.paths.build, "data", name + ".agg.loom")
-		self.export_dir = os.path.join(config.paths.build, "exported", name)
+		self.loom_file = os.path.join(self.config.paths.build, "data", name + ".loom")
+		self.agg_file = os.path.join(self.config.paths.build, "data", name + ".agg.loom")
+		self.export_dir = os.path.join(self.config.paths.build, "exported", name)
 
 	def collect_cells(self, out_file: str) -> loompy.LoomConnection:
 		# Override this in subclasses
 		pass
 
 	def compute_subsets(self, card: Punchcard) -> None:
-		config = load_config()
 		logging.info(f"Computing subset assignments for {card.name}")
 		# Load auto-annotation
-		annotator = AutoAnnotator(root=config.paths.autoannotation)
+		annotator = AutoAnnotator(root=self.config.paths.autoannotation)
 		categories_dict: Dict[str, List] = defaultdict(list)
 		for d in annotator.definitions:
 				for c in d.categories:
 						categories_dict[c].append(d.abbreviation)
 		# Load loom file
-		with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".loom"), mode="r+") as ds:
+		with loompy.connect(os.path.join(self.config.paths.build, "data", card.name + ".loom"), mode="r+") as ds:
 			subset_per_cell = np.zeros(ds.shape[1], dtype=object)
 			taken = np.zeros(ds.shape[1], dtype=bool)
-			with loompy.connect(os.path.join(config.paths.build, "data", card.name + ".agg.loom"), mode="r") as dsagg:
+			with loompy.connect(os.path.join(self.config.paths.build, "data", card.name + ".agg.loom"), mode="r") as dsagg:
 				for subset in card.subsets.values():
 					logging.debug(f"{subset.name}: {subset.include}")
 					selected = np.zeros(ds.shape[1], dtype=bool)
@@ -130,7 +125,7 @@ class Workflow:
 					logging.debug(f"Selected {selected.sum()} cells")
 				ds.ca.Subset = subset_per_cell
 				# plot subsets
-				parent_dir = os.path.join(config.paths.build, "exported", card.name)
+				parent_dir = os.path.join(self.config.paths.build, "exported", card.name)
 				if os.path.exists(parent_dir):
 					cgplot.punchcard_selection(ds, os.path.join(parent_dir, f"{card.name}_subsets.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
 
@@ -146,7 +141,7 @@ class Workflow:
 				with loompy.connect(out_file) as ds:
 					ds.attrs.config = config.to_string()
 					logging.info(f"Collected {ds.shape[1]} cells")
-					Cytograph(steps=config.steps).fit(ds)
+					Cytograph(config=self.config).fit(ds)
 
 		# STEP 2: aggregate and create the .agg.loom file
 		if os.path.exists(self.agg_file):
@@ -206,21 +201,21 @@ class RootWorkflow(Workflow):
 		super().__init__(deck, subset.longname())
 		self.subset = subset
 		self.deck = deck
+		self.config = load_config(subset)
 
 	def collect_cells(self, out_file: str) -> None:
-		config = load_config()
 		# Make sure all the sample files exist
 		err = False
 		for batch in self.subset.include:
 			for sample_id in batch:
-				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+				full_path = os.path.join(self.config.paths.samples, sample_id + ".loom")
 				if not os.path.exists(full_path):
 					logging.error(f"Sample file '{full_path}' not found")
 					err = True
-		if err and not config.params.skip_missing_samples:
+		if err and not self.config.params.skip_missing_samples:
 			sys.exit(1)
 
-		metadata = Metadata(config.paths.metadata)
+		metadata = Metadata(self.config.paths.metadata)
 		logging.info(f"Collecting cells for {self.name}")
 		logging.debug(out_file)
 		batch_id = 0
@@ -231,7 +226,7 @@ class RootWorkflow(Workflow):
 		for batch in self.subset.include:
 			replicate_id = 0
 			for sample_id in batch:
-				full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+				full_path = os.path.join(self.config.paths.samples, sample_id + ".loom")
 				if not os.path.exists(full_path):
 					continue
 				logging.info(f"Examining {sample_id}.loom")
@@ -245,14 +240,14 @@ class RootWorkflow(Workflow):
 					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
 					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-					if "doublets" in config.steps:
-						if config.params.doublets_method == "scrublet":
+					if "doublets" in self.config.steps:
+						if self.config.params.doublets_method == "scrublet":
 							logging.info("Scoring doublets using Scrublet")
 							data = ds[:, :].T
 							try:
 								doublet_scores, predicted_doublets = Scrublet(data, expected_doublet_rate=0.05).scrub_doublets()
 							except ValueError as ve:
-								logging.info("Scrublet error: " + ve.msg)
+								logging.info(f"Scrublet error: {ve}")
 								doublet_scores = np.zeros(ds.shape[0])
 								predicted_doublets = np.zeros(ds.shape[1])
 							col_attrs["ScrubletScore"] = doublet_scores
@@ -261,27 +256,27 @@ class RootWorkflow(Workflow):
 								col_attrs["ScrubletFlag"] = np.zeros(ds.shape[1])
 							else:
 								col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
-						elif config.params.doublets_method == "doublet-finder":
+						elif self.config.params.doublets_method == "doublet-finder":
 							logging.info("Scoring doublets using DoubletFinder")
 							col_attrs["DoubletFinderScore"] = doublet_finder(ds)
 					logging.info(f"Computing total UMIs")
 					(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 					col_attrs["TotalUMI"] = totals
 					col_attrs["NGenes"] = genes
-					good_cells = (totals >= config.params.min_umis)
-					if config.params.doublets_method == "scrublet" and config.params.doublets_action == "remove":
-						logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
+					good_cells = (totals >= self.config.params.min_umis)
+					if self.config.params.doublets_method == "scrublet" and self.config.params.doublets_action == "remove":
+						logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
 						good_cells = good_cells & (~predicted_doublets)
 					else:
-						logging.info(f"Removing {(~good_cells).sum()} cells with <{config.params.min_umis} UMIs")
-					if good_cells.sum() / ds.shape[1] > config.params.min_fraction_good_cells:
+						logging.info(f"Removing {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
+					if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
 						logging.info(f"Including {good_cells.sum()} of {ds.shape[1]} cells")
 						n_cells += good_cells.sum()
 						files.append(full_path)
 						selections.append(good_cells)
 						new_col_attrs.append(col_attrs)
 					else:
-						logging.warn(f"Skipping {sample_id}.loom because only {good_cells.sum()} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) passed QC.")
+						logging.warn(f"Skipping {sample_id}.loom because only {good_cells.sum()} of {ds.shape[1]} cells (less than {self.config.params.min_fraction_good_cells * 100}%) passed QC.")
 				replicate_id += 1
 			batch_id += 1
 		logging.info(f"Collecting a total of {n_cells} cells.")
@@ -303,11 +298,11 @@ class SubsetWorkflow(Workflow):
 		super().__init__(deck, subset.longname())
 		self.subset = subset
 		self.deck = deck
+		self.config = load_config(subset)
 
 	def collect_cells(self, out_file: str) -> None:
-		config = load_config()
 		# Verify that the previous punchard subset exists
-		parent = os.path.join(config.paths.build, "data", self.subset.card.name + ".loom")
+		parent = os.path.join(self.config.paths.build, "data", self.subset.card.name + ".loom")
 		if not os.path.exists(parent):
 			logging.error(f"Punchcard file '{parent}' was missing.")
 			sys.exit(1)
@@ -340,18 +335,18 @@ class ViewWorkflow(Workflow):
 		super().__init__(deck, "View_" + view.name)
 		self.view = view
 		self.deck = deck
+		self.config = load_config(view)
 
 	def _compute_cells_for_view(self, subset: str, include: List[str], onlyif: str) -> np.ndarray:
-		config = load_config()
 		# Load auto-annotation
-		annotator = AutoAnnotator(root=config.paths.autoannotation)
+		annotator = AutoAnnotator(root=self.config.paths.autoannotation)
 		categories_dict: Dict[str, List] = defaultdict(list)
 		for d in annotator.definitions:
 				for c in d.categories:
 						categories_dict[c].append(d.abbreviation)
 		# Load loom file
-		with loompy.connect(os.path.join(config.paths.build, "data", subset + ".loom"), mode="r") as ds:
-			with loompy.connect(os.path.join(config.paths.build, "data", subset + ".agg.loom"), mode="r") as dsagg:
+		with loompy.connect(os.path.join(self.config.paths.build, "data", subset + ".loom"), mode="r") as ds:
+			with loompy.connect(os.path.join(self.config.paths.build, "data", subset + ".agg.loom"), mode="r") as dsagg:
 				selected = np.zeros(ds.shape[1], dtype=bool)
 				if len(include) > 0:
 					# Include clusters that have any of the given tags
@@ -375,10 +370,9 @@ class ViewWorkflow(Workflow):
 				return selected
 
 	def collect_cells(self, out_file: str) -> None:
-		config = load_config()
 		# Verify that the previous punchard subsets exist
 		for s in self.view.sources:
-			parent = os.path.join(config.paths.build, "data", s + ".loom")
+			parent = os.path.join(self.config.paths.build, "data", s + ".loom")
 			if not os.path.exists(parent):
 				logging.error(f"Punchcard file '{parent}' was missing.")
 				sys.exit(1)
@@ -390,7 +384,7 @@ class ViewWorkflow(Workflow):
 		previous_file = []
 		for s in self.view.sources:
 			logging.info(f"Collecting cells from '{s}'")
-			f = os.path.join(config.paths.build, "data", s + ".loom")
+			f = os.path.join(self.config.paths.build, "data", s + ".loom")
 			selected = self._compute_cells_for_view(s, self.view.include, self.view.onlyif)
 			logging.info(f"Collecting {selected.sum()} cells from '{s}'")
 			files.append(f)
@@ -412,9 +406,11 @@ class PoolWorkflow(Workflow):
 	def __init__(self, deck: PunchcardDeck) -> None:
 		super().__init__(deck, "Pool")
 		self.deck = deck
+		self.config = load_config()
+		# Merge pool-specific config
+		self.config.merge_with(os.path.join(self.config.paths.build, "pool_config.yaml"))
 
 	def collect_cells(self, out_file: str) -> None:
-		config = load_config()
 		punchcards: List[str] = []
 		clusters: List[int] = []
 		punchcard_clusters: List[int] = []
@@ -424,7 +420,7 @@ class PoolWorkflow(Workflow):
 		logging.info(f"Checking that all input files are present")
 		err = False
 		for subset in self.deck.get_leaves():
-			if not os.path.exists(os.path.join(config.paths.build, "data", subset.longname() + ".loom")):
+			if not os.path.exists(os.path.join(self.config.paths.build, "data", subset.longname() + ".loom")):
 				logging.error(f"Punchcard file 'data/{subset.longname()}.loom' is missing")
 				err = True
 		if err:
@@ -433,7 +429,7 @@ class PoolWorkflow(Workflow):
 		with loompy.new(out_file) as dsout:
 			for subset in self.deck.get_leaves():
 				logging.info(f"Collecting cells from {subset.longname()}")
-				with loompy.connect(os.path.join(config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
+				with loompy.connect(os.path.join(self.config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
 					punchcards = punchcards + [subset.longname()] * ds.shape[1]
 					punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
 					clusters = clusters + list(ds.ca.Clusters + next_cluster)

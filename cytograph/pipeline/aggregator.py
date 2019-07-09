@@ -19,7 +19,7 @@ class Aggregator:
 		self.mask = mask
 
 	def aggregate(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
-		config = load_config()
+		config = load_config()  # Generic config, just to get the paths
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",
