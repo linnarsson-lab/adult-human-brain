@@ -5,7 +5,7 @@ import subprocess
 import sys
 from typing import List, Dict, Optional, Set, Union
 
-from .config import ExecutionConfig, load_config, merge_config
+from .config import Config, load_config, merge_config
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
@@ -156,7 +156,6 @@ class CondorEngine(Engine):
 			if is_task_complete(config.paths.build, task):
 				continue
 			cmd = ""
-			excfg: Optional[ExecutionConfig] = None
 			# Get the right execution configuration for the task (CPUs etc.)
 			if task == "Pool":
 				cfg_file = os.path.join(config.paths.build, "pool_config.yaml")
@@ -174,7 +173,6 @@ class CondorEngine(Engine):
 				config.execution.merge(subset.execution)
 				excfg = config.execution
 				cmd = f"process {task}"
-
 			# Generate the condor submit file for the task
 			cytograph_exe = shutil.which('cytograph')
 			if cytograph_exe is None:
