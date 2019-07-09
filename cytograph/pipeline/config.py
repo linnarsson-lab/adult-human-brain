@@ -47,7 +47,7 @@ class ParamsConfig(AbstractConfig):
 class ExecutionConfig(AbstractConfig):
 	n_cpus: int = 28
 	n_gpus: int = 0
-	memory: int = 256 // 28
+	memory: int = 128
 
 
 class Config:

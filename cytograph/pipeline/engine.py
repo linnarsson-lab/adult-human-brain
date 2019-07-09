@@ -152,6 +152,7 @@ class CondorEngine(Engine):
 		if not os.path.exists(exdir):
 			os.mkdir(exdir)
 		for task in tasks.keys():
+			config = load_config()  # Load it fresh for each task since we're clobbering it below
 			if is_task_complete(config.paths.build, task):
 				continue
 			cmd = ""
