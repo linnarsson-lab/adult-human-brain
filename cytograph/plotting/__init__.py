@@ -1,4 +1,4 @@
-from .colors import colors75, colorize, tube_colors
+from .colors import colors75, colorize, tube_colors, Colorizer
 from .midpoint_normalize import MidpointNormalize
 from .manifold import manifold
 from .markerheatmap import markerheatmap
