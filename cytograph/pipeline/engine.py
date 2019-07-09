@@ -170,7 +170,8 @@ class CondorEngine(Engine):
 					if subset is None:
 						logging.error(f"Subset or view {task} not found.")
 						sys.exit(1)
-				merge_namespaces(config.execution, SimpleNamespace(**subset.execution))
+				if subset.execution is not None:
+					merge_namespaces(config.execution, SimpleNamespace(**subset.execution))
 				cmd = f"process {task}"
 			# Generate the condor submit file for the task
 			cytograph_exe = shutil.which('cytograph')
