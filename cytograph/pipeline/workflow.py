@@ -332,7 +332,7 @@ class ViewWorkflow(Workflow):
 			Adds column attributes Source (the name of the source punchcard) and SourceClusters
 	"""
 	def __init__(self, deck: PunchcardDeck, view: PunchcardView) -> None:
-		super().__init__(deck, "View_" + view.name)
+		super().__init__(deck, view.name)
 		self.view = view
 		self.deck = deck
 		self.config = load_config(view)
