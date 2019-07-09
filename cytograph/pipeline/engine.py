@@ -4,8 +4,9 @@ import shutil
 import subprocess
 import sys
 from typing import List, Dict, Optional, Set, Union
+from types import SimpleNamespace
 
-from .config import Config, load_config, merge_config
+from .config import Config, load_config, merge_namespaces
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
@@ -160,8 +161,7 @@ class CondorEngine(Engine):
 			if task == "Pool":
 				cfg_file = os.path.join(config.paths.build, "pool_config.yaml")
 				if os.path.exists(cfg_file):
-					merge_config(config, cfg_file)
-				excfg = config.execution
+					config.merge_with(cfg_file)
 				cmd = "pool"
 			else:
 				subset: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = self.deck.get_subset(task)
@@ -170,8 +170,7 @@ class CondorEngine(Engine):
 					if subset is None:
 						logging.error(f"Subset or view {task} not found.")
 						sys.exit(1)
-				config.execution.merge(subset.execution)
-				excfg = config.execution
+				merge_namespaces(config.execution, SimpleNamespace(**subset.execution))
 				cmd = f"process {task}"
 			# Generate the condor submit file for the task
 			cytograph_exe = shutil.which('cytograph')
@@ -179,7 +178,7 @@ class CondorEngine(Engine):
 				logging.error("The 'cytograph' command-line tool was not found.")
 				sys.exit(1)
 			# Must set 'request_gpus' only if non-zero, because even asking for zero GPUs requires a node that has GPUs (weirdly)
-			request_gpus = f"request_gpus = {excfg.n_gpus}" if excfg.n_gpus > 0 else ""
+			request_gpus = f"request_gpus = {config.execution.n_gpus}" if config.execution.n_gpus > 0 else ""
 			with open(os.path.join(exdir, task + ".condor"), "w") as f:
 				f.write(f"""
 getenv       = true
@@ -188,9 +187,9 @@ arguments    = "{cmd}"
 log          = {os.path.join(exdir, task)}.log
 output       = {os.path.join(exdir, task)}.out
 error        = {os.path.join(exdir, task)}.error
-request_cpus = {excfg.n_cpus}
+request_cpus = {config.execution.n_cpus}
 {request_gpus}
-request_memory = {excfg.memory * 1024}
+request_memory = {config.execution.memory * 1024}
 queue 1\n
 """)
 

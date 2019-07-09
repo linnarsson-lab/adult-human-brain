@@ -16,23 +16,6 @@ def merge_namespaces(a: SimpleNamespace, b: SimpleNamespace) -> None:
 			a.__dict__[k] = v
 
 
-def merge_config(config: SimpleNamespace, path: str) -> None:
-	if not os.path.exists(path):
-		raise IOError(f"Config path {path} not found.")
-
-	with open(path) as f:
-		defs = yaml.load(f)
-
-	if "paths" in defs:
-		merge_namespaces(config.paths, SimpleNamespace(**defs["paths"]))
-	if "params" in defs:
-		merge_namespaces(config.params, SimpleNamespace(**defs["params"]))
-	if "steps" in defs:
-		config.steps = defs["steps"]
-	if "execution" in defs:
-		merge_namespaces(config.execution, SimpleNamespace(**defs["execution"]))
-
-
 class Config(SimpleNamespace):
 	def to_string(self, offset: int = 0) -> str:
 		s = ""
@@ -43,6 +26,22 @@ class Config(SimpleNamespace):
 			else:
 				s += f"{k}: {v}\n"
 		return s
+
+	def merge_with(self, path: str) -> None:
+		if not os.path.exists(path):
+			raise IOError(f"Config path {path} not found.")
+
+		with open(path) as f:
+			defs = yaml.load(f)
+
+		if "paths" in defs:
+			merge_namespaces(self.paths, SimpleNamespace(**defs["paths"]))
+		if "params" in defs:
+			merge_namespaces(self.params, SimpleNamespace(**defs["params"]))
+		if "steps" in defs:
+			self.steps = defs["steps"]
+		if "execution" in defs:
+			merge_namespaces(self.execution, SimpleNamespace(**defs["execution"]))
 
 
 def load_config() -> Config:
@@ -76,12 +75,12 @@ def load_config() -> Config:
 	# Home directory
 	f = os.path.join(os.path.abspath(str(Path.home())), ".cytograph")
 	if os.path.exists(f):
-		merge_config(config, f)
+		config.merge_with(f)
 	# Set build folder
 	if config.paths.build == "" or config.paths.build is None:
 		config.paths.build = os.path.abspath(os.path.curdir)
 	# Build folder
 	f = os.path.join(config.paths.build, "config.yaml")
 	if os.path.exists(f):
-		merge_config(config, f)
+		config.merge_with(f)
 	return config
