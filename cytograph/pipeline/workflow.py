@@ -151,7 +151,7 @@ class Workflow:
 				with Tempname(self.agg_file) as out_file:
 					Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
 				with loompy.connect(self.agg_file) as dsagg:
-					ds.attrs.config = config.to_string()
+					dsagg.attrs.config = config.to_string()
 
 		# STEP 3: export plots
 		if os.path.exists(self.export_dir):
