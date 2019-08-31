@@ -41,6 +41,9 @@ class Cytograph:
 		logging.info(f"Running cytograph on {ds.shape[1]} cells")
 		n_samples = ds.shape[1]
 
+		species = Species.detect(ds)
+		logging.info(f"Species is '{species.name}'")
+
 		logging.info("Recomputing the list of valid genes")
 		nnz = ds.map([np.count_nonzero], axis=0)[0]
 		valid_genes = np.logical_and(nnz > 10, nnz < ds.shape[1] * 0.6)
@@ -52,7 +55,7 @@ class Cytograph:
 			main_layer = "pooled"
 			spliced_layer = "spliced_pooled"
 			unspliced_layer = "unspliced_pooled"
-			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, compute_velocity=True)
+			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, compute_velocity=True, n_threads=self.config.execution.n_cpus)
 			pp.fit(ds)
 			logging.info(f"Feature selection by enrichment on preliminary clusters")
 			g = nx.from_scipy_sparse_matrix(pp.knn)
@@ -219,7 +222,6 @@ class Cytograph:
 				ds.attrs.UMAPVelocity = ve.fit(ds)
 				ds.attrs.UMAPVelocityPoints = ve.points
 
-		species = Species.detect(ds)
 		if species.name in ["Homo sapiens", "Mus musculus"]:
-			logging.info("Inferring cell cycle")
+			logging.info(f"Inferring cell cycle")
 			CellCycleAnnotator(species).annotate(ds)

@@ -9,5 +9,6 @@
         "**/*.map": true,
         "**/__pycache__": true,
         ".mypy_cache/": true
-    }
+    },
+    "python.dataScience.jupyterServerURI": "http://localhost:8888/?token=6bf22df54dc6ee6793f675d486eb9302f168f4064aea7e77"
 }

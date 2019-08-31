@@ -6,6 +6,7 @@ from typing import Dict, List
 
 import numpy as np
 import pandas as pd
+import sqlite3 as sqlite
 
 import cytograph.plotting as cgplot
 import loompy
@@ -17,7 +18,7 @@ from cytograph.species import Species
 from .aggregator import Aggregator
 from .config import load_config
 from .cytograph import Cytograph
-from .punchcards import (Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView)
+from .punchcards import Punchcard, PunchcardDeck, PunchcardSubset, PunchcardView
 from .utils import Tempname
 
 #
@@ -35,6 +36,41 @@ from .utils import Tempname
 #                               \--> Second_Second.loom --<                                |
 #                                                          \--> Second_Second_Second.loom -|
 #
+
+
+def load_sample_metadata(path: str, sample_id: str) -> Dict[str, str]:
+	if not os.path.exists(path):
+		raise ValueError(f"Samples metadata file '{path}' not found.")
+	if path.endswith(".db"):
+		# sqlite3
+		with sqlite.connect(path) as db:
+			cursor = db.cursor()
+			cursor.execute("SELECT * FROM sample WHERE name = ?", (sample_id,))
+			keys = [x[0] for x in cursor.description]
+			vals = cursor.fetchone()
+			if vals is not None:
+				return dict(zip(keys, vals))
+			raise ValueError(f"SampleID '{sample_id}' was not found in the samples database.")
+	else:
+		result = {}
+		with open(path) as f:
+			headers = [x.lower() for x in f.readline()[:-1].split("\t")]
+			if "sampleid" not in headers and 'name' not in headers:
+				raise ValueError("Required column 'SampleID' or 'Name' not found in sample metadata file")
+			if "sampleid" in headers:
+				sample_metadata_key_idx = headers.index("sampleid")
+			else:
+				sample_metadata_key_idx = headers.index("name")
+			sample_found = False
+			for line in f:
+				items = line[:-1].split("\t")
+				if len(items) > sample_metadata_key_idx and items[sample_metadata_key_idx] == sample_id:
+					for i, item in enumerate(items):
+						result[headers[i]] = item
+					sample_found = True
+		if not sample_found:
+			raise ValueError(f"SampleID '{sample_id}' not found in sample metadata file")
+		return result
 
 
 class Metadata:
@@ -206,16 +242,18 @@ class RootWorkflow(Workflow):
 	def collect_cells(self, out_file: str) -> None:
 		# Make sure all the sample files exist
 		err = False
+		missing_samples: List[str] = []
 		for batch in self.subset.include:
 			for sample_id in batch:
 				full_path = os.path.join(self.config.paths.samples, sample_id + ".loom")
 				if not os.path.exists(full_path):
 					logging.error(f"Sample file '{full_path}' not found")
 					err = True
+					missing_samples.append(sample_id)
 		if err and not self.config.params.skip_missing_samples:
 			sys.exit(1)
 
-		metadata = Metadata(self.config.paths.metadata)
+		# metadata = Metadata(self.config.paths.metadata)
 		logging.info(f"Collecting cells for {self.name}")
 		logging.debug(out_file)
 		batch_id = 0
@@ -230,10 +268,11 @@ class RootWorkflow(Workflow):
 				if not os.path.exists(full_path):
 					continue
 				logging.info(f"Examining {sample_id}.loom")
+				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
 				with loompy.connect(full_path, "r") as ds:
 					species = Species.detect(ds).name
 					col_attrs = dict(ds.ca)
-					for key, val in metadata.get(sample_id).items():
+					for key, val in metadata.items():
 						col_attrs[key] = np.array([val] * ds.shape[1])
 					if "Species" not in col_attrs:
 						col_attrs["Species"] = np.array([species] * ds.shape[1])

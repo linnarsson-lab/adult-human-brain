@@ -49,7 +49,9 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"build": "",
 			"samples": "",
 			"autoannotation": "",
-			"metadata": ""
+			"metadata": "",
+			"fastqs": "",
+			"index": ""
 		}),
 		"params": Config(**{
 			"k": 25,
@@ -66,7 +68,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		}),
 		"steps": ("doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"),
 		"execution": Config(**{
-			"n_cpus": 28,
+			"n_cpus": 4,
 			"n_gpus": 0,
 			"memory": 128
 		})
@@ -84,7 +86,8 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		config.merge_with(f)
 	# Current subset or view
 	if subset_obj is not None:
-		merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
+		if subset_obj.params is not None:
+			merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
 		if subset_obj.steps != [] and subset_obj.steps is not None:
 			config.steps = subset_obj.steps
 		if subset_obj.execution is not None:

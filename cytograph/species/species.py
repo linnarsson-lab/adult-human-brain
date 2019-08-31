@@ -13,11 +13,15 @@ class Species:
 	@staticmethod
 	def detect(ds: loompy.LoomConnection) -> Any:  # Really returns Species, but mypy doesn't understand that
 		name: str = None
-		if "species" in ds.attrs:
-			name = ds.attrs.species
+		if "Species" in ds.attrs:
+			name = ds.attrs.Species
+			if name == "Hs":
+				name = "Homo sapiens"
+			if name == "Mm":
+				name = "Mus musculus"
 		elif "Gene" in ds.ra:
 			for gene, species in {
-				"NOTCH2NL": "Homo sapiens",
+				"NOTCH2NLA": "Homo sapiens",
 				"Tspy1": "Rattus norvegicus",
 				"Actb": "Mus musculus",  # Note must come after rat, because rat has the same gene name
 				"actb1": "Danio rerio",
@@ -31,7 +35,7 @@ class Species:
 				if gene in ds.ra.Gene:
 					name = species
 		if name is None:
-			raise ValueError("Failed to auto-detect species (to override auto-detection, set ds.attrs.species to the species name, like 'Homo sapiens')")
+			raise ValueError("Failed to auto-detect species (to override auto-detection, set ds.attrs.Species to the species name, like 'Homo sapiens')")
 
 		return Species(name)
 		

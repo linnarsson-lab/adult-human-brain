@@ -13,13 +13,14 @@ from .normalizer import Normalizer
 
 
 class PoissonPooling:
-	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, remove_technical_factors: bool = False, compute_velocity: bool = False):
+	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, remove_technical_factors: bool = False, compute_velocity: bool = False, n_threads: int = 0):
 		self.k_pooling = k_pooling
 		self.n_genes = n_genes
 		self.n_factors = n_factors
 		self.mask = mask
 		self.remove_technical_factors = remove_technical_factors
 		self.compute_velocity = compute_velocity
+		self.n_threads = n_threads
 
 		self.knn: sparse.coo_matrix = None  # Make this available after fitting in case it's useful downstream
 
@@ -44,7 +45,7 @@ class PoissonPooling:
 		data = sparse.coo_matrix(temp)
 
 		# HPF factorization
-		hpf = HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf = HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=self.n_threads)
 		hpf.fit(data)
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 
