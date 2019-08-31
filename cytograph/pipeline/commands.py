@@ -180,7 +180,7 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 			sys.exit(1)
 
 		for sid, lane, flowcell in table:
-			if sampleid not in records:
+			if sid not in records:
 				records[sid] = {}
 			if flowcell not in records[sid]:
 				records[sid][flowcell] = []
