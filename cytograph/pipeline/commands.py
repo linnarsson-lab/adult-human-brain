@@ -39,7 +39,7 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 	create_build_folders(config.paths.build)
 
 	if show_message:
-		print(f"Cytograph v{version} by Linnarsson Lab (http://linnarssonlab.org)")
+		print(f"Cytograph v{version} by Linnarsson Lab 🌸 (http://linnarssonlab.org)")
 		if os.path.exists(config.paths.build):
 			print(f"            Build: {config.paths.build}")
 		else:
