@@ -147,7 +147,8 @@ def subset(punchcard: str) -> None:
 @cli.command()
 @click.argument("sampleid")
 @click.option('--flowcelltable', help="Tab-delimited file with SampleID, Flowcell, Lane")
-def mkloom(sampleid: str, flowcelltable: str = None) -> None:
+@clock.option('--tempfolder')
+def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> None:
 	config = load_config()
 	try:
 		logging.info(f"Generating loom file for '{sampleid}'")
@@ -205,7 +206,7 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 			logging.error("No fastq files were found.")
 			sys.exit(1)
 		logging.info(f"Creating loom file using kallisto with {config.execution.n_cpus} threads.")
-		create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus)
-
+		create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder)
+		logging.info("Done.")
 	except Exception as e:
 		logging.exception(f"'mkloom' command failed: {e}")
