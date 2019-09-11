@@ -53,6 +53,7 @@ class AutoAnnotator(object):
 		self.root = root
 		self.definitions: List[Annotation] = []
 		self.genes: List[str] = [] if ds is None else ds.ra.Gene
+		self.accessions: List[str] = [] if ds is None else ds.ra.Accession
 		self.annotations = None  # type: np.ndarray
 	
 		fileext = [".yaml", ".md"]
@@ -64,11 +65,11 @@ class AutoAnnotator(object):
 					try:
 						tag = Annotation(cur[root_len:], os.path.join(cur, file))
 						for pos in tag.positives:
-							if len(self.genes) > 0 and (pos not in self.genes):
+							if len(self.genes) > 0 and (pos not in self.genes and pos not in self.accessions):
 								logging.error(file + ": gene '%s' not found in file", pos)
 								errors = True
 						for neg in tag.negatives:
-							if len(self.genes) > 0 and (neg not in self.genes):
+							if len(self.genes) > 0 and (neg not in self.genes and neg not in self.accessions):
 								logging.error(file + ": gene '%s' not found in file", neg)
 								errors = True
 						if not errors:
@@ -89,22 +90,29 @@ class AutoAnnotator(object):
 			An array of strings giving the auto-annotation for each cluster
 		"""
 		self.genes = ds.ra.Gene
+		self.accessions = ds.ra.Accession
 		trinaries = ds.layers["trinaries"]
 		self.annotations = np.empty((len(self.definitions), trinaries.shape[1]))
 		for ix, tag in enumerate(self.definitions):
 			for cluster in range(trinaries.shape[1]):
 				p = 1
 				for pos in tag.positives:
-					if pos not in self.genes:
+					if pos not in self.genes and pos not in self.accessions:
 						logging.error(f"Auto-annotation gene {pos} (used for {tag}) not found in file")
 						continue
-					index = np.where(self.genes == pos)[0][0]
+					if pos in self.genes:
+						index = np.where(self.genes == pos)[0][0]
+					else:
+						index = np.where(self.accessions == pos)[0][0]
 					p = p * trinaries[index, cluster]
 				for neg in tag.negatives:
-					if neg not in self.genes:
+					if neg not in self.genes and neg not in self.accessions:
 						logging.error(f"Auto-annotation gene {neg} (used for {tag}) not found in file")
 						continue
-					index = np.where(self.genes == neg)[0][0]
+					if neg in self.genes:
+						index = np.where(self.genes == neg)[0][0]
+					else:
+						index = np.where(self.accessions == neg)[0][0]
 					p = p * (1 - trinaries[index, cluster])
 				self.annotations[ix, cluster] = p
 

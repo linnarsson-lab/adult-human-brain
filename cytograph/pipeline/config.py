@@ -1,87 +1,96 @@
-import inspect
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Union, Optional
+from types import SimpleNamespace
+from .punchcards import PunchcardSubset, PunchcardView
 
 import yaml
 
 
-class AbstractConfig:
-	def merge(self, defs: Dict) -> None:
-		if defs is None:
-			return
-		attrs = [x for x, val in inspect.getmembers(self) if not x.startswith("_") and not inspect.ismethod(val)]
-		for attr in attrs:
-			if attr in defs:
-				setattr(self, attr, defs[attr])
-
-	def __str__(self) -> str:
-		s = []
-		attrs = [(x, val) for x, val in inspect.getmembers(self) if not x.startswith("_") and not inspect.ismethod(val)]
-		for (x, val) in attrs:
-			s.append(f"{x}: {val}")
-		return "\n".join(s)
+def merge_namespaces(a: SimpleNamespace, b: SimpleNamespace) -> None:
+	for k, v in vars(b).items():
+		if isinstance(v, SimpleNamespace):
+			merge_namespaces(a.__dict__[k], v)
+		else:
+			a.__dict__[k] = v
 
 
-class PathConfig(AbstractConfig):
-	build: str = ""
-	samples: str = ""
-	autoannotation: str = ""
-	metadata: str = ""
+class Config(SimpleNamespace):
+	def to_string(self, offset: int = 0) -> str:
+		s = ""
+		for k, v in vars(self).items():
+			s += "".join([" "] * offset)
+			if isinstance(v, SimpleNamespace):
+				s += f"{k}:\n{v.to_string(offset + 2)}"
+			else:
+				s += f"{k}: {v}\n"
+		return s
+
+	def merge_with(self, path: str) -> None:
+		if not os.path.exists(path):
+			raise IOError(f"Config path {path} not found.")
+
+		with open(path) as f:
+			defs = yaml.load(f)
+
+		if "paths" in defs:
+			merge_namespaces(self.paths, SimpleNamespace(**defs["paths"]))
+		if "params" in defs:
+			merge_namespaces(self.params, SimpleNamespace(**defs["params"]))
+		if "steps" in defs:
+			self.steps = defs["steps"]
+		if "execution" in defs:
+			merge_namespaces(self.execution, SimpleNamespace(**defs["execution"]))
 
 
-class ParamsConfig(AbstractConfig):
-	k: int = 25
-	k_pooling: int = 10
-	n_factors: int = 96
-	min_umis: int = 1500
-	n_genes: int = 2000
-	doublets_action: str = "remove"
-	doublets_method: str = "scrublet"
-	mask: List[str] = ["cellcycle", "sex", "ieg", "mt"]
-	min_fraction_good_cells: float = 0.4
-	skip_missing_samples: bool = False
-	clusterer: str = "louvain"  # or "surprise"
-
-
-class ExecutionConfig(AbstractConfig):
-	n_cpus: int = 28
-	n_gpus: int = 0
-	memory: int = 256 // 28
-
-
-class Config:
-	paths = PathConfig()
-	params = ParamsConfig()
-	steps = ["doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "export"]
-	execution = ExecutionConfig()
-
-
-def merge_config(config: Config, path: str) -> None:
-	if not os.path.exists(path):
-		raise IOError(f"Config path {path} not found.")
-
-	with open(path) as f:
-		defs = yaml.load(f)
-
-	if "paths" in defs:
-		config.paths.merge(defs["paths"])
-	if "params" in defs:
-		config.params.merge(defs["params"])
-	if "steps" in defs:
-		config.steps = defs["steps"]
-	if "execution" in defs:
-		config.execution.merge(defs["execution"])
-
-
-def load_config() -> Config:
-	# Builtin defaults
-	config = Config()
+def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = None) -> Config:
+	config = Config(**{
+		"paths": Config(**{
+			"build": "",
+			"samples": "",
+			"autoannotation": "",
+			"metadata": "",
+			"fastqs": "",
+			"index": ""
+		}),
+		"params": Config(**{
+			"k": 25,
+			"k_pooling": 10,
+			"n_factors": 96,
+			"min_umis": 1500,
+			"n_genes": 2000,
+			"doublets_action": "remove",
+			"doublets_method": "scrublet",
+			"mask": ("cellcycle", "sex", "ieg", "mt"),
+			"min_fraction_good_cells": 0.4,
+			"skip_missing_samples": False,
+			"clusterer": "louvain"  # or "surprise"
+		}),
+		"steps": ("doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "skeletonize", "export"),
+		"execution": Config(**{
+			"n_cpus": 4,
+			"n_gpus": 0,
+			"memory": 128
+		})
+	})
 	# Home directory
-	merge_config(config, os.path.join(os.path.abspath(str(Path.home())), ".cytograph"))
+	f = os.path.join(os.path.abspath(str(Path.home())), ".cytograph")
+	if os.path.exists(f):
+		config.merge_with(f)
 	# Set build folder
 	if config.paths.build == "" or config.paths.build is None:
 		config.paths.build = os.path.abspath(os.path.curdir)
 	# Build folder
-	merge_config(config, "config.yaml")
+	f = os.path.join(config.paths.build, "config.yaml")
+	if os.path.exists(f):
+		config.merge_with(f)
+	# Current subset or view
+	if subset_obj is not None:
+		if subset_obj.params is not None:
+			merge_namespaces(config.params, SimpleNamespace(**subset_obj.params))
+		if subset_obj.steps != [] and subset_obj.steps is not None:
+			config.steps = subset_obj.steps
+		if subset_obj.execution is not None:
+			merge_namespaces(config.execution, SimpleNamespace(**subset_obj.execution))
+
 	return config

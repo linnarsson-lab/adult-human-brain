@@ -34,9 +34,39 @@ tube_color_dict = {
 	"DLR": "#00A4A7",
 	"Overground": "#EE7C0E",
 	"Tramlink": "#84B817",
-	"Cable Car": "#E21836",	
+	"Cable Car": "#E21836",
 	"Crossrail": "#7156A5"
 }
 
 
 tube_colors = np.array([c for c in tube_color_dict.values()])
+
+
+class Colorizer:
+	def __init__(self, colors: str = "alphabet") -> None:
+		if colors == "alphabet":
+			self.cmap = colors75
+		elif colors == "tube":
+			self.cmap = tube_colors
+		else:
+			raise ValueError("Colors must be 'alphabet' or 'tube'")
+
+	def fit(self, x: np.ndarray) -> "Colorizer":
+		self.encoder = LabelEncoder().fit(x)
+		return self
+
+	def transform(self, x: np.ndarray, *, bgval: Any = None) -> np.ndarray:
+		if bgval is not None:
+			xt = x.copy()
+			xt[x != bgval] = self.encoder.transform(x[x != bgval])
+			xt[x == bgval] = 0
+		else:
+			xt = self.encoder.transform(x)
+		colors = self.cmap[np.mod(xt, self.cmap.shape[0]), :]
+		if bgval is not None:
+			colors[x == bgval, :] = np.array([0.8, 0.8, 0.8])
+		return colors
+
+	def fit_transform(self, x: np.ndarray, *, bgval: Any = None) -> np.ndarray:
+		self.fit(x)
+		return self.transform(x, bgval=bgval)

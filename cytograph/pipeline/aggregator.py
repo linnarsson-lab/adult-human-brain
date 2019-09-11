@@ -19,7 +19,7 @@ class Aggregator:
 		self.mask = mask
 
 	def aggregate(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
-		config = load_config()
+		config = load_config()  # Generic config, just to get the paths
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",
@@ -100,5 +100,6 @@ class Aggregator:
 			logging.info("Computing auto-auto-annotation")
 			AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
-			logging.info("Graph skeletonization")
-			GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+			if "skeletonize" in config.steps:
+				logging.info("Graph skeletonization")
+				GraphSkeletonizer(min_pct=1).abstract(ds, dsout)

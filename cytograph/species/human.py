@@ -3,7 +3,7 @@ import numpy as np
 # Cell cycle gene sets from Tirosh et al. doi:10.1126/science.aad0501, plus histones for S phase from own analyses
 # Removed BIRC5 because it's expressed in certain non-cycling heart cells
 g1_human = ["MCM5", "PCNA", "TYMS", "FEN1", "MCM2", "MCM4", "RRM1", "UNG", "GINS2", "MCM6", "CDCA7", "DTL", "PRIM1", "UHRF1", "MLF1IP", "HELLS", "RFC2", "RPA2", "NASP", "RAD51AP1", "GMNN", "WDR76", "SLBP", "CCNE2", "UBR7", "POLD3", "MSH2", "ATAD2", "RAD51", "RRM2", "CDC45", "CDC6", "EXO1", "TIPIN", "DSCC1", "BLM", "CASP8AP2", "USP1", "CLSPN", "POLA1", "CHAF1B", "BRIP1", "E2F8"]
-s_human = ["HIST1H2AJ", "HIST1H2AM", "HIST1H1D", "HIST1H4C"]
+s_human = ["H2AC14", "H2AC17", "H1-3", "H4C3", "HIST1H2AJ", "HIST1H2AM", "HIST1H1D", "HIST1H4C"]  # Four last are old names for backwards compatibility
 g2m_human = ["HMGB2", "CDK1", "NUSAP1", "UBE2C", "TPX2", "TOP2A", "NDC80", "CKS2", "NUF2", "CKS1B", "MKI67", "TMPO", "CENPF", "TACC3", "FAM64A", "SMC4", "CCNB2", "CKAP2L", "CKAP2", "AURKB", "BUB1", "KIF11", "ANP32E", "TUBB4B", "GTSE1", "KIF20B", "HJURP", "HJURP", "CDCA3", "HN1", "CDC20", "TTK", "CDC25C", "KIF2C", "RANGAP1", "NCAPD2", "DLGAP5", "CDCA2", "CDCA8", "ECT2", "KIF23", "HMMR", "AURKA", "PSRC1", "ANLN", "LBR", "CKAP5", "CENPE", "CTCF", "NEK2", "G2E3", "GAS2L3", "CBX5", "CENPA"]
 cc_genes_human = np.array([
 	'ABHD3', 'AC016205.1', 'AC073529.1', 'AC084033.3', 'AC087632.1',
@@ -46,8 +46,8 @@ cc_genes_human = np.array([
 	'GLO1', 'GMNN', 'GMPS', 'GNG5', 'GPBP1', 'GPSM2', 'GTSE1', 'H1FX',
 	'H2AFV', 'H2AFX', 'H2AFY', 'H2AFZ', 'HACD3', 'HADH', 'HAT1',
 	'HAUS1', 'HAUS6', 'HAUS8', 'HDAC2', 'HDGF', 'HELLS', 'HES1',
-	'HINT1', 'HIRIP3', 'HIST1H1A', 'HIST1H1C', 'HIST1H1D', 'HIST1H2BH',
-	'HIST1H4C', 'HIST2H2AC', 'HJURP', 'HMG20B', 'HMGA1', 'HMGA2',
+	'HINT1', 'HIRIP3', 'H1-1', 'H1-2', 'H1-3', 'H2BC9',
+	'HIST1H4C', 'H2AC6', 'HJURP', 'HMG20B', 'HMGA1', 'HMGA2',
 	'HMGB1', 'HMGB2', 'HMGB3', 'HMGN1', 'HMGN2', 'HMGN3', 'HMGN5',
 	'HMGXB4', 'HMMR', 'HNRNPA0', 'HNRNPA1', 'HNRNPA2B1', 'HNRNPA3',
 	'HNRNPAB', 'HNRNPC', 'HNRNPD', 'HNRNPDL', 'HNRNPF', 'HNRNPH3',

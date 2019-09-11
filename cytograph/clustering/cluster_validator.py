@@ -28,7 +28,7 @@ class ClusterValidator:
 		"""
 
 		if "ClusterName" in ds.ca:
-			cluster_names = [ds.ca.ClusterName[ds.ca.Clusters == lbl][0] for lbl in np.unique(ds.ca.Clusters)]
+			cluster_names = [str(ds.ca.ClusterName[ds.ca.Clusters == lbl][0]) for lbl in np.unique(ds.ca.Clusters)]
 		else:
 			cluster_names = [str(lbl) for lbl in np.unique(ds.ca.Clusters)]
 
