@@ -147,7 +147,7 @@ def subset(punchcard: str) -> None:
 @cli.command()
 @click.argument("sampleid")
 @click.option('--flowcelltable', help="Tab-delimited file with SampleID, Flowcell, Lane")
-@clock.option('--tempfolder')
+@click.option('--tempfolder')
 def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> None:
 	config = load_config()
 	try:
