@@ -21,7 +21,7 @@ class Species:
 				name = "Mus musculus"
 		elif "Gene" in ds.ra:
 			for gene, species in {
-				"NOTCH2NLA": "Homo sapiens",
+				"NOTCH2NL": "Homo sapiens",
 				"Tspy1": "Rattus norvegicus",
 				"Actb": "Mus musculus",  # Note must come after rat, because rat has the same gene name
 				"actb1": "Danio rerio",

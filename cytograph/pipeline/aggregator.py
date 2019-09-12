@@ -100,5 +100,6 @@ class Aggregator:
 			logging.info("Computing auto-auto-annotation")
 			AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
-			logging.info("Graph skeletonization")
-			GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
+			if "skeletonize" in config.steps:
+				logging.info("Graph skeletonization")
+				GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
