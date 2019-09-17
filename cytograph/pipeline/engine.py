@@ -41,7 +41,7 @@ class Engine:
 	
 		Remarks:
 			The tasks are named for the punchcard subset they involve (using long subset names),
-			or the view name ("View_xxx"), and the pooling task is denoted by the special task name 'Pool'.
+			or the view name, and the pooling task is denoted by the special task name 'Pool'.
 		"""
 		stack = self.deck.root.get_leaves()
 		if len(stack) > 1:
@@ -62,6 +62,10 @@ class Engine:
 				tasks[s.longname()] = [dep]
 			else:
 				tasks[s.longname()] = []
+				# We're at root, so there's a list of lists of samples
+				for batch in s.include:
+					for sample in batch:
+						tasks[s.longname()].append(f"${sample}")  # Samples are denoted with a leading dollar sign
 		# Add views
 		for view in self.deck.views:
 			for i in view.include:
@@ -101,6 +105,8 @@ class LocalEngine(Engine):
 
 	def execute(self) -> None:
 		config = load_config()
+		
+		# Run all the subsets
 		tasks = self.build_execution_dag()
 		for task, deps in tasks.items():
 			if len(deps) > 0:
@@ -125,6 +131,12 @@ class LocalEngine(Engine):
 					subprocess.run(["cytograph", "--hide-message", "pool"])
 				else:
 					logging.info("cytograph pool")
+			elif task.startswith("$"):
+				if not self.dryrun:
+					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(filtered_tasks)}: cytograph process {task[1:]}\033[0m")
+					subprocess.run(["cytograph", "--hide-message", "mkloom", task[1:]])
+				else:
+					logging.info(f"cytograph mkloom {task[1:]}")
 			else:
 				if not self.dryrun:
 					logging.info(f"\033[1;32;40mBuild step {ix + 1} of {len(filtered_tasks)}: cytograph process {task}\033[0m")
@@ -152,6 +164,13 @@ class CondorEngine(Engine):
 			shutil.rmtree(exdir, ignore_errors=True)
 		if not os.path.exists(exdir):
 			os.mkdir(exdir)
+
+		# Find cytograph
+		cytograph_exe = shutil.which('cytograph')
+		if cytograph_exe is None:
+			logging.error("The 'cytograph' command-line tool was not found.")
+			sys.exit(1)
+
 		for task in tasks.keys():
 			config = load_config()  # Load it fresh for each task since we're clobbering it below
 			if is_task_complete(config.paths.build, task):
@@ -163,8 +182,10 @@ class CondorEngine(Engine):
 				if os.path.exists(cfg_file):
 					config.merge_with(cfg_file)
 				cmd = "pool"
+			elif task.startswith("$"):
+				cmd = f"mkloom {task[1:]}"
 			else:
-				subset: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = self.deck.get_subset(task)
+				subset: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = self.deck.get_subset(task)  # type:ignore
 				if subset is None:
 					subset = self.deck.get_view(task)
 					if subset is None:
@@ -173,11 +194,6 @@ class CondorEngine(Engine):
 				if subset.execution is not None:
 					merge_namespaces(config.execution, SimpleNamespace(**subset.execution))
 				cmd = f"process {task}"
-			# Generate the condor submit file for the task
-			cytograph_exe = shutil.which('cytograph')
-			if cytograph_exe is None:
-				logging.error("The 'cytograph' command-line tool was not found.")
-				sys.exit(1)
 			# Must set 'request_gpus' only if non-zero, because even asking for zero GPUs requires a node that has GPUs (weirdly)
 			request_gpus = f"request_gpus = {config.execution.n_gpus}" if config.execution.n_gpus > 0 else ""
 			with open(os.path.join(exdir, task + ".condor"), "w") as f:
