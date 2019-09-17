@@ -187,7 +187,8 @@ class CondorEngine(Engine):
 					config.merge_with(cfg_file)
 				cmd = "pool"
 			elif task.startswith("$"):
-				cmd = f"mkloom {task[1:]}"
+				task = task[1:]
+				cmd = f"mkloom {task}"
 			else:
 				subset: Union[Optional[PunchcardSubset], Optional[PunchcardView]] = self.deck.get_subset(task)  # type:ignore
 				if subset is None:
@@ -226,7 +227,7 @@ queue 1\n
 				if len(filtered_deps) == 0:
 					continue
 				if task.startswith("$"):
-					task = task[1:]
+					filtered_deps = [d[1:] for d in filtered_deps]
 				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")
 
 		if not self.dryrun:
