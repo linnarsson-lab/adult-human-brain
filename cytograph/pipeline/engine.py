@@ -47,6 +47,7 @@ class Engine:
 			The tasks are named for the punchcard subset they involve (using long subset names),
 			or the view name, and the pooling task is denoted by the special task name 'Pool'.
 		"""
+		samples: Set[str] = set()
 		stack = self.deck.root.get_leaves()
 		if len(stack) > 1:
 			tasks = {"Pool": [s.longname() for s in stack]}
@@ -70,6 +71,10 @@ class Engine:
 				for batch in s.include:
 					for sample in batch:
 						tasks[s.longname()].append(f"${sample}")  # Samples are denoted with a leading dollar sign
+						samples.add(sample)
+		# Add samples
+		for sample in samples:
+			tasks[f"${sample}"] = []
 		# Add views
 		for view in self.deck.views:
 			for i in view.include:
@@ -176,7 +181,6 @@ class CondorEngine(Engine):
 			sys.exit(1)
 
 		for task in tasks.keys():
-			logging.info(task)
 			config = load_config()  # Load it fresh for each task since we're clobbering it below
 			if is_task_complete(config.paths, task):
 				continue
