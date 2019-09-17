@@ -177,7 +177,7 @@ class CondorEngine(Engine):
 
 		for task in tasks.keys():
 			config = load_config()  # Load it fresh for each task since we're clobbering it below
-			if is_task_complete(config.paths.build, task):
+			if is_task_complete(config.paths, task):
 				continue
 			cmd = ""
 			# Get the right execution configuration for the task (CPUs etc.)
