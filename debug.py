@@ -1,10 +1,7 @@
 import loompy
-import os
 import numpy as np
-from cytograph import Species, FeatureSelectionByEnrichment
-from cytograph.pipeline import Punchcard, PunchcardDeck
-from cytograph.pipeline.commands import build as bld
+import cytograph as cg
 
-bld("local", True)
-
-
+d = "/Users/stelin/kallisto_GRCh38/"
+kt = cg.Karyotyper()
+kt.fit(d + "10X174_2.loom")

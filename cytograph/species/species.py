@@ -19,6 +19,12 @@ class Species:
 				name = "Homo sapiens"
 			if name == "Mm":
 				name = "Mus musculus"
+		if "species" in ds.attrs:
+			name = ds.attrs.species
+			if name == "Hs":
+				name = "Homo sapiens"
+			if name == "Mm":
+				name = "Mus musculus"
 		elif "Gene" in ds.ra:
 			for gene, species in {
 				"NOTCH2NL": "Homo sapiens",

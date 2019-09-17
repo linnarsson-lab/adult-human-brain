@@ -447,7 +447,8 @@ class PoolWorkflow(Workflow):
 		self.deck = deck
 		self.config = load_config()
 		# Merge pool-specific config
-		self.config.merge_with(os.path.join(self.config.paths.build, "pool_config.yaml"))
+		if os.path.exists(os.path.join(self.config.paths.build, "pool_config.yaml")):
+			self.config.merge_with(os.path.join(self.config.paths.build, "pool_config.yaml"))
 
 	def collect_cells(self, out_file: str) -> None:
 		punchcards: List[str] = []
