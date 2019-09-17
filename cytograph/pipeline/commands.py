@@ -4,6 +4,7 @@ import os
 import sqlite3 as sqlite
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, Union
 
 import click
@@ -14,7 +15,8 @@ from .._version import __version__ as version
 from .config import load_config
 from .engine import CondorEngine, Engine, LocalEngine
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
-from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, ViewWorkflow, Workflow
+from .workflow import (PoolWorkflow, RootWorkflow, SubsetWorkflow,
+                       ViewWorkflow, Workflow)
 
 
 def create_build_folders(path: str) -> None:
@@ -147,8 +149,7 @@ def subset(punchcard: str) -> None:
 @cli.command()
 @click.argument("sampleid")
 @click.option('--flowcelltable', help="Tab-delimited file with SampleID, Flowcell, Lane")
-@click.option('--tempfolder')
-def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> None:
+def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 	config = load_config()
 	try:
 		logging.info(f"Generating loom file for '{sampleid}'")
@@ -206,7 +207,8 @@ def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> 
 			logging.error("No fastq files were found.")
 			sys.exit(1)
 		logging.info(f"Creating loom file using kallisto with {config.execution.n_cpus} threads.")
-		create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder)
+		with TemporaryDirectory(dir=os.path.join(config.paths.build, "condor")) as tempfolder:
+			create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder)
 		logging.info("Done.")
 	except Exception as e:
 		logging.exception(f"'mkloom' command failed: {e}")
