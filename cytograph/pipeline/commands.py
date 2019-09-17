@@ -208,7 +208,7 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 			sys.exit(1)
 		logging.info(f"Creating loom file using kallisto with {config.execution.n_cpus} threads.")
 		with TemporaryDirectory(dir=os.path.join(config.paths.build, "condor")) as tempfolder:
-			create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder)
+			create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder, synchronous=True)
 		logging.info("Done.")
 	except Exception as e:
 		logging.exception(f"'mkloom' command failed: {e}")
