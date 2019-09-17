@@ -10,13 +10,17 @@ from .config import load_config, merge_namespaces
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 
 
-def is_task_complete(path: str, task: str) -> bool:
-	if not os.path.exists(os.path.join(path, "data", task + ".loom")):
-		return False
-	if not os.path.exists(os.path.join(path, "data", task + ".agg.loom")):
-		return False
-	if not os.path.exists(os.path.join(path, "exported", task)):
-		return False
+def is_task_complete(paths: SimpleNamespace, task: str) -> bool:
+	if task.startswith("$"):
+		if not os.path.exists(os.path.join(paths.samples, task[1:] + ".loom")):
+			return False
+	else:
+		if not os.path.exists(os.path.join(paths.build, "data", task + ".loom")):
+			return False
+		if not os.path.exists(os.path.join(paths.build, "data", task + ".agg.loom")):
+			return False
+		if not os.path.exists(os.path.join(paths.build, "exported", task)):
+			return False
 	return True
 
 
@@ -212,13 +216,17 @@ queue 1\n
 
 		with open(os.path.join(exdir, "_dag.condor"), "w") as f:
 			for task in tasks.keys():
-				if is_task_complete(config.paths.build, task):
+				if is_task_complete(config.paths, task):
 					continue
+				if task.startswith("$"):
+					task = task[1:]
 				f.write(f"JOB {task} {os.path.join(exdir, task)}.condor DIR {config.paths.build}\n")
 			for task, deps in tasks.items():
-				filtered_deps = [d for d in deps if not is_task_complete(config.paths.build, d)]
+				filtered_deps = [d for d in deps if not is_task_complete(config.paths, d)]
 				if len(filtered_deps) == 0:
 					continue
+				if task.startswith("$"):
+					task = task[1:]
 				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")
 
 		if not self.dryrun:
