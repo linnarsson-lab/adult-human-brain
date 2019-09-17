@@ -176,6 +176,7 @@ class CondorEngine(Engine):
 			sys.exit(1)
 
 		for task in tasks.keys():
+			logging.info(task)
 			config = load_config()  # Load it fresh for each task since we're clobbering it below
 			if is_task_complete(config.paths, task):
 				continue
@@ -226,7 +227,7 @@ queue 1\n
 				filtered_deps = [d for d in deps if not is_task_complete(config.paths, d)]
 				if len(filtered_deps) == 0:
 					continue
-				if task.startswith("$"):
+				if filtered_deps[0].startswith("$"):
 					filtered_deps = [d[1:] for d in filtered_deps]
 				f.write(f"PARENT {' '.join(filtered_deps)} CHILD {task}\n")
 
