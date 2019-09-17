@@ -31,7 +31,7 @@ class Config(SimpleNamespace):
 			raise IOError(f"Config path {path} not found.")
 
 		with open(path) as f:
-			defs = yaml.load(f)
+			defs = yaml.load(f, Loader=yaml.Loader)
 
 		if "paths" in defs:
 			merge_namespaces(self.paths, SimpleNamespace(**defs["paths"]))
