@@ -123,7 +123,7 @@ class LocalEngine(Engine):
 		logging.debug(f"Execution order: {','.join(ordered_tasks)}")
 
 		# Figure out which tasks have already been completed
-		filtered_tasks = [t for t in ordered_tasks if not is_task_complete(config.paths.build, t)]
+		filtered_tasks = [t for t in ordered_tasks if not is_task_complete(config.paths, t)]
 
 		# Now we have the tasks ordered by the DAG, and run them
 		if self.dryrun:
