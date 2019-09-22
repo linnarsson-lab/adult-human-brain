@@ -25,9 +25,13 @@ def umi_genes(ds: loompy.LoomConnection, out_file: str) -> None:
 	tsne = ds.ca.TSNE
 	plt.scatter(tsne[:, 0], tsne[:, 1], c="lightgrey", lw=0, marker='.')
 	for chip in np.unique(ds.ca.SampleID):
-		cells = (ds.ca.ScrubletFlag == 1) & (ds.ca.SampleID == chip)
+		if "ScrubletFlag" in ds.ca:
+			cells = (ds.ca.ScrubletFlag == 1) & (ds.ca.SampleID == chip)
+			plt.title("Scrublet flag == 1")
+		elif "DoubletFinderScore" in ds.ca:
+			cells = (ds.ca.DoubletFinderScore > 0.5) & (ds.ca.SampleID == chip)
+			plt.title("DoubletFinder score > 0.5")
 		plt.scatter(tsne[:, 0][cells], tsne[:, 1][cells], label=chip, lw=0, marker='.')
-		plt.title("Doublets")
 	plt.axis("off")
 	plt.legend()
 	plt.savefig(out_file, dpi=144)
