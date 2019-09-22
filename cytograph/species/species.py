@@ -17,17 +17,17 @@ class Species:
 			name = ds.attrs.Species
 			if name == "Hs":
 				name = "Homo sapiens"
-			if name == "Mm":
+			elif name == "Mm":
 				name = "Mus musculus"
-		if "species" in ds.attrs:
+		elif "species" in ds.attrs:
 			name = ds.attrs.species
 			if name == "Hs":
 				name = "Homo sapiens"
-			if name == "Mm":
+			elif name == "Mm":
 				name = "Mus musculus"
 		elif "Gene" in ds.ra:
 			for gene, species in {
-				"NOTCH2NL": "Homo sapiens",
+				"ACTB": "Homo sapiens",
 				"Tspy1": "Rattus norvegicus",
 				"Actb": "Mus musculus",  # Note must come after rat, because rat has the same gene name
 				"actb1": "Danio rerio",
