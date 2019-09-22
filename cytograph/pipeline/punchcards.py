@@ -25,7 +25,7 @@ class Punchcard:
 			logging.error(f"Punchcard {path} not found.")
 			sys.exit(1)
 		with open(path) as f:
-			spec = yaml.load(f)
+			spec = yaml.load(f, Loader=yaml.Loader)
 		p = Punchcard(name, parent, None, None)
 		subsets = []
 		logging.debug(f"Loading punchcard spec for {name}")
