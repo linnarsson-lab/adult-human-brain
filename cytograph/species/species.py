@@ -40,6 +40,7 @@ class Species:
 			}.items():
 				if gene in ds.ra.Gene:
 					name = species
+					break
 		if name is None:
 			raise ValueError("Failed to auto-detect species (to override auto-detection, set ds.attrs.Species to the species name, like 'Homo sapiens')")
 
