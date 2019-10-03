@@ -3,8 +3,6 @@ import numpy as np
 
 import loompy
 
-from .colors import colorize
-
 
 def cell_cycle(ds: loompy.LoomConnection, out_file: str) -> None:
 	cc = ds.ca.CellCycle

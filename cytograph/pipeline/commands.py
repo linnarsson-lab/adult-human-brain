@@ -199,7 +199,7 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 					files = os.listdir(os.path.dirname(file_pattern))
 					matching_files = sorted(fnmatch.filter(files, os.path.basename(file_pattern)))
 					if len(matching_files) != 2:
-						logging.error("Config paths.fastqs must match exactly two files per sampleID, flowcell and lane")
+						logging.warning("Fastq file pattern (paths.fastqs) matched more than two files (this may be intended, e.g. for NextSeq)")
 					fastqs += [os.path.join(os.path.dirname(file_pattern), f) for f in matching_files]
 				else:
 					logging.error(f"Directory {os.path.dirname(file_pattern)} not found; skipping some files")
