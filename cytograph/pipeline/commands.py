@@ -193,16 +193,13 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 			sys.exit(1)
 		fastqs: List[str] = []
 		for flowcell, lanes in records[sampleid].items():
-			for lane in lanes:
-				file_pattern = config.paths.fastqs.format(sampleid=sampleid, flowcell=flowcell, lane=lane)
-				if os.path.exists(os.path.dirname(file_pattern)):
-					files = os.listdir(os.path.dirname(file_pattern))
-					matching_files = sorted(fnmatch.filter(files, os.path.basename(file_pattern)))
-					if len(matching_files) != 2:
-						logging.warning("Fastq file pattern (paths.fastqs) matched more than two files (this may be intended, e.g. for NextSeq)")
-					fastqs += [os.path.join(os.path.dirname(file_pattern), f) for f in matching_files]
-				else:
-					logging.error(f"Directory {os.path.dirname(file_pattern)} not found; skipping some files")
+			file_pattern = config.paths.fastqs.format(sampleid=sampleid, flowcell=flowcell)
+			if os.path.exists(os.path.dirname(file_pattern)):
+				files = os.listdir(os.path.dirname(file_pattern))
+				matching_files = sorted(fnmatch.filter(files, os.path.basename(file_pattern)))
+				fastqs += [os.path.join(os.path.dirname(file_pattern), f) for f in matching_files]
+			else:
+				logging.error(f"Directory {os.path.dirname(file_pattern)} not found; skipping some files")
 		if len(fastqs) == 0:
 			logging.error("No fastq files were found.")
 			sys.exit(1)
