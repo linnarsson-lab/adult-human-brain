@@ -38,8 +38,6 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 	if build_location is not None:
 		config.paths.build = build_location
 
-	create_build_folders(config.paths.build)
-
 	if show_message:
 		print(f"Cytograph v{version} by Linnarsson Lab 🌸 (http://linnarssonlab.org)")
 		if os.path.exists(config.paths.build):
@@ -72,6 +70,7 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 def build(engine: str, dryrun: bool) -> None:
 	try:
 		config = load_config()
+		create_build_folders(config.paths.build)
 		# Load the punchcard deck
 		deck = PunchcardDeck(config.paths.build)
 
@@ -94,6 +93,7 @@ def build(engine: str, dryrun: bool) -> None:
 def process(subset_or_view: str) -> None:
 	try:
 		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
+		create_build_folders(config.paths.build)
 		logging.info(f"Processing '{subset_or_view}'")
 
 		deck = PunchcardDeck(config.paths.build)
@@ -120,6 +120,7 @@ def process(subset_or_view: str) -> None:
 def pool() -> None:
 	try:
 		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
+		create_build_folders(config.paths.build)
 		logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
 
 		# Load the punchcard deck, and pool it
