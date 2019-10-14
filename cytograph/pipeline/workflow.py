@@ -46,7 +46,7 @@ def load_sample_metadata(path: str, sample_id: str) -> Dict[str, str]:
 		with sqlite.connect(path) as db:
 			cursor = db.cursor()
 			cursor.execute("SELECT * FROM sample WHERE name = ?", (sample_id,))
-			keys = [x[0] for x in cursor.description]
+			keys = [x[0].capitalize() for x in cursor.description]
 			vals = cursor.fetchone()
 			if vals is not None:
 				return dict(zip(keys, vals))
@@ -184,6 +184,11 @@ class Workflow:
 			logging.info(f"Skipping '{self.name}.agg.loom' because it was already complete.")
 		else:
 			with loompy.connect(self.loom_file) as dsout:
+				clusts, labels = np.unique(dsout.ca.Clusters, return_inverse=True)
+				if len(np.unique(clusts)) != dsout.ca.Clusters.max() + 1:
+					logging.info(f"Renumbering clusters before aggregating.")
+					dsout.ca.ClustersCollected = dsout.ca.Clusters
+					dsout.ca.Clusters = labels
 				with Tempname(self.agg_file) as out_file:
 					Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
 				with loompy.connect(self.agg_file) as dsagg:
@@ -212,13 +217,13 @@ class Workflow:
 							cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
 						cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
-						if "velocity" in ds.layers:
+						if "velocity" in self.config.steps:
 							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
 						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
 						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
 						if "GA" in dsagg.col_graphs:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
-						if "cluster-validation" in config.steps:
+						if "cluster-validation" in self.config.steps:
 							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
 
 		# If there's a punchcard for this subset, go ahead and compute the subsets for that card

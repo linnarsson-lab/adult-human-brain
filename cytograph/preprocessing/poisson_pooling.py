@@ -65,7 +65,10 @@ class PoissonPooling:
 		knn.setdiag(1)
 		self.knn = knn
 
+	def fit_transform(self, ds: loompy.LoomConnection) -> None:
 		# Poisson pooling
+		self.fit(ds)
+		knn = self.knn
 		logging.debug(f"Poisson pooling")
 		ds["pooled"] = 'int32'
 		if self.compute_velocity and "spliced" in ds.layers:

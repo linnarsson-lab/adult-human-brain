@@ -4,6 +4,7 @@ import numpy as np
 import loompy
 from sklearn.neighbors import NearestNeighbors
 from .colors import colorize, colors75
+from scipy.stats import mode
 
 
 def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: List[str] = None, tag2: List[str] = None) -> None:
@@ -26,6 +27,7 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 	subset_colors = {subsets[i]: colors[i] for i in range(len(subsets))}
 
 	# Draw nodes
+	# Color cluster labels by most common subset in the cluster
 	labels = ds.ca.Clusters
 	plots = []
 	tag1_names = []
@@ -33,9 +35,9 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 	for i in range(max(labels) + 1):
 		cluster = labels == i
 		n_cells = cluster.sum()
-		subset = ds.ca.Subset[labels == i][0]
+		subset = mode(ds.ca.Subset[labels == i])[0][0]
 		c = [("lightgrey" if subset == "" else subset_colors[subset])] * n_cells
-		plots.append(plt.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=c, marker='.', lw=0, s=epsilon, alpha=0.5))
+		plots.append(ax.scatter(x=pos[cluster, 0], y=pos[cluster, 1], c=c, marker='.', lw=0, s=epsilon, alpha=0.5))
 		txt = str(i)
 		if "ClusterName" in ds.ca:
 			txt = ds.ca.ClusterName[ds.ca["Clusters"] == i][0]
@@ -47,14 +49,15 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 			tag2_names.append(f"{txt} " + tag2[i].replace("\n", " "))
 
 	# Add legends
-	ax2 = fig.add_axes([0.4, 0, 0.3, 1])
-	ax2.axis("off")
-	ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
-	if tag2 is not None:
-		ax3 = fig.add_axes([0.7, 0, 0.3, 1])
-		ax3.axis("off")
-		ax3.legend(plots, tag2_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
-	
+	if ds.ca.Clusters.max() < 300:
+		ax2 = fig.add_axes([0.4, 0, 0.3, 1])
+		ax2.axis("off")
+		ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
+		if tag2 is not None:
+			ax3 = fig.add_axes([0.7, 0, 0.3, 1])
+			ax3.axis("off")
+			ax3.legend(plots, tag2_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
+
 	# Add key for subsets
 	y = 0.99
 	for subset in subsets:
@@ -65,10 +68,20 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 	for lbl in range(0, max(labels) + 1):
 		txt = str(lbl)
 		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-		subset = ds.ca.Subset[labels == lbl][0]
-		assert np.all(ds.ca.Subset[labels == lbl] == subset)
+		subset = mode(ds.ca.Subset[labels == lbl])[0][0]
 		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor=subset_colors[subset], alpha=0.5, ec='none'))
-
+	
+	# Draw nodes again
+	# Cells on the tSNE will be colored individually and not cluster-wise
+	labels = ds.ca.Subset
+	tag1_names = []
+	tag2_names = []
+	for i in np.unique(labels):
+		cells = labels == i
+		n_cells = cells.sum()
+		subset = ds.ca.Subset[labels == i][0]
+		c = [("lightgrey" if subset == "" else subset_colors[subset])] * n_cells
+		ax.scatter(x=pos[cells, 0], y=pos[cells, 1], c=c, marker='.', lw=0, s=epsilon, alpha=0.5)
 	ax.axis('off')
 
 	if out_file is not None:

@@ -56,6 +56,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		"params": Config(**{
 			"k": 25,
 			"k_pooling": 10,
+			"factorization": "HPF",
 			"n_factors": 96,
 			"min_umis": 1500,
 			"n_genes": 2000,
@@ -64,7 +65,8 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
 			"skip_missing_samples": False,
-			"clusterer": "louvain"  # or "surprise"
+			"clusterer": "louvain",  # or "surprise"
+			"features": "enrichment" # or "variance"
 		}),
 		"steps": ("doublets", "poisson_pooling", "batch_correction", "velocity", "nn", "embeddings", "clustering", "aggregate", "skeletonize", "export"),
 		"execution": Config(**{
