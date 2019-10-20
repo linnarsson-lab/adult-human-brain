@@ -1,36 +1,13 @@
 from ._version import __version__
-from .auto_annotator import AutoAnnotator, CellTag, read_autoannotation
-from .auto_auto_annotator import AutoAutoAnnotator
-from .filter_manager import FilterManager
-from .louvain_jaccard import LouvainJaccard
-from .layout import OpenOrd, SFDP, TSNE
-from .normalizer import Normalizer, div0
-from .sqrt_normalizer import SqrtNormalizer
-from .projection import PCAProjection
-from .feature_selection import FeatureSelection
-from .classifier import Classifier
-from .enrichment import MarkerEnrichment
-from .trinarizer import Trinarizer, load_trinaries, credible_discordance
-from .pool_spec import PoolSpec
-from .plots import *
-from .magic import magic_imputation
-from .marker_selection import MarkerSelection
-from .multilevel_marker_selection import MultilevelMarkerSelection
-from .TFs import TFs_mouse, TFs_human
-from .utils import cap_select, logging, colorize, colors75, div0
-from .manifold_learning import ManifoldLearning
-from .manifold_learning_2 import ManifoldLearning2
-from .aggregator import Aggregator, aggregate_loom
-from .clustering import Clustering
-from .HPF_accel2 import HPF
-from .poisson_proximity import PoissonProximity
-from .merger import Merger
-from .balanced_knn import BalancedKNN
-from .polished_louvain import PolishedLouvain
-from .facet_learning import FacetLearning, Facet
-from .gsea import GSEA
-from .abstracted_graph import GraphAbstraction, velocity_summary, plot_confidence_and_velocity, adjacency_confidence
-from .vbgmm_clustering import VbgmmClustering
-from .cluster_validator import ClusterValidator
-from .absolute import *
-from .tsne import tsne
+from .annotation import *
+from .clustering import *
+from .decomposition import *
+from .embedding import *
+from .enrichment import *
+from .manifold import *
+from .metrics import *
+#from .pipeline import *
+from .preprocessing import *
+from .species import *
+from .velocity import *
+from .interpolation import *
