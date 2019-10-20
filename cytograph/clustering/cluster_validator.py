@@ -31,10 +31,10 @@ class ClusterValidator:
 			cluster_names = [str(ds.ca.ClusterName[ds.ca.Clusters == lbl][0]) for lbl in np.unique(ds.ca.Clusters)]
 		else:
 			cluster_names = [str(lbl) for lbl in np.unique(ds.ca.Clusters)]
-
-		genes = np.where(ds.ra.Selected == 1)[0]
+		
+		genes = np.where(ds.ra.Selected==1)[0]
 		data = ds.sparse(rows=genes).T
-		hpf = HPF(k=ds.ca.HPF.shape[1], validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf = cg.HPF(k=ds.ca.HPF.shape[1], validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
 		hpf.fit(data)
 		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
 
