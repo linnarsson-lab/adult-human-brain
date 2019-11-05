@@ -32,7 +32,8 @@ from pynndescent import NNDescent
 from scipy import sparse
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
-
+from ..plotting import doublets_plots
+import os
 import loompy
 from cytograph.decomposition import HPF
 from cytograph.enrichment import FeatureSelectionByVariance
@@ -42,8 +43,68 @@ from sklearn.cluster import KMeans
 from unidip import UniDip
 from sklearn.ensemble import IsolationForest
 
-
 def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_artificial: float = 0.20, k: int = None) -> np.ndarray:
+	# Step 1: Generate artificial doublets from input
+	logging.debug("Creating artificial doublets")
+	n_real_cells = ds.shape[1]
+	n_doublets = int(n_real_cells / (1 - proportion_artificial) - n_real_cells)
+	doublets = np.zeros((ds.shape[0], n_doublets))
+	for i in range(n_doublets):
+		a = np.random.choice(ds.shape[1])
+		b = np.random.choice(ds.shape[1])
+		doublets[:, i] = ds[:, a] + ds[:, b]
+
+	data_wdoublets = np.concatenate((ds[:, :], doublets), axis=1)
+
+	logging.debug("Feature selection and dimensionality reduction")
+	genes = FeatureSelectionByVariance(2000).fit(ds)
+	if use_pca:
+		# R function uses log2 counts/million
+		f = np.divide(data_wdoublets.sum(axis=0), 10e6)
+		norm_data = np.divide(data_wdoublets, f)
+		norm_data = np.log(norm_data + 1)
+		pca = PCA(n_components=50).fit_transform(norm_data[genes, :].T)
+	else:
+		data = sparse.coo_matrix(data_wdoublets[genes, :]).T
+		hpf = HPF(k=64, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False)
+		hpf.fit(data)
+		theta = (hpf.theta.T / hpf.theta.sum(axis=1)).T
+	
+	if k is None:
+		k = int(np.min([100, ds.shape[1] * 0.01]))
+
+	logging.debug(f"Initialize NN structure with k = {k}")
+	if use_pca:
+		knn_result = NearestNeighbors(n_neighbors=k, metric='euclidean', n_jobs=4)
+		knn_result.fit(pca)
+		knn_dist, knn_idx = knn_result.kneighbors(X=pca, return_distance=True)
+
+		num = ds.shape[1]
+		knn_result1 = NearestNeighbors(n_neighbors=k, metric='euclidean', n_jobs=4)
+		knn_result1.fit(pca[0:num, :])
+		knn_dist1, knn_idx1 = knn_result1.kneighbors(X=pca[num + 1:, :], n_neighbors=10)
+	else:
+		knn_result = NNDescent(data=theta, metric=jensen_shannon_distance)
+		knn_idx, knn_dist = knn_result.query(theta, k=k)
+
+		num = ds.shape[1]
+		knn_result1 = NNDescent(data=theta[0:num, :], metric=jensen_shannon_distance)
+		knn_idx1, knn_dist1 = knn_result1.query(theta[num + 1:, :], k=k)
+
+	dist_th = np.mean(knn_dist1.flatten()) + 1.64 * np.std(knn_dist1.flatten())
+
+	doublet_freq = np.logical_and(knn_idx > ds.shape[1], knn_dist < dist_th)
+	doublet_freq = doublet_freq[0:ds.shape[1], :]
+
+	mean1 = doublet_freq.mean(axis=1)
+	mean2 = doublet_freq[:, 0:int(np.ceil(k / 2))].mean(axis=1)
+	doublet_score = np.maximum(mean1, mean2)
+
+	return doublet_score
+
+#Same function for QC 
+#TH detection and QC plots 
+def doublet_finder_for_qc(ds: loompy.LoomConnection, use_pca: bool = False, proportion_artificial: float = 0.20, k: int = None, name: object = "tmp", qc_dir: object = ".", graphs: bool = True) -> np.ndarray:
 	# Step 1: Generate artificial doublets from input
 	logging.debug("Creating artificial doublets")
 	n_real_cells = ds.shape[1]
@@ -83,14 +144,18 @@ def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_
 		knn_result1 = NearestNeighbors(n_neighbors=k, metric='euclidean', n_jobs=4)
 		knn_result1.fit(pca[0:num, :])
 		knn_dist1, knn_idx1 = knn_result1.kneighbors(X=pca[num + 1:, :], n_neighbors=10)
+		knn_dist_rc, knn_idx_rc = knn_result1.kneighbors(X=pca[0:num, :], return_distance=True)
+		
 	else:
 		knn_result = NNDescent(data=theta, metric=jensen_shannon_distance)
 		knn_idx, knn_dist = knn_result.query(theta, k=k)
 
 		num = ds.shape[1]
 		knn_result1 = NNDescent(data=theta[0:num, :], metric=jensen_shannon_distance)
-		knn_idx1, knn_dist1 = knn_result1.query(theta[num + 1:, :], k=k)
-
+		knn_idx1, knn_dist1 = knn_result1.query(theta[num + 1:, :], k=10)
+		knn_idx_rc, knn_dist_rc = knn_result1.query(theta[0:num, :], k=k)
+		
+    
 	dist_th = np.mean(knn_dist1.flatten()) + 1.64 * np.std(knn_dist1.flatten())
 
 	doublet_freq = np.logical_and(knn_idx > ds.shape[1], knn_dist < dist_th)
@@ -127,13 +192,50 @@ def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_
 		ind_outliers = np.where((outlier==-1))[0]
 		doublet_th1 = min(xx[ind_outliers[np.where(xx[ind_outliers]>0.2)[0]]])		
 	
+	
 	#0.5% for every 1000 cells
 	doublet_th2 = np.percentile(doublet_score,100-(5e-4*ds.shape[1]))
-	if (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0])+(0.03*ds.shape[1]))):
+	if (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
 		doublet_th = doublet_th2
 	else:
 		doublet_th = doublet_th1
-	logging.info(f"TH1: {doublet_th1} TH2: {doublet_th2} TH: {doublet_th}")
 	doublet_flag[doublet_score>=doublet_th]=1
+
+	#Calculate the score for the cells that are nn of the marked doublets 
+	if use_pca:
+		pca_rc = pca[0:num, :]
+		knn_dist1_rc, knn_idx1_rc = knn_result1.kneighbors(X=pca_rc[doublet_flag==1,:],n_neighbors=10, return_distance=True)
+	else:
+		theta_rc = theta[0:num, :]
+		knn_idx1_rc, knn_dist1_rc = knn_result1.query(theta_rc[doublet_flag==1, :], k=10)
+
+	dist_th = np.mean(knn_dist1_rc.flatten()) + 1.64 * np.std(knn_dist1_rc.flatten())
+	doublet2_freq = np.logical_and( doublet_flag[knn_idx_rc]==1  , knn_dist_rc < dist_th)
+	doublet2_nn =  knn_dist_rc < dist_th
+	doublet2_score  = doublet2_freq.sum(axis=1)/doublet2_nn.sum(axis=1)
+	#mean2 = doublet2_freq[:, 0:int(np.ceil(k / 2))].mean(axis=1)
+	#doublet2_score = np.maximum(mean1, mean2)
+	
+	doublet_flag[np.logical_and(doublet_flag == 0 ,doublet2_score >= doublet_th/2)] = 2
+	#doublet_flag[np.logical_and(doublet_flag == 0 ,doublet2_score >= 0.1 ,doublet2_nn.sum(axis=1)<=10)] = 2
+	
+	if(graphs == True):
+		tsne_file = os.path.join(qc_dir+"/"+ name+"_doublet_finder_TSNE.png")
+		qc_file = os.path.join(qc_dir+"/"+ name+"_doublet_finder_fake_doublets.png")
+		umi_file = os.path.join(qc_dir+"/"+ name+"_doublet_finder_total_umi.png")
+		ngenes_file = os.path.join(qc_dir+"/"+ name+"_doublet_finder_ngenes.png")
+		doublets_plots.fake_doublets_dist(doublet_score_A,logprob,xx,doublet_th1,doublet_th2,doublet_th, qc_file )
+		
+		if ('HPF' in ds.ca.keys()):
+			doublets_plots.doublets_TSNE(ds, tsne_file, doublet_flag)
+		elif (use_pca):
+			ds.ca.PCA = pca[0:ds.shape[1], :]
+			doublets_plots.doublets_TSNE(ds, tsne_file, doublet_flag)
+		else:
+			ds.ca.HPF  = theta[0:ds.shape[1], :]
+			doublets_plots.doublets_TSNE(ds, tsne_file, doublet_flag)
+		doublets_plots.doublets_umis(ds, umi_file, doublet_flag)
+		doublets_plots.doublets_ngenes(ds, ngenes_file, doublet_flag)
+	
 	logging.debug(f"doublet rate: {len(np.where(doublet_flag==1)[0])/ds.shape[1]}")
 	return doublet_score,doublet_flag

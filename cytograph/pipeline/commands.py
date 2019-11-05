@@ -4,17 +4,22 @@ import os
 import sqlite3 as sqlite
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional, Union
-
+from ..plotting import qc_plots
 import click
-
-from loompy import create_from_fastq
-
+import numpy as np
+from loompy import create_from_fastq,connect,combine_faster
+from ..preprocessing.doublet_finder import doublet_finder_for_qc
+from ..preprocessing import qc_functions
 from .._version import __version__ as version
 from .config import load_config
 from .engine import CondorEngine, Engine, LocalEngine
 from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
-from .workflow import PoolWorkflow, RootWorkflow, SubsetWorkflow, ViewWorkflow, Workflow
+from .workflow import (PoolWorkflow, RootWorkflow, SubsetWorkflow,
+                       ViewWorkflow, Workflow)
+import csv
+
 
 
 def create_build_folders(path: str) -> None:
@@ -35,8 +40,6 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 	# Allow command-line options to override config settings
 	if build_location is not None:
 		config.paths.build = build_location
-
-	create_build_folders(config.paths.build)
 
 	if show_message:
 		print(f"Cytograph v{version} by Linnarsson Lab 🌸 (http://linnarssonlab.org)")
@@ -70,6 +73,7 @@ def cli(build_location: str = None, show_message: bool = True, verbosity: str = 
 def build(engine: str, dryrun: bool) -> None:
 	try:
 		config = load_config()
+		create_build_folders(config.paths.build)
 		# Load the punchcard deck
 		deck = PunchcardDeck(config.paths.build)
 
@@ -92,6 +96,7 @@ def build(engine: str, dryrun: bool) -> None:
 def process(subset_or_view: str) -> None:
 	try:
 		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
+		create_build_folders(config.paths.build)
 		logging.info(f"Processing '{subset_or_view}'")
 
 		deck = PunchcardDeck(config.paths.build)
@@ -118,6 +123,7 @@ def process(subset_or_view: str) -> None:
 def pool() -> None:
 	try:
 		config = load_config()  # This config will not have subset-specific settings, but we need it for the build path
+		create_build_folders(config.paths.build)
 		logging.info(f"Pooling all (leaf) punchcards into 'Pool.loom'")
 
 		# Load the punchcard deck, and pool it
@@ -147,8 +153,7 @@ def subset(punchcard: str) -> None:
 @cli.command()
 @click.argument("sampleid")
 @click.option('--flowcelltable', help="Tab-delimited file with SampleID, Flowcell, Lane")
-@click.option('--tempfolder')
-def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> None:
+def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 	config = load_config()
 	try:
 		logging.info(f"Generating loom file for '{sampleid}'")
@@ -192,21 +197,114 @@ def mkloom(sampleid: str, flowcelltable: str = None, tempfolder: str = None) -> 
 			sys.exit(1)
 		fastqs: List[str] = []
 		for flowcell, lanes in records[sampleid].items():
-			for lane in lanes:
-				file_pattern = config.paths.fastqs.format(sampleid=sampleid, flowcell=flowcell, lane=lane)
-				if os.path.exists(os.path.dirname(file_pattern)):
-					files = os.listdir(os.path.dirname(file_pattern))
-					matching_files = sorted(fnmatch.filter(files, os.path.basename(file_pattern)))
-					if len(matching_files) != 2:
-						logging.error("Config paths.fastqs must match exactly two files per sampleID, flowcell and lane")
-					fastqs += [os.path.join(os.path.dirname(file_pattern), f) for f in matching_files]
-				else:
-					logging.error(f"Directory {os.path.dirname(file_pattern)} not found; skipping some files")
+			file_pattern = config.paths.fastqs.format(sampleid=sampleid, flowcell=flowcell)
+			if os.path.exists(os.path.dirname(file_pattern)):
+				files = os.listdir(os.path.dirname(file_pattern))
+				matching_files = sorted(fnmatch.filter(files, os.path.basename(file_pattern)))
+				fastqs += [os.path.join(os.path.dirname(file_pattern), f) for f in matching_files]
+			else:
+				logging.error(f"Directory {os.path.dirname(file_pattern)} not found; skipping some files")
 		if len(fastqs) == 0:
 			logging.error("No fastq files were found.")
 			sys.exit(1)
 		logging.info(f"Creating loom file using kallisto with {config.execution.n_cpus} threads.")
-		create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder)
+		with TemporaryDirectory(dir=os.path.join(config.paths.build, "condor")) as tempfolder:
+			create_from_fastq(os.path.join(config.paths.samples, f"{sampleid}.loom"), sampleid, fastqs, config.paths.index, config.paths.metadata, config.execution.n_cpus, tempfolder, synchronous=True)
 		logging.info("Done.")
 	except Exception as e:
 		logging.exception(f"'mkloom' command failed: {e}")
+
+@cli.command()
+@click.argument('sampleids', nargs=-1)
+@click.option('--rerun', is_flag = True, help="Rerun QC on all the samples again")
+@click.option('--file', help="Sampleids comma-delimited, line for replicates ")
+
+def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
+	config = load_config()
+	n_cells=0
+	file_reader =[]
+	if file is not None:
+		csv_file = open(file)
+		file_reader = csv.reader(csv_file, delimiter=',')
+	else:
+		file_reader.append(sampleids)
+	
+	for row in file_reader:
+		sampleids = np.unique(row)
+		files: List[str] = []
+		good_samples: List[str] = []
+		for n,sample_id in enumerate(sampleids):
+			full_path = os.path.join(config.paths.samples, sample_id + ".loom")
+			#Check if the sample has enough cells above the UMI TH and add it to the doublets check 
+			
+			if not os.path.exists(full_path):
+				logging.info ('Cannot open '+sample_id+' loom file')
+				continue
+			logging.info(f"Examining {sample_id}.loom")
+			with connect(full_path, "r+") as ds:
+				if not rerun:
+					if "passedQC" in ds.attrs:
+						if ds.attrs.passedQC:
+							files.append(full_path)
+							good_samples.append(sample_id)
+							continue
+						else:
+							logging.warn(f"Skipping {sample_id}.loom because it didn't passed QC in previous run.")
+							continue
+				logging.info(f"Computing total UMIs")
+				(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+				ds.ca["TotalUMI"] = totals
+				ds.ca["NGenes"] = genes
+				ds.attrs.MeanTotalUMI = np.mean(totals/ds.shape[1])
+				good_cells = (totals >= config.params.min_umis)
+				#Filter samples with low fraction of good cells (cells with enough UMI counts)
+				if good_cells.sum() / ds.shape[1] > config.params.min_fraction_good_cells:
+					files.append(full_path)
+					good_samples.append(sample_id)
+					ds.attrs.passedQC = True
+				else:
+					logging.warn(f"Skipping {sample_id}.loom because only {good_cells.sum()} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) passed QC.")
+					ds.attrs.passedQC = False
+					continue
+				# Assess demaged/dead cells using ratio of mitochondrial gene expression and unspliced reads ratio
+				qc_functions.mito_genes_ratio(ds)
+				plot_file = os.path.join(config.paths.qc+"/"+ sample_id+"_mitochondrial_gene_expression_ratio.png")
+				plot_title = "Mitochondrial gene expression ratio distribution"
+				qc_plots.dist_attr(ds, out_file = plot_file, attr = "MT_ratio", plot_title= plot_title, line=0.05)
+				low_mito_ratio = len(np.where(ds.ca.MT_ratio<config.params.max_fraction_MT_genes)[0])/ds.shape[1]
+				if(low_mito_ratio<config.params.min_fraction_good_cells):
+					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.MT_ratio<config.params.max_fraction_MT_genes)[0])} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) had low ratio of mitochondrial gene expression.")
+				qc_functions.unspliced_ratio(ds, sample_name = sample_id)
+				low_us_ratio = len(np.where(ds.ca.unspliced_ratio<config.params.max_fraction_unspliced_reads)[0])/ds.shape[1]
+				if(low_us_ratio<config.params.min_fraction_good_cells):
+					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.unspliced_ratio<config.params.max_fraction_unspliced_reads)[0])} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) had low ratio of unspliced gene expression.")
+				low_ngenes_ratio = len(np.where(ds.ca.NGenes/ds.ca.TotalUMI<config.params.min_fraction_genes_UMI)[0])/ds.shape[1]
+				if(low_ngenes_ratio>1-config.params.min_fraction_good_cells):
+					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.NGenes/ds.ca.TotalUMI>config.params.min_fraction_genes_UMI)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had good ratio of gene expressed vs. UMI counts.")
+
+				plot_file = os.path.join(config.paths.qc+"/"+ sample_id+"_unspliced_reads_ratio.png")
+				plot_title = "Unspliced reads ratio distribution"	
+				qc_plots.dist_attr(ds, out_file = plot_file, attr = "unspliced_ratio", plot_title= plot_title, line=0.5)
+		#Create a combined loom file for all the good samples
+		if files:	
+			batch_name =  '-'.join(good_samples)
+			out_file = os.path.join(config.paths.qc,batch_name+".loom")
+			combine_faster(files, out_file, skip_attrs=["_X", "_Y", "Clusters"])
+			with connect(out_file, "r+") as ds:
+				logging.info("Scoring doublets using DoubletFinder")
+
+				doublet_finder_score ,doublet_finder_flag= doublet_finder_for_qc(ds, name =batch_name, use_pca=True, proportion_artificial=0.25, qc_dir = config.paths.qc)
+				ds.ca["DoubletFinderScore"] = doublet_finder_score
+				ds.ca["DoubletFinderFlag"] = doublet_finder_flag
+			os.remove(out_file)
+			nf = 0
+			for n,sample_id in enumerate(good_samples):
+				with connect(files[n], "r+") as ds:
+					ds.ca["DoubletFinderScore"] = doublet_finder_score[nf:(nf+ds.shape[1])]
+					ds.ca["DoubletFinderFlag"] = doublet_finder_flag[nf:(nf+ds.shape[1])]
+					nf = nf+ds.shape[1]
+					
+					qc_plots.attrs_on_TSNE(ds,out_file =os.path.join(config.paths.qc+"/"+ sample_id+"_QC.png") ,attrs = ["DoubletFinderFlag","TotalUMI","unspliced_ratio","NGenes"],plot_title = ["Doublets Flag"," UMI counts","Unspliced reads ratio","Number of genes per cell"])
+					logging.info(f"Adding doublets attributes to sample: {sample_id}")
+	csv_file.close()			
+	logging.info("Done.")
