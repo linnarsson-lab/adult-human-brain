@@ -306,5 +306,6 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 					
 					qc_plots.attrs_on_TSNE(ds,out_file =os.path.join(config.paths.qc+"/"+ sample_id+"_QC.png") ,attrs = ["DoubletFinderFlag","TotalUMI","unspliced_ratio","NGenes"],plot_title = ["Doublets Flag"," UMI counts","Unspliced reads ratio","Number of genes per cell"])
 					logging.info(f"Adding doublets attributes to sample: {sample_id}")
-	csv_file.close()			
+	if file is not None:
+		csv_file.close()	
 	logging.info("Done.")
