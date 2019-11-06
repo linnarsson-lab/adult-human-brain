@@ -85,7 +85,7 @@ class Cytograph:
 			normalizer.fit(ds)
 			n_components = min(50, ds.shape[1])
 			logging.info("PCA projection to %d components", n_components)
-			pca = PCAProjection(genes, max_n_components=n_components)
+			pca = PCAProjection(genes, max_n_components=n_components, layer=main_layer)
 			transformed = pca.fit_transform(ds, normalizer)
 			ds.ca.PCA = transformed
 		elif self.config.params.factorization == 'HPF':
