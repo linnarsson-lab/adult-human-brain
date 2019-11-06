@@ -1,5 +1,5 @@
 from subprocess import check_output, CalledProcessError, Popen
-from typing import *
+from typing import Any, List
 import tempfile
 import os
 from struct import calcsize, pack, unpack

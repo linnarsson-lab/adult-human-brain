@@ -1,15 +1,12 @@
-from typing import *
 import loompy
 import numpy as np
-import logging
-import luigi
 
 
 class Normalizer:
 	"""
 	Normalize and optionally standardize a dataset, dealing properly with edge cases such as division by zero.
 	"""
-	def __init__(self, standardize: bool = False, level: int = 5000, layer="") -> None:
+	def __init__(self, standardize: bool = False, level: int = 5000, layer: str = "") -> None:
 		self.standardize = standardize
 		self.sd = None  # type: np.ndarray
 		self.mu = None  # type: np.ndarray
