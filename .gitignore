@@ -1,7 +1,3 @@
-# Loom
-loom_samples/
-loom_builds/
-bhtsne/bh_tsne
 
 # Mac
 *.DS_Store/

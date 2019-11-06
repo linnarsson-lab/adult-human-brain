@@ -74,7 +74,7 @@ class Engine:
 						samples.add(sample)
 		# Add samples
 		for sample in samples:
-			tasks[f"${sample}"] = []
+			tasks[f"${sample}"] = []  # $ means mkloom
 		# Add views
 		for view in self.deck.views:
 			for i in view.include:
