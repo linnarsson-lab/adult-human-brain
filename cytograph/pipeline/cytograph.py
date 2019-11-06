@@ -16,10 +16,10 @@ from cytograph.embedding import tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
-from cytograph.preprocessing import PoissonPooling
+from cytograph.preprocessing import PoissonPooling, Normalizer
 from cytograph.species import Species
 from cytograph.velocity import VelocityEmbedding, fit_velocity_gamma
-from cytograph.cytograph1 import PCAProjection, Normalizer
+from cytograph.embedding import PCA
 
 from .config import Config
 
@@ -85,7 +85,7 @@ class Cytograph:
 			normalizer.fit(ds)
 			n_components = min(50, ds.shape[1])
 			logging.info("PCA projection to %d components", n_components)
-			pca = PCAProjection(genes, max_n_components=n_components, layer=main_layer)
+			pca = PCA(genes, max_n_components=n_components, layer=main_layer)
 			transformed = pca.fit_transform(ds, normalizer)
 			ds.ca.PCA = transformed
 		elif self.config.params.factorization == 'HPF':
