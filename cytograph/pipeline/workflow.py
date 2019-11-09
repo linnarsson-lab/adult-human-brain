@@ -172,11 +172,8 @@ class Workflow:
 		if os.path.exists(self.loom_file):
 			logging.info(f"Skipping '{self.name}.loom' because it was already complete.")
 		else:
-			with Tempname(self.loom_file) as out_file:
-				if config.params.passedQC:
-					self.collect_cells_after_qc(out_file)
-				else:	
-					self.collect_cells(out_file)
+			with Tempname(self.loom_file) as out_file:	
+				self.collect_cells(out_file)
 				with loompy.connect(out_file) as ds:
 					ds.attrs.config = config.to_string()
 					logging.info(f"Collected {ds.shape[1]} cells")
@@ -278,6 +275,9 @@ class RootWorkflow(Workflow):
 				logging.info(f"Examining {sample_id}.loom")
 				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
 				with loompy.connect(full_path, "r") as ds:
+					if self.config.params.passedQC and not ds.attrs.passedQC :
+						logging.warn(f"Skipping {sample_id}.loom - did not passed QC.")
+						continue
 					species = Species.detect(ds).name
 					col_attrs = dict(ds.ca)
 					for key, val in metadata.items():
@@ -287,7 +287,7 @@ class RootWorkflow(Workflow):
 					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
 					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-					if "doublets" in self.config.steps:
+					if "doublets" in self.config.steps :
 						if self.config.params.doublets_method == "scrublet":
 							logging.info("Scoring doublets using Scrublet")
 							data = ds[:, :].T
@@ -303,19 +303,33 @@ class RootWorkflow(Workflow):
 								col_attrs["ScrubletFlag"] = np.zeros(ds.shape[1])
 							else:
 								col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
-						elif self.config.params.doublets_method == "doublet-finder":
-							logging.info("Scoring doublets using DoubletFinder")
-							col_attrs["DoubletFinderScore"] ,col_attrs["DoubletFinderFlag"]= doublet_finder(ds)
-					logging.info(f"Computing total UMIs")
-					(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
-					col_attrs["TotalUMI"] = totals
-					col_attrs["NGenes"] = genes
-					good_cells = (totals >= self.config.params.min_umis)
+						elif self.config.params.doublets_method == "doubletFinder":
+							if "DoubletFinderFlag" not in ds.ca:
+								logging.info("Scoring doublets using DoubletFinder")
+								doublet_finder_score, predicted_doublets = doublet_finder(ds,graphs = False)
+								col_attrs["DoubletFinderScore"] = doublet_finder_score 
+								col_attrs["DoubletFinderFlag"] = predicted_doublets
+							else:
+								predicted_doublets  = ds.ca.DoubletFinderFlag
+					if "TotalUMI" not in ds.ca or "NGenes" not in ds.ca:		
+						logging.info(f"Computing total UMIs")
+						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+						col_attrs["TotalUMI"] = totals
+						col_attrs["NGenes"] = genes
+						good_cells = (totals >= self.config.params.min_umis)
+					else:
+						good_cells = (ds.ca.TotalUMI >= self.config.params.min_umis)
+					
 					if self.config.params.doublets_method == "scrublet" and self.config.params.doublets_action == "remove":
 						logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
 						good_cells = good_cells & (~predicted_doublets)
+					elif self.config.params.doublets_method == "doubletFinder" and self.config.params.doublets_action == "remove":
+						logging.info(f"Removing {np.sum(predicted_doublets>0)} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
+						good_cells = np.logical_and(good_cells , predicted_doublets==0)
 					else:
 						logging.info(f"Removing {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
+					
+					
 					if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
 						logging.info(f"Including {good_cells.sum()} of {ds.shape[1]} cells")
 						n_cells += good_cells.sum()
@@ -335,75 +349,7 @@ class RootWorkflow(Workflow):
 					ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
 				else:
 					logging.warn(f"Skipping column attribute {attr} because it was only present in some of the inputs")
-	def collect_cells_after_qc(self, out_file: str) -> None:
-		# Make sure all the sample files exist
-		err = False
-		missing_samples: List[str] = []
-		for batch in self.subset.include:
-			for sample_id in batch:
-				full_path = os.path.join(self.config.paths.samples, sample_id + ".loom")
-				if not os.path.exists(full_path):
-					logging.error(f"Sample file '{full_path}' not found")
-					err = True
-					missing_samples.append(sample_id)
-		if err and not self.config.params.skip_missing_samples:
-			sys.exit(1)
-
-		# metadata = Metadata(self.config.paths.metadata)
-		logging.info(f"Collecting cells for {self.name}")
-		logging.debug(out_file)
-		batch_id = 0
-		n_cells = 0
-		files: List[str] = []
-		selections: List[str] = []
-		new_col_attrs: List[Dict[str, np.ndarray]] = []
-		for batch in self.subset.include:
-			replicate_id = 0
-			for sample_id in batch:
-				full_path = os.path.join(self.config.paths.samples, sample_id + ".loom")
-				if not os.path.exists(full_path):
-					continue
-				logging.info(f"Examining {sample_id}.loom")
-				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
-				with loompy.connect(full_path, "r") as ds:
-					if not ds.attrs.passedQC :
-						logging.warn(f"Skipping {sample_id}.loom - did not passed QC.")
-						continue
-					species = Species.detect(ds).name
-					col_attrs = dict(ds.ca)
-					for key, val in metadata.items():
-						col_attrs[key] = np.array([val] * ds.shape[1])
-					if "Species" not in col_attrs:
-						col_attrs["Species"] = np.array([species] * ds.shape[1])
-					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
-					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
-					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-					good_cells = (ds.ca.TotalUMI >= self.config.params.min_umis)
-					if  self.config.params.doublets_action == "remove":
-						logging.info(f"Removing {np.sum(ds.ca.DoubletFinderFlag>0)} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
-						good_cells = np.logical_and(good_cells , ds.ca.DoubletFinderFlag==0)
-					else:
-						logging.info(f"Removing {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
-					if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
-						logging.info(f"Including {good_cells.sum()} of {ds.shape[1]} cells")
-						n_cells += good_cells.sum()
-						files.append(full_path)
-						selections.append(good_cells)
-						new_col_attrs.append(col_attrs)
-					else:
-						logging.warn(f"Skipping {sample_id}.loom because only {good_cells.sum()} of {ds.shape[1]} cells (less than {self.config.params.min_fraction_good_cells * 100}%) passed QC.")
-				replicate_id += 1
-			batch_id += 1
-		logging.info(f"Collecting a total of {n_cells} cells.")
-		loompy.combine_faster(files, out_file, {}, selections)
-		logging.info(f"Adding column attributes")
-		with loompy.connect(out_file) as ds:
-			for attr in new_col_attrs[0].keys():
-				if all([attr in attrs for attrs in new_col_attrs]):
-					ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
-				else:
-					logging.warn(f"Skipping column attribute {attr} because it was only present in some of the inputs")
-
+	
 class SubsetWorkflow(Workflow):
 	"""
 	A workflow for intermediate punchcards, which collects its cells from a previous punchcard subset
