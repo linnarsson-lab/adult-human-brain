@@ -287,8 +287,8 @@ class RootWorkflow(Workflow):
 					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
 					col_attrs["Batch"] = np.array([batch_id] * ds.shape[1])
 					col_attrs["Replicate"] = np.array([replicate_id] * ds.shape[1])
-					if "doublets" in self.config.steps :
-						if self.config.params.doublets_method == "scrublet":
+					if "doublets" in self.config.steps or self.config.params.passedQC :
+						if "doublets" in self.config.steps  and self.config.params.doublets_method == "scrublet":
 							logging.info("Scoring doublets using Scrublet")
 							data = ds[:, :].T
 							try:
@@ -310,6 +310,7 @@ class RootWorkflow(Workflow):
 								col_attrs["DoubletFinderScore"] = doublet_finder_score 
 								col_attrs["DoubletFinderFlag"] = predicted_doublets
 							else:
+								logging.info("Using QC DoubletFinder flag")
 								predicted_doublets  = ds.ca.DoubletFinderFlag
 					if "TotalUMI" not in ds.ca or "NGenes" not in ds.ca:		
 						logging.info(f"Computing total UMIs")
@@ -320,10 +321,10 @@ class RootWorkflow(Workflow):
 					else:
 						good_cells = (ds.ca.TotalUMI >= self.config.params.min_umis)
 					
-					if self.config.params.doublets_method == "scrublet" and self.config.params.doublets_action == "remove":
+					if "doublets" in self.config.steps  and self.config.params.doublets_method == "scrublet" and self.config.params.doublets_action == "remove":
 						logging.info(f"Removing {predicted_doublets.sum()} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
 						good_cells = good_cells & (~predicted_doublets)
-					elif self.config.params.doublets_method == "doubletFinder" and self.config.params.doublets_action == "remove":
+					elif ("doublets" in self.config.steps or self.config.params.passedQC) and self.config.params.doublets_method == "doubletFinder" and self.config.params.doublets_action == "remove":
 						logging.info(f"Removing {np.sum(predicted_doublets>0)} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
 						good_cells = np.logical_and(good_cells , predicted_doublets==0)
 					else:
