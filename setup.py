@@ -25,7 +25,8 @@ setup(
 		# 'torchvision',
 		'pynndescent',
 		'click',
-		'leidenalg'
+		'leidenalg',
+		'unidip'
 	],
 	include_package_data=True,
 	entry_points='''

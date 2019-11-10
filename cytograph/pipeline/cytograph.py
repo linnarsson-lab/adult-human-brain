@@ -16,10 +16,10 @@ from cytograph.embedding import tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance
-from cytograph.preprocessing import PoissonPooling
+from cytograph.preprocessing import PoissonPooling, Normalizer
 from cytograph.species import Species
 from cytograph.velocity import VelocityEmbedding, fit_velocity_gamma
-from cytograph.cytograph1 import PCAProjection, Normalizer, TSNE
+from cytograph.embedding import PCA
 
 from .config import Config
 
@@ -85,7 +85,7 @@ class Cytograph:
 			normalizer.fit(ds)
 			n_components = min(50, ds.shape[1])
 			logging.info("PCA projection to %d components", n_components)
-			pca = PCAProjection(genes, max_n_components=n_components, layer=main_layer)
+			pca = PCA(genes, max_n_components=n_components, layer=main_layer)
 			transformed = pca.fit_transform(ds, normalizer)
 			ds.ca.PCA = transformed
 		elif self.config.params.factorization == 'HPF':
@@ -183,7 +183,7 @@ class Cytograph:
 			logging.info(f"2D tSNE embedding from latent space")
 			if self.config.params.factorization == 'PCA':
 				perplexity = min(self.config.params.k, (ds.shape[1] - 1) / 3 - 1)
-				ds.ca.TSNE = TSNE(perplexity=perplexity).layout(transformed, knn=knn.tocsr())
+				ds.ca.TSNE = tsne(transformed, metric="euclidean", perplexity=perplexity)
 				ds.ca.UMAP = UMAP(n_components=2, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 				ds.ca.UMAP3D = UMAP(n_components=3, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 			else:

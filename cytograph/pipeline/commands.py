@@ -298,5 +298,5 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 					qc_plots.all_QC_plots(ds = ds, out_file =os.path.join(config.paths.qc+"/"+ sample_id+"_QC.png"))
 					logging.info(f"Adding doublets attributes to sample: {sample_id}")
 	if file is not None:
-		csv_file.close()			
+		csv_file.close()	
 	logging.info("Done.")

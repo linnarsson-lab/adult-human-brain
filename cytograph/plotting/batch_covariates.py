@@ -11,31 +11,41 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.figure(figsize=(12, 12))
 
 	if "Tissue" in ds.ca:
-		labels = ds.ca.Tissue
+		names, labels = np.unique(ds.ca.Tissue, return_inverse=True)
 	else:
-		labels = np.array(["(unknown)"] * ds.shape[1])
+		names, labels = np.unique(np.array(["(unknown)"] * ds.shape[1]), return_inverse=True)
 	ax = plt.subplot(221)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
+	colors = colorize(names)
+	cells = np.random.permutation(labels.shape[0])
+	ax.scatter(xy[cells, 0], xy[cells, 1], c=colors[labels][cells], lw=0, s=10)
+	h = lambda c: plt.Line2D([], [], color=c, ls="", marker="o")
+	ax.legend(
+		handles=[h(colors[i]) for i in range(len(names))],
+		labels=list(names),
+		loc='lower left',
+		markerscale=1,
+		frameon=False,
+		fontsize=10)
 	plt.title("Tissue")
 
 	if "PCW" in ds.ca:
-		labels = ds.ca.PCW
+		names, labels = np.unique(ds.ca.PCW, return_inverse=True)
 	elif "Age" in ds.ca:
-		labels = ds.ca.Age
+		names, labels = np.unique(ds.ca.Age, return_inverse=True)
 	else:
 		labels = np.array(["(unknown)"] * ds.shape[1])
 	ax = plt.subplot(222)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=0)
+	colors = colorize(names)
 	cells = np.random.permutation(labels.shape[0])
-	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], lw=0, s=10)
-	lgnd = ax.legend()
-	for handle in lgnd.legendHandles:
-		handle.set_sizes([10])
+	ax.scatter(xy[cells, 0], xy[cells, 1], c=colors[labels][cells], lw=0, s=10)
+	h = lambda c: plt.Line2D([], [], color=c, ls="", marker="o")
+	ax.legend(
+		handles=[h(colors[i]) for i in range(len(names))],
+		labels=list(names),
+		loc='upper right',
+		markerscale=1,
+		frameon=False,
+		fontsize=10)
 	plt.title("Age")
 	
 	if "XIST" in ds.ra.Gene:
@@ -51,14 +61,21 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	plt.title("Sex (XIST)")
 
 	if "SampleID" in ds.ca:
-		labels = ds.ca.SampleID
+		names, labels = np.unique(ds.ca.SampleID, return_inverse=True)
 	else:
-		labels = np.array(["(unknown)"] * ds.shape[1])
+		names, labels = np.unique(np.array(["(unknown)"] * ds.shape[1]), return_inverse=True)
 	ax = plt.subplot(224)
-	for lbl in np.unique(labels):
-		cells = labels == lbl
-		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=10)
-	ax.legend()
+	colors = colorize(names)
+	cells = np.random.permutation(labels.shape[0])
+	ax.scatter(xy[cells, 0], xy[cells, 1], c=colors[labels][cells], lw=0, s=10)
+	h = lambda c: plt.Line2D([], [], color=c, ls="", marker="o")
+	ax.legend(
+		handles=[h(colors[i]) for i in range(len(names))],
+		labels=list(names),
+		loc='upper right',
+		markerscale=1,
+		frameon=False,
+		fontsize=10)
 	plt.title("SampleID")
 
 	plt.savefig(out_file, dpi=144)

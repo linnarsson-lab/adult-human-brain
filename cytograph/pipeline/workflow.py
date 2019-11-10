@@ -225,6 +225,12 @@ class Workflow:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 						if "cluster-validation" in self.config.steps:
 							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
+						if "unspliced_ratio" in ds.ca:
+							cgplot.attrs_on_TSNE(
+								ds,
+								out_file=os.path.join(out_dir, f"{pool}_QC.png"), 
+								attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
+								plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
 
 		# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 		card_for_subset = self.deck.get_card(self.name)
