@@ -227,7 +227,7 @@ class Workflow:
 							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
 						if "unspliced_ratio" in ds.ca:
 							cgplot.attrs_on_TSNE(
-								ds,
+								ds = ds,
 								out_file=os.path.join(out_dir, f"{pool}_QC.png"), 
 								attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
 								plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
