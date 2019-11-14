@@ -10,12 +10,13 @@ import loompy
 
 
 class PolishedSurprise:
-	def __init__(self, min_cells: int = 20, embedding: str = "TSNE") -> None:
+	def __init__(self, min_cells: int = 20, graph: str = "RNN", embedding: str = "TSNE") -> None:
 		self.min_cells = min_cells
+		self.graph = graph
 		self.embedding = embedding
 
 	def fit_predict(self, ds: loompy.LoomConnection) -> np.ndarray:
-		rnn = ds.col_graphs.RNN
+		rnn = ds.col_graphs[self.graph]
 		n_components, components = connected_components(rnn)
 		next_label = 0
 		all_labels = np.zeros(ds.shape[1], dtype="int")
@@ -24,7 +25,7 @@ class PolishedSurprise:
 			cells = np.where(components == cc)[0]
 			n_cells = cells.shape[0]
 			if n_cells > self.min_cells:
-				cc_rnn = ds.col_graphs[cells].RNN.tocsr()
+				cc_rnn = ds.col_graphs[cells][self.graph].tocsr()
 				sources, targets = cc_rnn.nonzero()
 				weights = cc_rnn[sources, targets]
 				g = ig.Graph(list(zip(sources, targets)), directed=False, edge_attrs={'weight': weights})

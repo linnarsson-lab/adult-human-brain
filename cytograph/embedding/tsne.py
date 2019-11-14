@@ -1,5 +1,7 @@
 import numpy as np
+import warnings
 from pynndescent import NNDescent
+from numba import NumbaPendingDeprecationWarning, NumbaPerformanceWarning
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.manifold.t_sne import _joint_probabilities_nn
@@ -39,11 +41,16 @@ def tsne(X: np.ndarray, *, n_components: int = 2, metric: str = "js", dof: int =
 			m = multinomial_subspace_distance
 		else:
 			m = metric
-		nn = NNDescent(data=X, metric=m)
-		queue_size = min(5.0, n_samples / k)
-		indices_nn, distances_nn = nn.query(X, k=k, queue_size=queue_size)
-		indices_nn = indices_nn[:, 1:]
-		distances_nn = distances_nn[:, 1:]
+
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore", category=NumbaPerformanceWarning)  # Suppress warnings about numba not being able to parallelize code
+			warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)  # Suppress warnings about future deprecations
+
+			nn = NNDescent(data=X, metric=m)
+			queue_size = min(5.0, n_samples / k)
+			indices_nn, distances_nn = nn.query(X, k=k, queue_size=queue_size)
+			indices_nn = indices_nn[:, 1:]
+			distances_nn = distances_nn[:, 1:]
 
 	if metric == "js" or metric == "mns":
 		distances_nn[distances_nn > radius] = 1
