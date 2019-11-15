@@ -107,9 +107,13 @@ def fake_doublets_dist(ax: plt.axes = None,doublet_score_A: np.array=None,logpro
     ax.plot(doublet_score_A, np.full_like(doublet_score_A, -0.01), '|k', markeredgewidth=1)
     ax.set_ylim(-0.02, 5)
     
-    ax.set_title('Fake Doublets distribution (Picked TH: '+str(score)+')')
-    ax.axvline(x=score1, c='r')
-    ax.axvline(x=score2,linestyle='--',c = 'r')
+    ax.set_title('Fake Doublets distribution (Selected TH: '+str(score)+')')
+    if score1 != 1:
+        ax.axvline(x=score1, c='r')
+    if score2 != 1:
+        ax.axvline(x=score2,linestyle='--',c = 'r')
+    if score != 1:
+        ax.axvline(x=score,linestyle=':',c = 'r')
     ax.set_ylabel('# cells')
     ax.set_xlabel('DoubletFinder score')
     hd = ax.hist(doublet_score_A, bins=30,density=True)
