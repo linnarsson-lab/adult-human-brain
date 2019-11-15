@@ -131,7 +131,7 @@ def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_
 			high_cluster = np.where(kmeans.cluster_centers_==max(kmeans.cluster_centers_))[0][0]
 			doublet_th1 = np.around(np.min(doublet_score_A[kmeans.labels_==high_cluster]),decimals=3)
 		
-		#0.5% for every 1000 cells
+		#0.5% for every 1000 cells - the rate of detectable doublets by 10X 
 		doublet_th2 = np.percentile(doublet_score,100-(5e-4*ds.shape[1]))
 		doublet_th2 = np.around(doublet_th2,decimals=3)
 		#The TH shouldn't be higher than indicated
@@ -168,6 +168,6 @@ def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_
 			ds.ca.HPF  = theta[0:ds.shape[1], :]
 		doublets_plots.plot_all(ds, out_file=os.path.join(qc_dir+"/"+ name+"_doublets.png") , labels=doublet_flag, doublet_score_A=doublet_score_A, logprob = logprob, xx=xx, score1=doublet_th1, score2 = doublet_th2,score = doublet_th)
 		
-	logging.info(f"Doublet fraction: {100*len(np.where(doublet_flag>0)[0])/ds.shape[1]:1f}%, {len(np.where(doublet_flag>0)[0])} cells. \n\t\t\t(Expected detectable doublet fraction: {(5e-4*ds.shape[1]):1f}%)")
+	logging.info(f"Doublet fraction: {100*len(np.where(doublet_flag>0)[0])/ds.shape[1]:.2f}%, {len(np.where(doublet_flag>0)[0])} cells. \n\t\t\t(Expected detectable doublet fraction: {(5e-4*ds.shape[1]):.2f}%)")
 	
 	return doublet_score,doublet_flag
