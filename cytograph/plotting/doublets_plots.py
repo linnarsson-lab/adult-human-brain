@@ -18,28 +18,35 @@ def plot_all (ds: loompy.LoomConnection, out_file: str, labels: np.array = None,
     f.savefig(out_file, dpi=144)
 
 def doublets_TSNE( ax:plt.axes = None, ds: loompy.LoomConnection = None, labels: np.array = None, out_file:str = None) -> None:
-    
-    if 'HPF' in ds.ca:
+    names = np.array(["-"])
+    if 'TSNE' in ds.ca:
+        xy = ds.ca.TSNE
+    elif 'HPF' in ds.ca:
         xy = tsne(ds.ca.HPF)
+        ds.ca.TSNE = xy
     elif 'PCA' in ds.ca:
         angle=0.5
         perplexity=30
         verbose=False
         xy = TSNE(angle=angle, perplexity=perplexity, verbose=verbose).fit_transform(ds.ca.PCA)
-    ds.ca.TSNE = xy
+        ds.ca.TSNE = xy
     if ax is None:
         ax = plt.gca()
-    if labels is not None:
-        labels = labels
-    elif "DoubletFinderFlag" in ds.ca:
-        labels = ds.ca.DoubletFinderFlag
+    if labels is not None or  "DoubletFinderFlag" in ds.ca:
+        if  labels is not None:
+            names,labels = np.unique(labels,return_inverse=True)
+        elif "DoubletFinderFlag" in ds.ca:
+            names,labels = np.unique(ds.ca.DoubletFinderFlag,return_inverse=True)
+        colors = colorize(names)
+        cells = np.random.permutation(labels.shape[0])
+        ax.scatter(xy[cells, 0], xy[cells, 1], c=colors[labels][cells], lw=0, s=10)
+        h = lambda c: plt.Line2D([], [], color=c, ls="", marker="o")
+        ax.legend(handles=[h(colors[i]) for i in range(len(names))],labels=list(names),loc='lower left',
+        markerscale=1,frameon=False,fontsize=10)
     else:
-        labels = np.array(["(unknown)"] * ds.shape[1])
-    for lbl in np.unique(labels):
-        cells = labels == lbl
-        ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=colorize(labels)[cells], label=lbl, lw=0, s=10)
-    ax.legend()
-    sp = ax.set_title("Doublets")
+        ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
+
+    sp = ax.set_title("Doublets Flag")
     if out_file is not None:
         plt.savefig(out_file, dpi=144)
     return(sp)
