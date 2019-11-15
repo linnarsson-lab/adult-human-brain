@@ -43,7 +43,7 @@ from sklearn.cluster import KMeans
 from unidip import UniDip
 from sklearn.ensemble import IsolationForest
 
-def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_artificial: float = 0.20, fixed_TH: float = None, k: int = None, name: object = "tmp", qc_dir: object = ".", graphs: bool = True) -> np.ndarray:
+def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, name: object = "tmp", qc_dir: object = ".", graphs: bool = True, max_th: float= 1) -> np.ndarray:
 	# Step 1: Generate artificial doublets from input
 	logging.debug("Creating artificial doublets")
 	n_real_cells = ds.shape[1]
@@ -108,36 +108,37 @@ def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_
 	mean2 = doublet_freq[:, 0:int(np.ceil(k / 2))].mean(axis=1)
 	doublet_score = np.maximum(mean1, mean2)
 	doublet_flag = np.zeros(ds.shape[1],int)
+	doublet_th1 = 1
+	doublet_th2 = 1
+	doublet_th = 1
 	#Infer TH from the data or use fixed TH
-	if fixed_TH is not None:
-		doublets_TH = fixed_TH
-	else:
+	
 	# instantiate and fit the KDE model
-		kde = KernelDensity(bandwidth=0.1  , kernel='gaussian')
-		kde.fit(doublet_score_A[:, None])
+	kde = KernelDensity(bandwidth=0.1  , kernel='gaussian')
+	kde.fit(doublet_score_A[:, None])
 
-		# score_samples returns the log of the probability density
-		xx = np.linspace(doublet_score_A.min(), doublet_score_A.max(), len(doublet_score_A)).reshape(-1,1)
+	# score_samples returns the log of the probability density
+	xx = np.linspace(doublet_score_A.min(), doublet_score_A.max(), len(doublet_score_A)).reshape(-1,1)
 
-		logprob = kde.score_samples(xx)
+	logprob = kde.score_samples(xx)
+	if fixed_th is not None:
+		doublet_th = float(fixed_th)
+	else:
 		#Check if the distribution is bimodal
 		intervals = UniDip(np.exp(logprob)).run()
 		if (len(intervals)>1):
 			kmeans = KMeans(n_clusters=2).fit(doublet_score_A.reshape(len(doublet_score_A),1))
 			high_cluster = np.where(kmeans.cluster_centers_==max(kmeans.cluster_centers_))[0][0]
-			doublet_th1 = np.round(np.min(doublet_score_A[kmeans.labels_==high_cluster]),2)
-		else:
-			isolation_forest = IsolationForest(n_estimators=100)
-			isolation_forest.fit(doublet_score_A.reshape(-1, 1))
-			anomaly_score = isolation_forest.decision_function(xx)
-			outlier = isolation_forest.predict(xx)
-			ind_outliers = np.where((outlier==-1))[0]
-			doublet_th1 = min(xx[ind_outliers[np.where(xx[ind_outliers]>0.2)[0]]])		
-			doublet_th1 = np.around(doublet_th1,decimals=3)
+			doublet_th1 = np.around(np.min(doublet_score_A[kmeans.labels_==high_cluster]),decimals=3)
 		
 		#0.5% for every 1000 cells
 		doublet_th2 = np.percentile(doublet_score,100-(5e-4*ds.shape[1]))
 		doublet_th2 = np.around(doublet_th2,decimals=3)
+		#The TH shouldn't be higher than indicated
+		if  doublet_th2 >max_th:
+			doublet_th2= max_th
+		if  doublet_th1 >max_th:
+			doublet_th1= max_th
 		if (len(np.where(doublet_score>=doublet_th1)[0])>(len(np.where(doublet_score>=doublet_th2)[0]))):
 			doublet_th = doublet_th2
 		else:
