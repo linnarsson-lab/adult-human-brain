@@ -130,7 +130,7 @@ class FeatureSelectionByMultilevelEnrichment:
 		if self.mask is None:
 			excluded = set(np.where(~self.valid_genes)[0])
 		else:
-			excluded = set(np.where(((~self.valid_genes) & self.mask))[0])
+			excluded = set(np.where(((~self.valid_genes) | self.mask))[0])
 
 		included = np.zeros(n_genes, dtype=bool)
 		for ix in range(n_labels):
