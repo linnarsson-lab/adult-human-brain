@@ -16,7 +16,7 @@ def plot_all (ds: loompy.LoomConnection, out_file: str, labels: np.array = None,
     doublets_ngenes(ax4, ds, labels)
     
     f.savefig(out_file, dpi=144)
-    f.close()
+    plt.close(f)
 
 def doublets_TSNE( ax:plt.axes = None, ds: loompy.LoomConnection = None, labels: np.array = None, out_file:str = None) -> None:
     names = np.array(["-"])

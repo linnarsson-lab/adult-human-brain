@@ -17,7 +17,7 @@ def all_QC_plots(ds: loompy.LoomConnection=None,out_file: str="Tmp.png" ):
     attrs_on_TSNE(ax[1:4,0:2],ds ,attrs = ["DoubletFinderFlag","DoubletFinderScore","TotalUMI","NGenes","unspliced_ratio","MT_ratio"],plot_title = ["Doublets Flag","Doublets Score","UMI counts","Number of genes per cell","Unspliced UMI ratio","Mitochondrial genes ratio"])
     
     f.savefig(out_file, dpi=144)
-    f.close()
+    plt.close(f)
 
 
 def dist_attr(ax:plt.axes = None,ds: loompy.LoomConnection=None, out_file: str=None, attr: str = None, plot_title: str = None ,line: float = None) :
