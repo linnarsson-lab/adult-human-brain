@@ -56,8 +56,8 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		"params": Config(**{
 			"k": 25,
 			"k_pooling": 10,
-			"factorization": "HPF",  # or "PCA"
-			"n_factors": 96,
+			"factorization": "PCA",  # or "HPF" or "both"
+			"n_factors": 50,
 			"min_umis": 1500,
 			"n_genes": 2000,
 			"doublets_action": "remove",

@@ -63,7 +63,7 @@ class PoissonPooling:
 			warnings.simplefilter("ignore", category=NumbaPerformanceWarning)  # Suppress warnings about numba not being able to parallelize code
 			warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)  # Suppress warnings about future deprecations
 			warnings.simplefilter("ignore", category=SparseEfficiencyWarning)  # Suppress warnings about setting the diagonal to 1
-			nn = NNDescent(data=transformed, metric=(jensen_shannon_distance if self.factorization == "HPF" else "correlation"))
+			nn = NNDescent(data=transformed, metric=(jensen_shannon_distance if self.factorization == "HPF" else "euclidean"))
 			indices, distances = nn.query(transformed, k=self.k_pooling)
 			# Note: we convert distances to similarities here, to support Poisson smoothing below
 			knn = sparse.csr_matrix(

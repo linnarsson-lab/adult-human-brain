@@ -5,9 +5,13 @@ chromosomes = ["chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "
 
 
 class Karyotyper:
-	def __init__(self, window: int = 200) -> None:
+	def __init__(self, window: int = 200, use_chr: bool = True) -> None:
 		self.window = window
-	
+		if use_chr:
+			self.chromosomes = chromosomes
+		else:
+			self.chromosomes = [c[3:] for c in chromosomes]
+
 	def fit(self, refpath: str) -> None:
 		with loompy.connect(refpath) as ds:
 			self.median = np.median(ds.ca.TotalUMIs)
