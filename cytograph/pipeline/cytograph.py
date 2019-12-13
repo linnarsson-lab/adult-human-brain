@@ -164,19 +164,12 @@ class Cytograph:
 
 		if "embeddings" in self.config.steps or "clustering" in self.config.steps:
 			logging.info(f"Computing 2D and 3D embeddings from latent space")
-			with warnings.catch_warnings():
-				warnings.simplefilter("ignore", category=UserWarning)  # Suppress an annoying UMAP warning about meta-embedding
-				warnings.simplefilter("ignore", category=NumbaPerformanceWarning)  # Suppress warnings about numba not being able to parallelize code
-				warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)  # Suppress warnings about future deprecations
-				perplexity = min(self.config.params.k, (ds.shape[1] - 1) / 3 - 1)
-				if metric == "js":
-					logging.info(f"  Using graph tSNE and Jensen Shannon distance")
-					ds.ca.TSNE = tsne(transformed, metric=metric, perplexity=perplexity)
-				else:
-					logging.info(f"  Using Art of tSNE and euclidean distance")
-					ds.ca.TSNE = np.array(art_of_tsne(transformed))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-				ds.ca.UMAP = UMAP(n_components=2, metric=(jensen_shannon_distance if metric == "js" else metric), n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
-				ds.ca.UMAP3D = UMAP(n_components=3, metric=(jensen_shannon_distance if metric == "js" else metric), n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
+			metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
+			logging.info(f"  Art of tSNE with {metric} distance metric")
+			ds.ca.TSNE = np.array(art_of_tsne(transformed, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+			logging.info(f"  UMAP with {metric} distance metric")
+			ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
+			ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 
 		if "clustering" in self.config.steps:
 			logging.info("Clustering by polished Louvain")
