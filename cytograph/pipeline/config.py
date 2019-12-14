@@ -64,7 +64,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"doublets_method": "doubletFinder",
 			"mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
-			"max_fraction_MT_genes":0.05,
+			"max_fraction_MT_genes": 0.05,
 			"min_fraction_unspliced_reads": 0.2,
 			"min_fraction_genes_UMI": 0.3,
 			"max_doubletFinder_TH": 0.4,

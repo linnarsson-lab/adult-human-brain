@@ -33,7 +33,7 @@ class PoissonPooling:
 		genes = FeatureSelectionByVariance(self.n_genes, mask=self.mask).fit(ds)
 		self.genes = genes
 
-		if self.factorization == 'PCA':
+		if self.factorization == 'PCA' or self.factorization == 'both':
 			n_components = min(50, ds.shape[1])
 			logging.info("PCA projection to %d components", n_components)
 			pca = PCA(genes, max_n_components=self.n_factors, test_significance=False)
