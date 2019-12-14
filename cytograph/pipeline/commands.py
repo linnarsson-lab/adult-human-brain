@@ -218,8 +218,8 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 @click.argument('sampleids', nargs=-1)
 @click.option('--rerun', is_flag = True, help="Rerun QC on all the samples again")
 @click.option('--file', help="Sampleids comma-delimited, line for replicates ")
-
-def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
+@click.option('--fixed_th', help="Fixed TH for the Doublet Finder flag ")
+def qc(sampleids: List[str] , rerun: bool = False, file: str = None, fixed_th: float = None) -> None:
 	config = load_config()
 	n_cells=0
 	file_reader =[]
@@ -233,10 +233,9 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 		sampleids = np.unique(row)
 		files: List[str] = []
 		good_samples: List[str] = []
+		passed_qc_files: List[str] = []
 		for n,sample_id in enumerate(sampleids):
-			full_path = os.path.join(config.paths.samples, sample_id + ".loom")
-			#Check if the sample has enough cells above the UMI TH and add it to the doublets check 
-			
+			full_path = os.path.join(config.paths.samples, sample_id + ".loom")	
 			if not os.path.exists(full_path):
 				logging.info ('Cannot open '+sample_id+' loom file')
 				continue
@@ -247,10 +246,13 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 						if ds.attrs.passedQC:
 							files.append(full_path)
 							good_samples.append(sample_id)
+							passed_qc_files.append(sample_id)
 							continue
 						else:
 							logging.warn(f"Skipping {sample_id}.loom because it didn't passed QC in previous run.")
+							passed_qc_files.append(sample_id)
 							continue
+				#Check if the sample has enough cells above the UMI TH and add it to the doublets check 
 				logging.info(f"Computing total UMIs")
 				(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 				ds.ca["TotalUMI"] = totals
@@ -267,33 +269,26 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 					ds.attrs.passedQC = False
 					continue
 				# Assess demaged/dead cells using ratio of mitochondrial gene expression and unspliced reads ratio
-				qc_functions.mito_genes_ratio(ds)
-				plot_file = os.path.join(config.paths.qc+"/"+ sample_id+"_mitochondrial_gene_expression_ratio.png")
-				plot_title = "Mitochondrial gene expression ratio distribution"
-				qc_plots.dist_attr(ds, out_file = plot_file, attr = "MT_ratio", plot_title= plot_title, line=0.05)
+				qc_functions.mito_genes_ratio(ds)			
 				low_mito_ratio = len(np.where(ds.ca.MT_ratio<config.params.max_fraction_MT_genes)[0])/ds.shape[1]
 				if(low_mito_ratio<config.params.min_fraction_good_cells):
 					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.MT_ratio<config.params.max_fraction_MT_genes)[0])} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) had low ratio of mitochondrial gene expression.")
 				qc_functions.unspliced_ratio(ds, sample_name = sample_id)
-				low_us_ratio = len(np.where(ds.ca.unspliced_ratio<config.params.max_fraction_unspliced_reads)[0])/ds.shape[1]
-				if(low_us_ratio<config.params.min_fraction_good_cells):
-					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.unspliced_ratio<config.params.max_fraction_unspliced_reads)[0])} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) had low ratio of unspliced gene expression.")
+				low_us_ratio = len(np.where(ds.ca.unspliced_ratio<config.params.min_fraction_unspliced_reads)[0])/ds.shape[1]
+				if(low_us_ratio>1-config.params.min_fraction_good_cells):
+					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.unspliced_ratio<config.params.min_fraction_unspliced_reads)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had low ratio of unspliced gene expression.")
 				low_ngenes_ratio = len(np.where(ds.ca.NGenes/ds.ca.TotalUMI<config.params.min_fraction_genes_UMI)[0])/ds.shape[1]
 				if(low_ngenes_ratio>1-config.params.min_fraction_good_cells):
 					logging.warn(f"Possible High demaged cell ratio in {sample_id}.loom  {len(np.where(ds.ca.NGenes/ds.ca.TotalUMI>config.params.min_fraction_genes_UMI)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had good ratio of gene expressed vs. UMI counts.")
-
-				plot_file = os.path.join(config.paths.qc+"/"+ sample_id+"_unspliced_reads_ratio.png")
-				plot_title = "Unspliced reads ratio distribution"	
-				qc_plots.dist_attr(ds, out_file = plot_file, attr = "unspliced_ratio", plot_title= plot_title, line=0.5)
 		#Create a combined loom file for all the good samples
-		if files:	
+		if files and len(passed_qc_files)<len(sampleids):	
 			batch_name =  '-'.join(good_samples)
 			out_file = os.path.join(config.paths.qc,batch_name+".loom")
 			combine_faster(files, out_file, skip_attrs=["_X", "_Y", "Clusters"])
 			with connect(out_file, "r+") as ds:
 				logging.info("Scoring doublets using DoubletFinder")
 
-				doublet_finder_score ,doublet_finder_flag= doublet_finder_for_qc(ds, name =batch_name, use_pca=True, proportion_artificial=0.25, qc_dir = config.paths.qc)
+				doublet_finder_score ,doublet_finder_flag= doublet_finder(ds, name =batch_name, use_pca=True, proportion_artificial=0.25, qc_dir = config.paths.qc, max_th = config.params.max_doubletFinder_TH, fixed_th = fixed_th )
 				ds.ca["DoubletFinderScore"] = doublet_finder_score
 				ds.ca["DoubletFinderFlag"] = doublet_finder_flag
 			os.remove(out_file)
@@ -303,8 +298,10 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None) -> None:
 					ds.ca["DoubletFinderScore"] = doublet_finder_score[nf:(nf+ds.shape[1])]
 					ds.ca["DoubletFinderFlag"] = doublet_finder_flag[nf:(nf+ds.shape[1])]
 					nf = nf+ds.shape[1]
-					
-					qc_plots.attrs_on_TSNE(ds,out_file =os.path.join(config.paths.qc+"/"+ sample_id+"_QC.png") ,attrs = ["DoubletFinderFlag","TotalUMI","unspliced_ratio","NGenes"],plot_title = ["Doublets Flag"," UMI counts","Unspliced reads ratio","Number of genes per cell"])
+					qc_plots.all_QC_plots(ds = ds, out_file =os.path.join(config.paths.qc+"/"+ sample_id+"_QC.png"))
 					logging.info(f"Adding doublets attributes to sample: {sample_id}")
-	csv_file.close()			
+		elif len(passed_qc_files)==len(sampleids):
+			logging.info(f"All samples in this batch already passed QC, to rerun the QC module again add --rerun to the command line")
+	if file is not None:
+		csv_file.close()	
 	logging.info("Done.")
