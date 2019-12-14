@@ -64,8 +64,12 @@ def radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> N
 	hist = plt.hist(d, bins=200)
 	kl = np.power(2, 7.26 * radius - 3.5)
 	plt.ylabel("Number of cells")
-	plt.xlabel("Jensen-Shannon distance to neighbors")
-	plt.title(f"90th percentile JSD={radius:.2} ({kl:.2} bits)")
+	if "PCA" in ds.ca:
+		plt.xlabel("Correlation distance to neighbors")
+		plt.title(f"90th percentile distance={radius:.2}")
+	elif "HPF" in ds.ca:
+		plt.xlabel("Jensen-Shannon distance to neighbors")
+		plt.title(f"90th percentile JSD={radius:.2} ({kl:.2} bits)")
 	plt.plot([radius, radius], [0, hist[0].max()], "r--")
 
 	plt.subplot(326)
@@ -74,7 +78,7 @@ def radius_characteristics(ds: loompy.LoomConnection, out_file: str = None) -> N
 	plt.title("Distance to nearest and farthest neighbors")
 	plt.plot([radius, radius], [0, max(hist2[0].max(), hist3[0].max())], "r--")
 	plt.ylabel("Number of cells")
-	plt.xlabel("Jensen-Shannon distance to neighbors")
+	plt.xlabel("Distance to neighbors")
 
 	if out_file is not None:
 		plt.savefig(out_file, format="png", dpi=144)

@@ -1,2 +1,1 @@
-from .tsne import tsne
-from .pca import PCA
+from .art_of_tsne import art_of_tsne

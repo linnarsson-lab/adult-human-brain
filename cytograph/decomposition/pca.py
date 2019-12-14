@@ -11,7 +11,7 @@ class PCA:
 	to one dataset then used to project another. To work properly, both datasets must be normalized in the same
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str = None) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str = None, test_significance: bool = True) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
@@ -19,6 +19,7 @@ class PCA:
 		"""
 		self.genes = genes
 		self.n_components = max_n_components
+		self.test_significance = test_significance
 		self.layer = layer
 		self.cells = None  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
@@ -67,16 +68,17 @@ class PCA:
 				transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
 				j += n_cells_in_batch
 
-		# Must select significant components only once, and reuse for future transformations
-		if self.sigs is None:
-			pvalue_KS = np.zeros(transformed.shape[1])  # pvalue of each component
-			for i in range(1, transformed.shape[1]):
-				(_, pvalue_KS[i]) = ks_2samp(transformed[:, i - 1], transformed[:, i])
-			self.sigs = np.where(pvalue_KS < 0.1)[0]
-			if len(self.sigs) == 0:
-				self.sigs = (0, 1)
+		if self.test_significance:
+			# Must select significant components only once, and reuse for future transformations
+			if self.sigs is None:
+				pvalue_KS = np.zeros(transformed.shape[1])  # pvalue of each component
+				for i in range(1, transformed.shape[1]):
+					(_, pvalue_KS[i]) = ks_2samp(transformed[:, i - 1], transformed[:, i])
+				self.sigs = np.where(pvalue_KS < 0.1)[0]
+				if len(self.sigs) == 0:
+					self.sigs = (0, 1)
 
-		transformed = transformed[:, self.sigs]
+			transformed = transformed[:, self.sigs]
 
 		return transformed
 

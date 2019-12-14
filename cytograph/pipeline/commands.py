@@ -9,8 +9,8 @@ from typing import Dict, List, Optional, Union
 from ..plotting import qc_plots
 import click
 import numpy as np
-from loompy import create_from_fastq,connect,combine_faster
-from ..preprocessing.doublet_finder import doublet_finder
+from loompy import create_from_fastq, connect, combine_faster
+from ..preprocessing.doublet_finder import doublet_finder_for_qc
 from ..preprocessing import qc_functions
 from .._version import __version__ as version
 from .config import load_config
