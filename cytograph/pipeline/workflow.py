@@ -305,7 +305,7 @@ class RootWorkflow(Workflow):
 								col_attrs["ScrubletFlag"] = predicted_doublets.astype("int")
 						elif self.config.params.doublets_method == "doublet-finder":
 							logging.info("Scoring doublets using DoubletFinder")
-							col_attrs["DoubletFinderScore"] ,col_attrs["DoubletFinderFlag"]= doublet_finder(ds)
+							col_attrs["DoubletFinderScore"], col_attrs["DoubletFinderFlag"] = doublet_finder(ds)
 					logging.info(f"Computing total UMIs")
 					(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 					col_attrs["TotalUMI"] = totals

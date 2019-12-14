@@ -73,7 +73,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"clusterer": "louvain",  # or "surprise"
 			"nn_space": "auto"
 		}),
-		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering", "aggregate", "skeletonize", "export"),
+		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering", "skeletonize"),
 		"execution": Config(**{
 			"n_cpus": 4,
 			"n_gpus": 0,
