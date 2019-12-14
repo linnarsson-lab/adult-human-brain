@@ -1,7 +1,7 @@
 from typing import Union, Callable
 
 import numpy as np
-from openTSNE import TSNE, TSNEEmbedding, affinity, initialization
+from openTSNE import TSNE, TSNEEmbedding, affinity, initialization, callbacks
 from pynndescent import NNDescent
 
 
@@ -30,6 +30,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			X,
 			perplexities=[30, n / 100],
 			metric=metric,
+			method="approx",
 			n_jobs=8
 		)
 		Z = TSNEEmbedding(
@@ -37,6 +38,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			affinities_multiscale_mixture,
 			negative_gradient_method="fft",
 			n_jobs=-1,
+			callbacks=[callbacks.ErrorLogger()]
 		)
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
 		Z.optimize(n_iter=750, inplace=True, exaggeration=4, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
@@ -46,6 +48,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			X,
 			perplexities=[30, n / 100],
 			metric=metric,
+			method="approx",
 			n_jobs=8
 		)
 		init = initialization.pca(X)
@@ -54,10 +57,31 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			affinities_multiscale_mixture,
 			negative_gradient_method="fft",
 			n_jobs=-1,
+			callbacks=[callbacks.ErrorLogger()]
 		)
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
 		Z.optimize(n_iter=750, inplace=True, exaggeration=1, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
 	else:
 		# Just a plain TSNE with high learning rate
-		Z = TSNE(perplexity=30, metric=metric, n_jobs=-1, initialization="pca", learning_rate=n / 12).fit(X)
+		lr = max(200, n / 12)
+		aff = affinity.PerplexityBasedNN(
+			X,
+			perplexity=30,
+			metric=metric,
+			method="approx",
+			n_jobs=-1
+		)
+
+		init = initialization.pca(X)
+
+		Z = TSNEEmbedding(
+			init,
+			aff,
+			learning_rate=lr,
+			n_jobs=-1,
+			negative_gradient_method="fft",
+			callbacks=[callbacks.ErrorLogger()]
+		)
+		Z.optimize(250, exaggeration=12, momentum=0.8, inplace=True)
+		Z.optimize(750, exaggeration=1, momentum=0.5, inplace=True)
 	return Z
