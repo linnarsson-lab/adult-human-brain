@@ -3,7 +3,7 @@ import numpy as np
 import loompy
 from .colors import colorize
 from cytograph.enrichment import FeatureSelectionByVariance
-from cytograph import art_of_tsne
+from cytograph.embedding import art_of_tsne
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 

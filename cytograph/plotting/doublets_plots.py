@@ -6,7 +6,7 @@ from sklearn.manifold import TSNE
 import loompy
 
 from .colors import colorize
-from cytograph import art_of_tsne
+from cytograph.embedding import art_of_tsne
 
 
 def plot_all(ds: loompy.LoomConnection, out_file: str, labels: np.array = None, doublet_score_A: np.array = None, logprob: np.array = None, xx: np.array = None, score1: float = 1, score2: float = 1, score: float = 1) -> None:
