@@ -21,7 +21,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		Zsub = art_of_tsne(Xsub)
 
 		# Find single nearest neighbor using pynndescent
-		nn, _ = NNDescent(data=Xsub, metric=metric, n_jobs=-1).query(X, k=1, queue_size=min(5.0, n))
+		nn, _ = NNDescent(data=Xsub, metric=metric, n_jobs=-1).query(X, k=1)
 		nn = nn[:, 1:]
 		init = Zsub[nn]  # initialize all points to the nearest point in the subsample
 
