@@ -1,7 +1,7 @@
 from typing import Union, Callable
 
 import numpy as np
-from openTSNE import TSNE, TSNEEmbedding, affinity, initialization, callbacks
+from openTSNE import TSNEEmbedding, affinity, initialization, callbacks
 from pynndescent import NNDescent
 
 
@@ -17,7 +17,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		
 		# Subsample and run a regular art_of_tsne on the subset
 		indices = np.random.permutation(n)
-		Xsub = X[indices[:n / 40], :]
+		Xsub = X[indices[:n // 40], :]
 		Zsub = art_of_tsne(Xsub)
 
 		# Find single nearest neighbor using pynndescent
