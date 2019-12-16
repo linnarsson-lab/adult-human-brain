@@ -10,6 +10,7 @@ from numba import jit
 from scipy.special import digamma, gammaln
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+from cytograph import available_cpu_count
 
 
 def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):  # type: ignore
@@ -104,10 +105,7 @@ class HPF:
 		self.validation_fraction = validation_fraction
 		self.n_threads = n_threads
 		if n_threads == 0:
-			if os.cpu_count() is not None:
-				self.n_threads = max(os.cpu_count(), 1)  # type: ignore
-			else:
-				self.n_threads = 1
+			self.n_threads = available_cpu_count()
 		logging.info(f"HPF to {k} factors using {self.n_threads} threads")
 
 		self.beta: np.ndarray = None

@@ -1,10 +1,13 @@
 import os
 from pathlib import Path
-from typing import Union, Optional
 from types import SimpleNamespace
-from .punchcards import PunchcardSubset, PunchcardView
+from typing import Optional, Union
 
 import yaml
+
+from cytograph import available_cpu_count
+
+from .punchcards import PunchcardSubset, PunchcardView
 
 
 def merge_namespaces(a: SimpleNamespace, b: SimpleNamespace) -> None:
@@ -76,7 +79,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 		}),
 		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering", "skeletonize"),
 		"execution": Config(**{
-			"n_cpus": 4,
+			"n_cpus": available_cpu_count(),
 			"n_gpus": 0,
 			"memory": 128
 		})

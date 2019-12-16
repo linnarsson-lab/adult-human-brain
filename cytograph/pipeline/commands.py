@@ -219,9 +219,9 @@ def mkloom(sampleid: str, flowcelltable: str = None) -> None:
 @click.option('--rerun', is_flag = True, help="Rerun QC on all the samples again")
 @click.option('--file', help="Sampleids comma-delimited, line for replicates ")
 @click.option('--fixed_th', help="Fixed TH for the Doublet Finder flag ")
-def qc(sampleids: List[str] , rerun: bool = False, file: str = None, fixed_th: float = None) -> None:
+def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_th: float = None) -> None:
 	config = load_config()
-	n_cells=0
+	n_cells = 0
 	file_reader =[]
 	if file is not None:
 		csv_file = open(file)
@@ -237,7 +237,7 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None, fixed_th: f
 		for n,sample_id in enumerate(sampleids):
 			full_path = os.path.join(config.paths.samples, sample_id + ".loom")	
 			if not os.path.exists(full_path):
-				logging.info ('Cannot open '+sample_id+' loom file')
+				logging.info(f'Cannot open {sample_id} loom file')
 				continue
 			logging.info(f"Examining {sample_id}.loom")
 			with connect(full_path, "r+") as ds:
@@ -252,7 +252,7 @@ def qc(sampleids: List[str] , rerun: bool = False, file: str = None, fixed_th: f
 							logging.warn(f"Skipping {sample_id}.loom because it didn't passed QC in previous run.")
 							passed_qc_files.append(sample_id)
 							continue
-				#Check if the sample has enough cells above the UMI TH and add it to the doublets check 
+				#Check if the sample has enough cells above the UMI TH and add it to the doublets check
 				logging.info(f"Computing total UMIs")
 				(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
 				ds.ca["TotalUMI"] = totals

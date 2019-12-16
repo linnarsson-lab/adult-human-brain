@@ -11,3 +11,4 @@ from .preprocessing import *
 from .species import *
 from .velocity import *
 from .interpolation import *
+from .pipeline import available_cpu_count
