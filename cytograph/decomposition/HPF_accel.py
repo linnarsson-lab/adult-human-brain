@@ -10,7 +10,7 @@ from numba import jit
 from scipy.special import digamma, gammaln
 from sklearn.model_selection import train_test_split
 from tqdm import trange
-from cytograph import available_cpu_count
+from ..utils import available_cpu_count
 
 
 def compute_y_phi(y_phi, gamma_shape, gamma_rate, lambda_shape, lambda_rate, u, i, y, n_threads):  # type: ignore

@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 import yaml
 
-from cytograph import available_cpu_count
+from ..utils import available_cpu_count
 
 from .punchcards import PunchcardSubset, PunchcardView
 
