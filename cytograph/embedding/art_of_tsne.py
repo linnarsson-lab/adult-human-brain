@@ -20,7 +20,10 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		X_sample, X_rest = X[indices[:n // 40]], X[indices[n // 40:]]
 		Z_sample = art_of_tsne(X_sample)
 
-		rest_init = Z_sample.prepare_partial(X_rest, k=1, perplexity=1 / 3)
+		if isinstance(Z_sample.affinities, affinity.Multiscale):
+			rest_init = Z_sample.prepare_partial(X_rest, k=1, perplexities=[1 / 3, 1 / 3])
+		else:
+			rest_init = Z_sample.prepare_partial(X_rest, k=1, perplexity=1 / 3)
 		init_full = np.vstack((Z_sample, rest_init))[reverse]
 		init_full = init_full / (np.std(init_full[:, 0]) * 10000)
 
