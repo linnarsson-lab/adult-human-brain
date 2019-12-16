@@ -2,7 +2,6 @@ from typing import Union, Callable
 
 import numpy as np
 from openTSNE import TSNEEmbedding, affinity, initialization, callbacks
-from pynndescent import NNDescent
 
 
 def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TSNEEmbedding:
@@ -17,13 +16,13 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		
 		# Subsample and run a regular art_of_tsne on the subset
 		indices = np.random.permutation(n)
-		Xsub = X[indices[:n // 40], :]
-		Zsub = art_of_tsne(Xsub)
+		reverse = np.argsort(indices)
+		X_sample, X_rest = X[indices[:n // 40]], X[indices[n // 40:]]
+		Z_sample = art_of_tsne(X_sample)
 
-		# Find single nearest neighbor using pynndescent
-		nn, _ = NNDescent(data=Xsub, metric=metric, n_jobs=-1).query(X, k=1)
-		nn = nn[:, 1:]
-		init = Zsub[nn]  # initialize all points to the nearest point in the subsample
+		rest_init = Z_sample.prepare_partial(X_rest, k=1, perplexity=1 / 3)
+		init_full = np.vstack((Z_sample, rest_init))[reverse]
+		init_full = init_full / (np.std(init_full[:, 0]) * 10000)
 
 		# Use multiscale perplexity
 		affinities_multiscale_mixture = affinity.Multiscale(
@@ -31,10 +30,11 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			perplexities=[30, n / 100],
 			metric=metric,
 			method="approx",
-			n_jobs=8
+			n_jobs=-1
 		)
+
 		Z = TSNEEmbedding(
-			init,
+			init_full,
 			affinities_multiscale_mixture,
 			negative_gradient_method="fft",
 			n_jobs=-1,
