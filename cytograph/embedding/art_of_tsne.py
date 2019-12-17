@@ -13,7 +13,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 	n = X.shape[0]
 	if n > 100_000:
 		if exaggeration == -1:
-			exaggeration = 1 + n / 200_000
+			exaggeration = 1 + n / 333_333
 		# Subsample, optimize, then add the remaining cells and optimize again
 		# Also, use exaggeration == 4
 		logging.info(f"Creating subset of {n // 40} elements")
