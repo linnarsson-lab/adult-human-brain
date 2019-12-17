@@ -5,13 +5,15 @@ import numpy as np
 from openTSNE import TSNEEmbedding, affinity, callbacks, initialization
 
 
-def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TSNEEmbedding:
+def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exaggeration: float = -1) -> TSNEEmbedding:
 	"""
 	Implementation of Dmitry Kobak and Philipp Berens "The art of using t-SNE for single-cell transcriptomics" based on openTSNE.
 	See https://doi.org/10.1038/s41467-019-13056-x | www.nature.com/naturecommunications
 	"""
 	n = X.shape[0]
 	if n > 100_000:
+		if exaggeration == -1:
+			exaggeration = 1 + n / 200_000
 		# Subsample, optimize, then add the remaining cells and optimize again
 		# Also, use exaggeration == 4
 		logging.info(f"Creating subset of {n // 40} elements")
@@ -52,8 +54,10 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		logging.info(f"Optimizing, stage 1")
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
 		logging.info(f"Optimizing, stage 2")
-		Z.optimize(n_iter=750, inplace=True, exaggeration=4, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
+		Z.optimize(n_iter=750, inplace=True, exaggeration=exaggeration, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
 	elif n > 3_000:
+		if exaggeration == -1:
+			exaggeration = 1
 		# Use multiscale perplexity
 		affinities_multiscale_mixture = affinity.Multiscale(
 			X,
@@ -71,8 +75,10 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			callbacks=[callbacks.ErrorLogger()]
 		)
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
-		Z.optimize(n_iter=750, inplace=True, exaggeration=1, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
+		Z.optimize(n_iter=750, inplace=True, exaggeration=exaggeration, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
 	else:
+		if exaggeration == -1:
+			exaggeration = 1
 		# Just a plain TSNE with high learning rate
 		lr = max(200, n / 12)
 		aff = affinity.PerplexityBasedNN(
@@ -94,5 +100,5 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			callbacks=[callbacks.ErrorLogger()]
 		)
 		Z.optimize(250, exaggeration=12, momentum=0.8, inplace=True)
-		Z.optimize(750, exaggeration=1, momentum=0.5, inplace=True)
+		Z.optimize(750, exaggeration=exaggeration, momentum=0.5, inplace=True)
 	return Z
