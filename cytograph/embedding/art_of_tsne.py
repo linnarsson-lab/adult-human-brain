@@ -35,7 +35,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		logging.info(f"Creating multiscale affinities")
 		affinities_multiscale_mixture = affinity.PerplexityBasedNN(
 			X,
-			perplexity=30,  # ies=[30, n / 100],  # TODO: make it possible to run a true multiscale mixture
+			perplexity=30,
 			metric=metric,
 			method="approx",
 			n_jobs=-1
