@@ -96,9 +96,3 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		Z.optimize(250, exaggeration=12, momentum=0.8, inplace=True)
 		Z.optimize(750, exaggeration=1, momentum=0.5, inplace=True)
 	return Z
-
-import logging
-import sys
-logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(message)s', level=20)
-logging.captureWarnings(True)
-art_of_tsne(np.random.uniform(size=(101000, 5)))
