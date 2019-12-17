@@ -33,9 +33,9 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 
 		# Use multiscale perplexity
 		logging.info(f"Creating multiscale affinities")
-		affinities_multiscale_mixture = affinity.Multiscale(
+		affinities_multiscale_mixture = affinity.PerplexityBasedNN(
 			X,
-			perplexities=[30, n / 100],
+			perplexity=30,  # ies=[30, n / 100],  # TODO: make it possible to run a true multiscale mixture
 			metric=metric,
 			method="approx",
 			n_jobs=-1
@@ -60,7 +60,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 			perplexities=[30, n / 100],
 			metric=metric,
 			method="approx",
-			n_jobs=8
+			n_jobs=-1
 		)
 		init = initialization.pca(X)
 		Z = TSNEEmbedding(
@@ -96,3 +96,9 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean") -> TS
 		Z.optimize(250, exaggeration=12, momentum=0.8, inplace=True)
 		Z.optimize(750, exaggeration=1, momentum=0.5, inplace=True)
 	return Z
+
+import logging
+import sys
+logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(levelname)s - %(message)s', level=20)
+logging.captureWarnings(True)
+art_of_tsne(np.random.uniform(size=(101000, 5)))
