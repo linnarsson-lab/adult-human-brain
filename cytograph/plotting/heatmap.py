@@ -71,7 +71,7 @@ class Heatmap():
 			offset += dendr_height
 			lc = dendrogram(dsagg.attrs.linkage, leaf_positions=clustermiddles)
 			ax.add_collection(lc)
-			plt.xlim(0,clusterborders[-1])
+			plt.xlim(0, clusterborders[-1])
 			plt.ylim(0, dsagg.attrs.linkage[:, 2].max() * 1.1)
 			plt.axis("off")
 
