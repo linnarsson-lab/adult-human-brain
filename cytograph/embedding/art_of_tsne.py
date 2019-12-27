@@ -5,10 +5,19 @@ import numpy as np
 from openTSNE import TSNEEmbedding, affinity, callbacks, initialization
 
 
-def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exaggeration: float = -1) -> TSNEEmbedding:
+def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exaggeration: float = -1, perplexity: int = 30) -> TSNEEmbedding:
 	"""
 	Implementation of Dmitry Kobak and Philipp Berens "The art of using t-SNE for single-cell transcriptomics" based on openTSNE.
 	See https://doi.org/10.1038/s41467-019-13056-x | www.nature.com/naturecommunications
+
+	Args:
+		X				The data matrix of shape (n_cells, n_genes) i.e. (n_samples, n_features)
+		metric			Any metric allowed by PyNNDescent (default: 'euclidean')
+		exaggeration	The exaggeration to use for the embedding
+		perplexity		The perplexity to use for the embedding
+	
+	Returns:
+		The embedding as an opentsne.TSNEEmbedding object (which can be cast to an np.ndarray)
 	"""
 	n = X.shape[0]
 	if n > 100_000:
@@ -33,11 +42,10 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 		init_full = np.vstack((Z_sample, rest_init))[reverse]
 		init_full = init_full / (np.std(init_full[:, 0]) * 10000)
 
-		# Use multiscale perplexity
 		logging.info(f"Creating multiscale affinities")
-		affinities_multiscale_mixture = affinity.PerplexityBasedNN(
+		affinities = affinity.PerplexityBasedNN(
 			X,
-			perplexity=30,
+			perplexity=perplexity,
 			metric=metric,
 			method="approx",
 			n_jobs=-1
@@ -46,7 +54,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 		logging.info(f"Creating TSNE embedding")
 		Z = TSNEEmbedding(
 			init_full,
-			affinities_multiscale_mixture,
+			affinities,
 			negative_gradient_method="fft",
 			n_jobs=-1,
 			callbacks=[callbacks.ErrorLogger()]
@@ -61,7 +69,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 		# Use multiscale perplexity
 		affinities_multiscale_mixture = affinity.Multiscale(
 			X,
-			perplexities=[30, n / 100],
+			perplexities=[perplexity, n / 100],
 			metric=metric,
 			method="approx",
 			n_jobs=-1
@@ -83,7 +91,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 		lr = max(200, n / 12)
 		aff = affinity.PerplexityBasedNN(
 			X,
-			perplexity=30,
+			perplexity=perplexity,
 			metric=metric,
 			method="approx",
 			n_jobs=-1
