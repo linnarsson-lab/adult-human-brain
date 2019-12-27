@@ -44,7 +44,7 @@ class PseudoLineage:
 		ages = np.array([age_to_num(x) for x in ds.ca.Age])
 		knn = ds.col_graphs.KNN
 		k = knn.nnz / knn.shape[0]
-		ds.ca.PseudoAge = ages @ knn / k
+		ds.ca.PseudoAge = (knn.astype("bool") @ ages) / k
 
 		logging.info("Slicing pseudoage")
 		slice_names = []
