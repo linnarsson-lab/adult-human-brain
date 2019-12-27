@@ -171,6 +171,12 @@ class Workflow:
 		# Maybe we're already done?
 		if os.path.exists(self.loom_file):
 			logging.info(f"Skipping '{self.name}.loom' because it was already complete.")
+		elif os.path.exists(self.loom_file + '.rerun'):
+			with loompy.connect(self.loom_file + '.rerun') as ds:
+				logging.info(f"Repeating cytograph on {ds.shape[1]} previously collected cells")
+				ds.attrs.config = config.to_string()
+				Cytograph(config=self.config).fit(ds)
+				os.rename(self.loom_file + '.rerun', self.loom_file)
 		else:
 			with Tempname(self.loom_file) as out_file:	
 				self.collect_cells(out_file)
@@ -207,8 +213,9 @@ class Workflow:
 						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
 						if "UMAP" in ds.ca:
 							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
-						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
-						cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
+						if ds.ca.Clusters.max() < 500:
+							cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
+							cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
 						if "HPF" in ds.ca:
 							cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
 						if "CellCycle_G1" in ds.ca:
@@ -219,8 +226,9 @@ class Workflow:
 						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
 						if "velocity" in self.config.steps:
 							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
-						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
-						cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
+						if ds.ca.Clusters.max() < 500:
+							cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
+							cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
 						if "GA" in dsagg.col_graphs:
 							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 						if "cluster-validation" in self.config.steps:
@@ -279,15 +287,17 @@ class RootWorkflow(Workflow):
 				if not os.path.exists(full_path):
 					continue
 				logging.info(f"Examining {sample_id}.loom")
-				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
+				if not self.config.params.skip_metadata:
+					metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
 				with loompy.connect(full_path, "r") as ds:
 					if self.config.params.passedQC and not ds.attrs.passedQC :
 						logging.warn(f"Skipping {sample_id}.loom - did not passed QC.")
 						continue
 					species = Species.detect(ds).name
 					col_attrs = dict(ds.ca)
-					for key, val in metadata.items():
-						col_attrs[key] = np.array([val] * ds.shape[1])
+					if not self.config.params.skip_metadata:
+						for key, val in metadata.items():
+							col_attrs[key] = np.array([val] * ds.shape[1])
 					if "Species" not in col_attrs:
 						col_attrs["Species"] = np.array([species] * ds.shape[1])
 					col_attrs["SampleID"] = np.array([sample_id] * ds.shape[1])
@@ -348,7 +358,7 @@ class RootWorkflow(Workflow):
 				replicate_id += 1
 			batch_id += 1
 		logging.info(f"Collecting a total of {n_cells} cells.")
-		loompy.combine_faster(files, out_file, {}, selections, skip_attrs=["_X", "_Y", "Clusters"])
+		loompy.combine_faster(files, out_file, {}, selections, key="Accession", skip_attrs=["_X", "_Y", "Clusters"])
 		logging.info(f"Adding column attributes")
 		with loompy.connect(out_file) as ds:
 			for attr in new_col_attrs[0].keys():
