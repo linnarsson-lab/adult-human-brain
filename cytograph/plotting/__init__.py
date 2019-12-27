@@ -16,3 +16,4 @@ from .metromap import metromap
 from .dendrogram import dendrogram
 from .heatmap import Heatmap
 from .qc_plots import attrs_on_TSNE
+from .scatter import scatterc, scattern
