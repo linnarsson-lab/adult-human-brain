@@ -14,7 +14,7 @@ import loompy
 from cytograph.annotation import CellCycleAnnotator
 from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.decomposition import HPF, PCA
-from cytograph.embedding import tsne, art_of_tsne
+from cytograph.embedding import art_of_tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
 from cytograph.manifold import BalancedKNN
 from cytograph.metrics import jensen_shannon_distance

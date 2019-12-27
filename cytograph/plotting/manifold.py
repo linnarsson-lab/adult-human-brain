@@ -70,24 +70,25 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tag1: List[str] = None, t
 				tag2_names.append(f"{txt} " + tag2[i].replace("\n", " "))
 	
 	# Add legends
-	ax2 = fig.add_axes([0.4, 0, 0.3, 1])
-	ax2.axis("off")
-	ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
-	if tag2 is not None:
-		ax3 = fig.add_axes([0.7, 0, 0.3, 1])
-		ax3.axis("off")
-		ax3.legend(plots, tag2_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
+	if ds.ca.Clusters.max() < 300:
+		ax2 = fig.add_axes([0.4, 0, 0.3, 1])
+		ax2.axis("off")
+		ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
+		if tag2 is not None:
+			ax3 = fig.add_axes([0.7, 0, 0.3, 1])
+			ax3.axis("off")
+			ax3.legend(plots, tag2_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)
 
-	for lbl in range(0, max(labels) + 1):
-		txt = str(lbl)
-		if "ClusterName" in ds.ca:
-			txt = ds.ca.ClusterName[ds.ca["Clusters"] == lbl][0]
-		if np.all(outliers[labels == lbl] == 1):
-			continue
-		if np.sum(labels == lbl) == 0:
-			continue
-		(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
-		ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
+		for lbl in range(0, max(labels) + 1):
+			txt = str(lbl)
+			if "ClusterName" in ds.ca:
+				txt = ds.ca.ClusterName[ds.ca["Clusters"] == lbl][0]
+			if np.all(outliers[labels == lbl] == 1):
+				continue
+			if np.sum(labels == lbl) == 0:
+				continue
+			(x, y) = np.median(pos[np.where(labels == lbl)[0]], axis=0)
+			ax.text(x, y, txt, fontsize=12, bbox=dict(facecolor='white', alpha=0.5, ec='none'))
 		
 	ax.axis("off")
 	fig.savefig(out_file, format="png", dpi=144, bbox_inches='tight')

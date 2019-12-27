@@ -72,6 +72,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"min_fraction_genes_UMI": 0.3,
 			"max_doubletFinder_TH": 0.4,
 			"skip_missing_samples": False,
+			"skip_metadata": False,
 			"features": "enrichment",  # or "variance"
 			"passedQC": False,
 			"clusterer": "louvain",  # or "surprise"
