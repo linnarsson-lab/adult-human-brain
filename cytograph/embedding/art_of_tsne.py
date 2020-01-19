@@ -107,6 +107,6 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			negative_gradient_method="fft",
 			callbacks=[callbacks.ErrorLogger()]
 		)
-		Z.optimize(250, exaggeration=12, momentum=0.8, inplace=True)
-		Z.optimize(750, exaggeration=exaggeration, momentum=0.5, inplace=True)
+		Z.optimize(250, exaggeration=12, momentum=0.5, inplace=True, n_jobs=-1)
+		Z.optimize(750, exaggeration=exaggeration, momentum=0.8, inplace=True, n_jobs=-1)
 	return Z
