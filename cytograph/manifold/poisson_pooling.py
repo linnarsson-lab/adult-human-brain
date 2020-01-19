@@ -15,7 +15,7 @@ from cytograph.preprocessing import Normalizer
 
 
 class PoissonPooling:
-	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, compute_velocity: bool = False, n_threads: int = 0, factorization: str = "HPF"):
+	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, compute_velocity: bool = False, n_threads: int = 0, factorization: str = "HPF", batch_f: np.ndarray = None):
 		self.k_pooling = k_pooling
 		self.n_genes = n_genes
 		self.n_factors = n_factors
@@ -23,12 +23,13 @@ class PoissonPooling:
 		self.compute_velocity = compute_velocity
 		self.n_threads = n_threads
 		self.factorization = factorization
-
+		self.batch_f = batch_f
+	
 		self.knn: sparse.coo_matrix = None  # Make this available after fitting in case it's useful downstream
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info(f"Normalizing and selecting {self.n_genes} genes")
-		normalizer = Normalizer(False)
+		normalizer = Normalizer(False, batch_f=self.batch_f)
 		normalizer.fit(ds)
 		genes = FeatureSelectionByVariance(self.n_genes, mask=self.mask).fit(ds)
 		self.genes = genes
@@ -75,16 +76,17 @@ class PoissonPooling:
 	def fit_transform(self, ds: loompy.LoomConnection) -> None:
 		# Poisson pooling
 		self.fit(ds)
-		knn = self.knn
+		knn = self.knn.astype("bool")
+
 		logging.debug(f"Poisson pooling")
 		ds["pooled"] = 'int32'
 		if self.compute_velocity and "spliced" in ds.layers:
 			ds["spliced_pooled"] = 'int32'
 			ds["unspliced_pooled"] = 'int32'
-			for (ix, indexes, view) in ds.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
-				ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["spliced"][:, :].T).T
-				ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view.layers["unspliced"][:, :].T).T
+			for (_, indexes, view) in ds.scan(axis=0, layers=["spliced", "unspliced"], what=["layers"]):
+				ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["spliced"][:, :] @ knn.T
+				ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["unspliced"][:, :] @ knn.T
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
 		else:
 			for (ix, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
-				ds["pooled"][indexes.min(): indexes.max() + 1, :] = knn.dot(view[:, :].T).T
+				ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T
