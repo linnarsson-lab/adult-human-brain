@@ -16,7 +16,7 @@ def scatterc(xy: np.ndarray, *, c: np.ndarray, legend: str = "best", g: np.ndarr
 	xy = xy[ordering, :]
 	plt.scatter(xy[:, 0], xy[:, 1], c=colorize(c), **kwargs)
 	ax = plt.gca()
-	if legend is not None:
+	if legend not in [None, False]:
 		hidden_lines = [Line2D([0], [0], color=clr, lw=4) for clr in colorize(np.unique(c))]
 		if legend == "outside":
 			ax.legend(hidden_lines, np.unique(c), loc='center left', bbox_to_anchor=(1, 0.5))
