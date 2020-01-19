@@ -10,7 +10,7 @@ from sklearn.neighbors import NearestNeighbors
 from cytograph.metrics import jensen_shannon_distance
 
 
-@jit(signature_or_function="Tuple((float64[:,:], int64[:,:], int64[:]))(int64[:,:], float64[:, :], int64[:], int64, int64, boolean)", nopython=True)
+@jit(nopython=True)
 def balance_knn_loop(dsi: np.ndarray, dist: np.ndarray, lsi: np.ndarray, maxl: int, k: int, return_distance: bool) -> Tuple:
 	"""Fast and greedy algorythm to balance a K-NN graph so that no node is the NN to more than maxl other nodes
 

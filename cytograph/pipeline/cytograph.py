@@ -63,7 +63,7 @@ class Cytograph:
 		if "poisson_pooling" in self.config.steps:
 			logging.info(f"Poisson pooling with k_pooling == {self.config.params.k_pooling}")
 			main_layer = "pooled"  # if not in config.steps, use the main layer
-			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, compute_velocity=False, n_threads=self.config.execution.n_cpus, factorization=self.config.params.factorization)
+			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, compute_velocity=False, n_threads=self.config.execution.n_cpus, factorization=self.config.params.factorization, batch_keys=self.config.params.batch_keys)
 			pp.fit_transform(ds)
 		
 		# Select features
