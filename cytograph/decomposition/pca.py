@@ -24,49 +24,42 @@ class PCA:
 		self.cells = None  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
-		self.accessions = None  # type: np.ndarray
-
+		
 	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
 
 		# Support out-of-order datasets
+		key = None
 		if "Accession" in ds.row_attrs:
-			self.accessions = ds.row_attrs["Accession"]
+			key = "Accession"
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
-		if self.layer is not None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[self.layer]):
-				if len(selection) < self.n_components:
-					continue
-				vals = normalizer.transform(view.layers[self.layer][:, :], selection)
-				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
-		if self.layer is None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[""]):
-				if len(selection) < self.n_components:
-					continue
-				vals = normalizer.transform(view[:, :], selection)
-				self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
+		layer = self.layer if self.layer is not None else ""
+		for (_, selection, view) in ds.scan(items=cells, axis=1, layers=[layer], key=key):
+			if len(selection) < self.n_components:
+				continue
+			vals = normalizer.transform(view.layers[layer][:, :], selection)
+			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
-			cells = np.fromiter(range(ds.shape[1]), dtype='int')
+			cells = np.arange(ds.shape[1])
 
 		transformed = np.zeros((cells.shape[0], self.pca.n_components_))
 		j = 0
 
-		if self.layer is not None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[self.layer]):
-				vals = normalizer.transform(view.layers[self.layer][:, :], selection)
-				n_cells_in_batch = selection.shape[0]
-				transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
-				j += n_cells_in_batch
-		if self.layer is None:
-			for (ix, selection, view) in ds.scan(items=cells, axis=1, layers=[""]):
-				vals = normalizer.transform(view[:, :], selection)
-				n_cells_in_batch = selection.shape[0]
-				transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
-				j += n_cells_in_batch
+		# Support out-of-order datasets
+		key = None
+		if "Accession" in ds.row_attrs:
+			key = "Accession"
+
+		layer = self.layer if self.layer is not None else ""
+		for (_, selection, view) in ds.scan(items=cells, axis=1, layers=[layer], key=key):
+			vals = normalizer.transform(view.layers[layer][:, :], selection)
+			n_cells_in_batch = selection.shape[0]
+			transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
+			j += n_cells_in_batch
 
 		if self.test_significance:
 			# Must select significant components only once, and reuse for future transformations
