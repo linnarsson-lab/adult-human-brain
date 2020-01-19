@@ -115,7 +115,7 @@ class PolishedLouvain:
 
 		logging.info("Louvain community detection")
 		if self.method == "leiden":
-			n_components, components = connected_components(knn)
+			_, components = connected_components(knn)
 			next_label = 0
 			all_labels = np.zeros(ds.shape[1], dtype="int")
 			for cc in np.unique(components):

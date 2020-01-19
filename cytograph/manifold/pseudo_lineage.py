@@ -1,7 +1,7 @@
 import logging
 import os
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, Dict, List
 
 import numpy as np
 from matplotlib.patches import Polygon
@@ -47,19 +47,33 @@ class PseudoLineage:
 		ds.ca.PseudoAge = (knn.astype("bool") @ ages) / k
 
 		logging.info("Slicing pseudoage")
-		slice_names = []
+		slice_names: List[str] = []
 		with TemporaryDirectory() as tempfolder:
 			slices = np.percentile(ds.ca.PseudoAge, np.arange(0, 101, 5))
-			for i in range(len(slices) - 2):
-				s1 = slices[i]
-				s2 = slices[i + 2]
-				slice_names.append(f"Age{s1:05.2f}to{s2:05.2f}".replace(".", "") + ".loom")
-				logging.info("Collecting cells for " + slice_names[i])
-				with loompy.new(os.path.join(tempfolder, slice_names[i])) as dsout:
-					for (ix, selection, view) in ds.scan(items=(ds.ca.PseudoAge >= s1) & (ds.ca.PseudoAge < s2), axis=1):
-						dsout.add_columns(view.layers, col_attrs=view.ca, row_attrs=view.ra)
-					logging.info("Cytograph on " + slice_names[i])
-					Cytograph(config=load_config()).fit(dsout)
+			logging.info("Collecting cells")
+			for (ix, _, view) in ds.scan(axis=1):
+				for i in range(len(slices) - 2):
+					s1 = slices[i]
+					s2 = slices[i + 2]
+					slice_name = f"Age{s1:05.2f}to{s2:05.2f}".replace(".", "") + ".loom"
+					if slice_name not in slice_names:
+						slice_names.append(slice_name)
+					cells = ((view.ca.PseudoAge >= s1) & (view.ca.PseudoAge < s2))
+					if cells.sum() == 0:
+						continue
+					fname = os.path.join(tempfolder, slice_name)
+					if not os.path.exists(fname):
+						with loompy.new(fname) as dsout:
+							dsout.add_columns(view.layers[:, cells], col_attrs=view.ca[cells], row_attrs=view.ra)
+					else:
+						with loompy.connect(fname) as dsout:
+							dsout.add_columns(view.layers[:, cells], col_attrs=view.ca[cells], row_attrs=view.ra)
+
+			for slice_name in slice_names:
+				fname = os.path.join(tempfolder, slice_name)
+				logging.info("Cytograph on " + slice_name)
+				with loompy.connect(fname) as ds:
+					Cytograph(config=load_config()).fit(ds)
 			
 			# Use dynamic programming to find the deepest tree (forest), as given by total number of cells along each branch
 			logging.info("Computing pseudolineage")

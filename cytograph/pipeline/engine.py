@@ -49,10 +49,7 @@ class Engine:
 		"""
 		samples: Set[str] = set()
 		stack = self.deck.root.get_leaves()
-		if len(stack) > 1:
-			tasks = {"Pool": [s.longname() for s in stack]}
-		else:
-			tasks = {}
+		tasks = {}
 		while len(stack) > 0:
 			s = stack.pop()
 			if s.longname() in tasks:
@@ -67,11 +64,14 @@ class Engine:
 				tasks[s.longname()] = [dep]
 			else:
 				tasks[s.longname()] = []
-				# We're at root, so there's a list of lists of samples
-				for batch in s.include:
-					for sample in batch:
-						tasks[s.longname()].append(f"${sample}")  # Samples are denoted with a leading dollar sign
-						samples.add(sample)
+				# We're at root, so there's a list of lists of samples, or just a list of samples
+				if type(s.include[0]) is list:
+					include = [item for sublist in s.include for item in sublist]  # Flatten the list (see https://stackoverflow.com/questions/952914/how-to-make-a-flat-list-out-of-list-of-lists)
+				else:
+					include = s.include  # type: ignore
+				for sample in include:
+					tasks[s.longname()].append(f"${sample}")  # Samples are denoted with a leading dollar sign
+					samples.add(sample)
 		# Add samples
 		for sample in samples:
 			tasks[f"${sample}"] = []  # $ means mkloom

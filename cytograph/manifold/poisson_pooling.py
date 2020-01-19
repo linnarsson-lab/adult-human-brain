@@ -1,10 +1,11 @@
 import logging
 import warnings
+from typing import List
 
 import numpy as np
 import scipy.sparse as sparse
-from pynndescent import NNDescent
 from numba import NumbaPendingDeprecationWarning, NumbaPerformanceWarning
+from pynndescent import NNDescent
 from scipy.sparse import SparseEfficiencyWarning
 
 import loompy
@@ -15,7 +16,7 @@ from cytograph.preprocessing import Normalizer
 
 
 class PoissonPooling:
-	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, compute_velocity: bool = False, n_threads: int = 0, factorization: str = "HPF", batch_f: np.ndarray = None):
+	def __init__(self, k_pooling: int = 10, n_genes: int = 2000, n_factors: int = 96, mask: np.ndarray = None, compute_velocity: bool = False, n_threads: int = 0, factorization: str = "HPF", batch_keys: List[str] = None):
 		self.k_pooling = k_pooling
 		self.n_genes = n_genes
 		self.n_factors = n_factors
@@ -23,23 +24,30 @@ class PoissonPooling:
 		self.compute_velocity = compute_velocity
 		self.n_threads = n_threads
 		self.factorization = factorization
-		self.batch_f = batch_f
+		self.batch_keys = batch_keys
+		if batch_keys == []:
+			self.batch_keys = None
 	
 		self.knn: sparse.coo_matrix = None  # Make this available after fitting in case it's useful downstream
 
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		logging.info(f"Normalizing and selecting {self.n_genes} genes")
-		normalizer = Normalizer(False, batch_f=self.batch_f)
+		normalizer = Normalizer(False)
 		normalizer.fit(ds)
 		genes = FeatureSelectionByVariance(self.n_genes, mask=self.mask).fit(ds)
 		self.genes = genes
 
-		if self.factorization == 'PCA' or self.factorization == 'both':
+		if self.factorization == 'PCA' or self.factorization == 'both' or self.batch_keys is not None:
+			factorization = "PCA"
+		else:
+			factorization = "HPF"
+		
+		if factorization == "PCA":
 			n_components = min(50, ds.shape[1])
 			logging.info("PCA projection to %d components", n_components)
-			pca = PCA(genes, max_n_components=self.n_factors, test_significance=False)
+			pca = PCA(genes, max_n_components=self.n_factors, test_significance=False, batch_keys=self.batch_keys)
 			transformed = pca.fit_transform(ds, normalizer)
-		elif self.factorization == 'HPF':
+		else:
 			data = ds.sparse(rows=genes).T
 			# Subsample to lowest number of UMIs
 			if "TotalUMI" in ds.ca:
@@ -64,7 +72,7 @@ class PoissonPooling:
 			warnings.simplefilter("ignore", category=NumbaPerformanceWarning)  # Suppress warnings about numba not being able to parallelize code
 			warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)  # Suppress warnings about future deprecations
 			warnings.simplefilter("ignore", category=SparseEfficiencyWarning)  # Suppress warnings about setting the diagonal to 1
-			nn = NNDescent(data=transformed, metric=(jensen_shannon_distance if self.factorization == "HPF" else "euclidean"))
+			nn = NNDescent(data=transformed, metric=(jensen_shannon_distance if factorization == "HPF" else "euclidean"))
 			indices, distances = nn.query(transformed, k=self.k_pooling)
 			# Note: we convert distances to similarities here, to support Poisson smoothing below
 			knn = sparse.csr_matrix(
@@ -88,5 +96,5 @@ class PoissonPooling:
 				ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :] = view.layers["unspliced"][:, :] @ knn.T
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = ds["spliced_pooled"][indexes.min(): indexes.max() + 1, :] + ds["unspliced_pooled"][indexes.min(): indexes.max() + 1, :]
 		else:
-			for (ix, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
+			for (_, indexes, view) in ds.scan(axis=0, layers=[""], what=["layers"]):
 				ds["pooled"][indexes.min(): indexes.max() + 1, :] = view[:, :] @ knn.T

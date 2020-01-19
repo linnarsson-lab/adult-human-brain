@@ -1,9 +1,13 @@
 import numpy as np
 import loompy
+import logging
 from .heatmap import Heatmap
 
 
 def markerheatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, out_file: str = "", layer: str = "pooled") -> None:
+	if layer not in ds.layers:
+		logging.warn(f"Cannot plot heatmap for layer {layer} because the layer doesn't exist")
+		return
 	n_clusters = ds.ca.Clusters.max() + 1
 	hm = Heatmap(np.arange(10 * n_clusters), attrs={
 		"Clusters": "categorical",

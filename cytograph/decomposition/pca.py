@@ -1,8 +1,13 @@
+from typing import List
+
 import numpy as np
-from cytograph.preprocessing import Normalizer
-from sklearn.decomposition import IncrementalPCA
+import pandas as pd
+from harmony import harmonize
 from scipy.stats import ks_2samp
+from sklearn.decomposition import IncrementalPCA
+
 import loompy
+from cytograph.preprocessing import Normalizer
 
 
 class PCA:
@@ -11,11 +16,14 @@ class PCA:
 	to one dataset then used to project another. To work properly, both datasets must be normalized in the same
 	way prior to projection.
 	"""
-	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str = None, test_significance: bool = True) -> None:
+	def __init__(self, genes: np.ndarray, max_n_components: int = 50, layer: str = None, test_significance: bool = True, batch_keys: List[str] = None) -> None:
 		"""
 		Args:
 			genes:				The genes to use for the projection
 			max_n_components: 	The maximum number of projected components
+			layer:				The layer to use as input
+			test_significance:	If true, return only a subset of up to max_n_components that are significant
+			batch_keys:			Keys (attribute names) to use as batch keys for batch correction, or None to omit batch correction
 		"""
 		self.genes = genes
 		self.n_components = max_n_components
@@ -24,7 +32,8 @@ class PCA:
 		self.cells = None  # type: np.ndarray
 		self.pca = None  # type: IncrementalPCA
 		self.sigs = None  # type: np.ndarray
-		
+		self.batch_keys = batch_keys
+
 	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
@@ -73,6 +82,9 @@ class PCA:
 
 			transformed = transformed[:, self.sigs]
 
+		if self.batch_keys is not None and len(self.batch_keys) > 0:
+			keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
+			transformed = harmonize(transformed, keys_df, batch_key=self.batch_keys)
 		return transformed
 
 	def fit_transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:

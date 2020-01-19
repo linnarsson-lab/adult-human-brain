@@ -126,13 +126,6 @@ class PunchcardDeck:
 				sys.exit(1)
 		# Check the samples specifications, and make sure they make sense
 		for subset in self.root.subsets.values():
-			if not isinstance(subset.include, list):
-				logging.error(f"Error in '{subset.longname()}'; every 'include' in Root.yaml must be a non-empty list of lists of samples.")
-				sys.exit(1)
-			for sample in subset.include:
-				if not isinstance(sample, list):
-					logging.error(f"Error in '{subset.longname()}'; every 'include' in Root.yaml must be a non-empty list of lists of samples.")
-					sys.exit(1)
 			if subset.onlyif != "" and subset.onlyif is not None:
 				logging.error(f"Error in '{subset.longname()}'; 'onlyif' clauses cannot be used in Root.yaml, only in downstream punchcards.")
 				sys.exit(1)

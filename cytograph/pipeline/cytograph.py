@@ -55,9 +55,9 @@ class Cytograph:
 
 		logging.info("Recomputing the list of valid genes")
 		nnz = ds.map([np.count_nonzero], axis=0)[0]
-		valid_genes = np.logical_and(nnz > 10, nnz < ds.shape[1] * 0.6)
+		valid_genes = (nnz > 10) & (nnz < ds.shape[1] * 0.6)
 		ds.ra.Valid = valid_genes.astype('int')
-	
+
 		# Perform Poisson pooling if requested
 		main_layer = ""
 		if "poisson_pooling" in self.config.steps:
@@ -79,7 +79,7 @@ class Cytograph:
 				normalizer = Normalizer(False)
 				normalizer.fit(ds)
 				logging.info("  PCA projection to %d components", self.config.params.n_factors)
-				pca = PCA(genes, max_n_components=self.config.params.n_factors, layer=main_layer, test_significance=False)
+				pca = PCA(genes, max_n_components=self.config.params.n_factors, layer=main_layer, test_significance=False, batch_keys=self.config.params.batch_keys)
 				transformed = pca.fit_transform(ds, normalizer)
 				logging.info(f"  Computing KNN (k={self.config.params.k}) in PCA space")
 				nn = NNDescent(data=transformed, metric="euclidean")
@@ -106,7 +106,7 @@ class Cytograph:
 			normalizer.fit(ds)
 			n_components = min(self.config.params.n_factors, ds.shape[1])
 			logging.info("  PCA projection to %d components", n_components)
-			pca = PCA(genes, max_n_components=n_components, layer=main_layer, test_significance=False)
+			pca = PCA(genes, max_n_components=n_components, layer=main_layer, test_significance=False, batch_keys=self.config.params.batch_keys)
 			ds.ca.PCA = pca.fit_transform(ds, normalizer)
 
 		if self.config.params.factorization in ['HPF', 'both']:

@@ -57,7 +57,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"index": ""
 		}),
 		"params": Config(**{
-			"batch_keys": ["Version"],  # Set to empty list for no batch correction
+			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
 			"k": 25,
 			"k_pooling": 10,
 			"factorization": "PCA",  # or "HPF" or "both"
@@ -65,7 +65,6 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"min_umis": 1500,
 			"n_genes": 2000,
 			"doublets_action": "remove",
-			"doublets_method": "doubletFinder",
 			"mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
 			"max_fraction_MT_genes": 0.05,
@@ -79,7 +78,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"clusterer": "louvain",  # or "surprise"
 			"nn_space": "auto"
 		}),
-		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering", "skeletonize"),
+		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
 		"execution": Config(**{
 			"n_cpus": available_cpu_count(),
 			"n_gpus": 0,

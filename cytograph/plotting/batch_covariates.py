@@ -4,6 +4,7 @@ import numpy as np
 import loompy
 
 from .colors import colorize
+from .scatter import scatterc, scattern
 
 
 def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
@@ -47,18 +48,23 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 		frameon=False,
 		fontsize=10)
 	plt.title("Age")
-	
-	if "XIST" in ds.ra.Gene:
-		xist = ds[ds.ra.Gene == "XIST", :][0]
-	elif "Xist" in ds.ra.Gene:
-		xist = ds[ds.ra.Gene == "Xist", :][0]
+
+	if "Chemistry" in ds.ca:
+		plt.subplot(223)
+		scatterc(xy, c=ds.ca.Chemistry, legend="outside", lw=0)
+		plt.title("Chemistry version")
 	else:
-		xist = np.array([0] * ds.shape[1])
-	ax = plt.subplot(223)
-	cells = xist > 0
-	ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
-	ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
-	plt.title("Sex (XIST)")
+		if "XIST" in ds.ra.Gene:
+			xist = ds[ds.ra.Gene == "XIST", :][0]
+		elif "Xist" in ds.ra.Gene:
+			xist = ds[ds.ra.Gene == "Xist", :][0]
+		else:
+			xist = np.array([0] * ds.shape[1])
+		ax = plt.subplot(223)
+		cells = xist > 0
+		ax.scatter(xy[:, 0], xy[:, 1], c='lightgrey', lw=0, s=10)
+		ax.scatter(xy[:, 0][cells], xy[:, 1][cells], c=xist[cells], lw=0, s=10)
+		plt.title("Sex (XIST)")
 
 	if "SampleID" in ds.ca:
 		names, labels = np.unique(ds.ca.SampleID, return_inverse=True)

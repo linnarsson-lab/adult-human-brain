@@ -21,7 +21,7 @@ setup(
 		# 'python-igraph',  # imported as "igraph"; a challenge to install so better do it manually
 		'tqdm',
 		'umap-learn',  # imported as "umap"
-		# 'torch',
+		'torch',
 		# 'torchvision',
 		'pynndescent',
 		'click',
