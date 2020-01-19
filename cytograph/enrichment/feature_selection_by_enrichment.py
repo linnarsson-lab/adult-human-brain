@@ -95,9 +95,9 @@ class FeatureSelectionByEnrichment:
 		included: List[int] = []
 
 		if self.mask is None:
-			excluded = set(np.where(ds.row_attrs["Valid"] == 0)[0])
+			excluded = set(np.where(ds.ra.Valid == 0)[0])
 		else:
-			excluded = set(np.where(np.logical_or(ds.row_attrs["Valid"] == 0, self.mask))[0])
+			excluded = set(np.where(np.logical_or(ds.ra.Valid == 0, self.mask))[0])
 
 		for ix in range(max(labels) + 1):
 			enriched = np.argsort(enrichment[:, ix])[::-1]
