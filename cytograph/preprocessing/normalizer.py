@@ -7,27 +7,33 @@ from .utils import div0
 
 class Normalizer:
 	"""
-	Normalize and optionally standardize a dataset, dealing properly with edge cases such as division by zero.
+	Normalize and optionally standardize and batch-correct a dataset, dealing properly 
+	with edge cases such as division by zero.
 	"""
-	def __init__(self, standardize: bool = False, level: int = None, layer: str = "") -> None:
+	def __init__(self, standardize: bool = False, layer: str = "") -> None:
 		self.standardize = standardize
 		self.sd = None  # type: np.ndarray
 		self.mu = None  # type: np.ndarray
 		self.totals = None  # type: np.ndarray
-		self.level = level
+		self.level = 0
 		self.layer = layer
 
-	def fit(self, ds: loompy.LoomConnection, mu: np.ndarray = None, sd: np.ndarray = None, totals: np.ndarray = None) -> None:
-		self.sd = sd
-		self.mu = mu
-		self.totals = totals
+	def fit(self, ds: loompy.LoomConnection) -> None:
+		self.sd = np.zeros(ds.shape[0])
+		self.mu = np.zeros(ds.shape[0])
+		self.totals = np.zeros(ds.shape[1])
 
-		if mu is None or sd is None:
-			(self.sd, self.mu) = ds[self.layer].map([np.std, np.mean], axis=0)
-		if totals is None:
-			self.totals = ds[self.layer].map([np.sum], chunksize=100, axis=1)[0]
-		if self.level is None:
-			self.level = np.median(self.totals)
+		for _, selection, view in ds.scan(axis=0):
+			vals = view[self.layer][:, :].astype("float")
+			self.totals += np.sum(vals, axis=0)
+		self.level = np.median(self.totals)
+
+		for _, selection, view in ds.scan(axis=0):
+			vals = view[self.layer][:, :].astype("float")
+			# Rescale to the median total UMI count, plus 1 (to avoid log of zero), then log transform
+			vals = np.log2(div0(vals, self.totals) * self.level + 1)
+			self.mu[selection] = np.mean(vals, axis=1)
+			self.sd[selection] = np.std(vals, axis=1)
 
 	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""
@@ -41,10 +47,11 @@ class Normalizer:
 			vals_adjusted (ndarray):	The normalized values
 		"""
 		# Adjust total count per cell to the desired overall level
-		vals = vals / (self.totals[cells] + 1) * self.level
+		if cells is None:
+			cells = slice(None)
+		vals = vals.astype("float")
+		vals = np.log2(div0(vals, self.totals[cells]) * self.level + 1)
 
-		# Log transform
-		vals = np.log(vals + 1)
 		# Subtract mean per gene
 		vals = vals - self.mu[:, None]
 		if self.standardize:
