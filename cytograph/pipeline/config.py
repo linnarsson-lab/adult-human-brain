@@ -57,6 +57,7 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"index": ""
 		}),
 		"params": Config(**{
+			"batch_keys": ["Version"],  # Set to empty list for no batch correction
 			"k": 25,
 			"k_pooling": 10,
 			"factorization": "PCA",  # or "HPF" or "both"
