@@ -49,7 +49,7 @@ class Engine:
 		"""
 		samples: Set[str] = set()
 		stack = self.deck.root.get_leaves()
-		tasks = {}
+		tasks: Dict[str, List[str]] = {}
 		while len(stack) > 0:
 			s = stack.pop()
 			if s.longname() in tasks:

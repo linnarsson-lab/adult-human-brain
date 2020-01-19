@@ -245,7 +245,7 @@ class BalancedKNN:
 			NOTE: The diagonal will be zero even though the value 0 is actually stored
 
 		"""
-		dist_new, dsi_new, l = self.kneighbors(X=X, maxl=maxl, mode=mode)
+		dist_new, dsi_new, _ = self.kneighbors(X=X, maxl=maxl, mode=mode)
 		logging.debug("Returning sparse matrix")
 		self.bknn = sparse.csr_matrix((np.ravel(dist_new), np.ravel(dsi_new), np.arange(0, dist_new.shape[0] * dist_new.shape[1] + 1, dist_new.shape[1])), (self.n_samples, self.n_samples))
 		return self.bknn
