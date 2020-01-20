@@ -54,7 +54,8 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"autoannotation": "",
 			"metadata": "",
 			"fastqs": "",
-			"index": ""
+			"index": "",
+			"qc": ""
 		}),
 		"params": Config(**{
 			"batch_keys": [],  # Set to empty list for no batch correction, or use e.g. ["Chemistry"]
