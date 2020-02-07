@@ -23,7 +23,7 @@ def TF_heatmap(ds: loompy.LoomConnection, dsagg: loompy.LoomConnection, out_file
 		"CellCycle_G1": "viridis:log",
 		"CellCycle_S": "viridis:log",
 		"CellCycle_G2M": "viridis:log",
-		"ScrubletScore": "viridis",
-		"ScrubletFlag": "PiYG_r",
+		"DoubletFinderScore": "viridis",
+		"DoubletFinderFlag": "PiYG_r",
 	}, layer=layer)
 	hm.plot(ds, dsagg, out_file=out_file)

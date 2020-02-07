@@ -49,7 +49,7 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 		fontsize=10)
 	plt.title("Age")
 
-	if "Chemistry" in ds.ca:
+	if "Chemistry" in ds.ca and len(set(ds.ca.Chemistry)) > 1:
 		plt.subplot(223)
 		scatterc(xy, c=ds.ca.Chemistry, legend="outside", lw=0)
 		plt.title("Chemistry version")
