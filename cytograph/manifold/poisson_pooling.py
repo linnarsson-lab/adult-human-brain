@@ -76,8 +76,10 @@ class PoissonPooling:
 			indices, distances = nn.query(transformed, k=self.k_pooling)
 			# Note: we convert distances to similarities here, to support Poisson smoothing below
 			knn = sparse.csr_matrix(
-				(1 - np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (transformed.shape[0], transformed.shape[0])
+				(np.ravel(distances), np.ravel(indices), np.arange(0, distances.shape[0] * distances.shape[1] + 1, distances.shape[1])), (transformed.shape[0], transformed.shape[0])
 			)
+			max_d = knn.data.max()
+			knn.data = (max_d - knn.data) / max_d
 			knn.setdiag(1)  # This causes a sparse efficiency warning, but it's not a slow step relative to everything else
 			self.knn = knn
 
