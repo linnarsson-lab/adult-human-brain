@@ -182,8 +182,8 @@ class PseudoLineage:
 								overlapping_cells = (ds1.ca[clusters] == i) & (ds1.ca.PseudoAge < slices[t + 2])
 								crs = np.array(CatmullRomSpline(n_points=100).fit_transform(np.array([[slices[t + 1] - offset, y1], [slices[t + 1], y1], [slices[t + 2], y2], [slices[t + 2] + offset, y2]])))
 								widths = np.linspace(n_cells[t][edges[t][i]], n_cells[t + 1][i], num=100) / 1500
-								f = interp1d(crs[:, 0], crs[:, 1])
-								fw = interp1d(crs[:, 0], widths)
+								f = interp1d(crs[:, 0], crs[:, 1], fill_value="extrapolate")
+								fw = interp1d(crs[:, 0], widths, fill_value="extrapolate")
 								y = f(ds1.ca.PseudoAge[overlapping_cells]) + np.random.normal(scale=fw(ds1.ca.PseudoAge[overlapping_cells]) / 6, size=overlapping_cells.sum())
 								for i, ix in enumerate(np.where(overlapping_cells)[0]):
 									cell_to_xy[ds1.ca.CellID[ix]] = [ds1.ca.PseudoAge[ix], y[i]]
@@ -209,8 +209,10 @@ class PseudoLineage:
 									cell_to_xy[ds1.ca.CellID[ix]] = [ds1.ca.PseudoAge[ix], y[i]]
 
 			logging.info("Saving pseudolineage projection back in original file")
-			xy = np.zeros_like(ds.ca.TSNE)
+			logging.info(ds.ca)
+			return cell_to_xy
+			xy = np.zeros((ds.shape[1], 2))
 			for i, cellid in enumerate(cell_to_xy.keys()):
-				j = np.where(ds.ca.CellID == cellid)[0][0]
+				j = np.where(ds.ca.CellID == cellid)[0]
 				xy[j] = cell_to_xy[cellid]
 			ds.ca.PseudoLineage = xy

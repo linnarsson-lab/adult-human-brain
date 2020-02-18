@@ -23,6 +23,7 @@ setup(
 		'umap-learn',  # imported as "umap"
 		'torch',
 		# 'torchvision',
+		'harmony-pytorch',
 		'pynndescent',
 		'click',
 		'leidenalg',

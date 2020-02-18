@@ -160,6 +160,7 @@ class HPF:
 		self.gamma_shape = self.gamma_shape[:, ordering]
 		self.lambda_rate = self.lambda_rate[:, ordering]
 		self.lambda_shape = self.lambda_shape[:, ordering]
+		self.explained_molecules = self.explained_molecules[ordering]
 
 		# Posterior predictive distribution
 		if self.compute_X_ppv:
