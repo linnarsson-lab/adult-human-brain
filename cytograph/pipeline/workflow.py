@@ -486,16 +486,19 @@ class PoolWorkflow(Workflow):
 		if err:
 			sys.exit(1)
 
-		with loompy.new(out_file) as dsout:
-			for subset in self.deck.get_leaves():
-				logging.info(f"Collecting cells from {subset.longname()}")
-				with loompy.connect(os.path.join(self.config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
-					punchcards = punchcards + [subset.longname()] * ds.shape[1]
-					punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
-					clusters = clusters + list(ds.ca.Clusters + next_cluster)
-					next_cluster = max(clusters) + 1
-					for (_, _, view) in ds.scan(axis=1, key="Accession", what=["layers", "col_attrs", "row_attrs"]):
-						dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
+		for subset in self.deck.get_leaves():
+			logging.info(f"Collecting metadata from {subset.longname()}")
+			with loompy.connect(os.path.join(self.config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
+				punchcards = punchcards + [subset.longname()] * ds.shape[1]
+				punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
+				clusters = clusters + list(ds.ca.Clusters + next_cluster)
+				next_cluster = max(clusters) + 1
+
+		logging.info(f"Collecting all cells into {out_file}")
+		files = [os.path.join(self.config.paths.build, "data", subset.longname() + ".loom") for subset in self.deck.get_leaves()]
+		loompy.combine_faster(files, out_file, None, key="Accession")
+
+		with loompy.connect(out_file) as dsout:
 			dsout.ca.Punchcard = punchcards
 			dsout.ca.PunchcardClusters = punchcard_clusters
 			dsout.ca.Clusters = clusters
