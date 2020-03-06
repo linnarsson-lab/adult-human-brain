@@ -3,8 +3,7 @@ from typing import Tuple, List, Any
 
 import numpy as np
 import scipy.sparse as sparse
-from scipy.misc import logsumexp
-from scipy.special import digamma, gammaln
+from scipy.special import digamma, gammaln, logsumexp
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 
