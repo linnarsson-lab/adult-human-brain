@@ -17,6 +17,7 @@ def plot_all(ds: loompy.LoomConnection, out_file: str, labels: np.array = None, 
 	doublets_ngenes(ax4, ds, labels)
 	
 	f.savefig(out_file, dpi=144)
+	os.chmod(out_file, 0o664)
 	plt.close(f)
 
 
@@ -53,6 +54,7 @@ def doublets_TSNE(ax: plt.axes = None, ds: loompy.LoomConnection = None, labels:
 	sp = ax.set_title("Doublets Flag")
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
+		os.chmod(out_file, 0o664)
 	return(sp)
 
 
@@ -79,6 +81,7 @@ def doublets_umis(ax: plt.axes = None, ds: loompy.LoomConnection = None, labels:
 		patch.set_facecolor(color)
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
+		os.chmod(out_file, 0o664)
 	return(bp)
 	
 
@@ -104,6 +107,7 @@ def doublets_ngenes(ax: plt.axes = None, ds: loompy.LoomConnection = None, label
 		patch.set_facecolor(color)
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
+		os.chmod(out_file, 0o664)
 	return(bp)
 	
 
@@ -127,4 +131,5 @@ def fake_doublets_dist(ax: plt.axes = None, doublet_score_A: np.array = None, lo
 	hd = ax.hist(doublet_score_A, bins=30, density=True)
 	if out_file is not None:
 		plt.savefig(out_file, dpi=144)
+		os.chmod(out_file, 0o664)
 	return(hd)
