@@ -43,7 +43,7 @@ from sklearn.cluster import KMeans
 from unidip import UniDip
 from sklearn.ensemble import IsolationForest
 
-def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = False, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, name: object = "tmp", qc_dir: object = ".", graphs: bool = True, max_th: float= 1) -> np.ndarray:
+def doublet_finder(ds: loompy.LoomConnection, use_pca: bool = True, proportion_artificial: float = 0.20, fixed_th: float = None, k: int = None, name: object = "tmp", qc_dir: object = ".", graphs: bool = True, max_th: float= 1) -> np.ndarray:
 	# Step 1: Generate artificial doublets from input
 	logging.debug("Creating artificial doublets")
 	n_real_cells = ds.shape[1]

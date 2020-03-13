@@ -211,35 +211,36 @@ class Workflow:
 				os.mkdir(out_dir)
 				with loompy.connect(self.loom_file) as ds:
 					with loompy.connect(self.agg_file) as dsagg:
-						cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
-						if "UMAP" in ds.ca:
-							cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
-						if ds.ca.Clusters.max() < 500:
-							cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
-							cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
-						if "HPF" in ds.ca:
-							cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
-						if "CellCycle_G1" in ds.ca:
-							cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
-						if "KNN" in ds.col_graphs:
-							cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
-						cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
-						cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
-						if "velocity" in self.config.steps:
-							cgplot.embedded_velocity(ds, out_file=os.path.join(out_dir, f"{pool}_velocity.png"))
-						if ds.ca.Clusters.max() < 500:
-							cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
-							cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
-						if "GA" in dsagg.col_graphs:
-							cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
-						if "cluster-validation" in self.config.steps:
-							ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
-						if "unspliced_ratio" in ds.ca:
-							cgplot.attrs_on_TSNE(
-								ds = ds,
-								out_file=os.path.join(out_dir, f"{pool}_QC.png"), 
-								attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
-								plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
+						if dsagg.shape[1] > 1:
+							cgplot.manifold(ds, os.path.join(out_dir, f"{pool}_TSNE_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation))
+							if "UMAP" in ds.ca:
+								cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
+							if "PCA" in ds.ca:
+								cgplot.manifold(ds, os.path.join(out_dir, pool + "_PCA_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="PCA")
+							if ds.ca.Clusters.max() < 500:
+								cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
+								cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
+							if "HPF" in ds.ca:
+								cgplot.factors(ds, base_name=os.path.join(out_dir, pool + "_factors"))
+							if "CellCycle_G1" in ds.ca:
+								cgplot.cell_cycle(ds, os.path.join(out_dir, pool + "_cellcycle.png"))
+							if "KNN" in ds.col_graphs:
+								cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
+							cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
+							cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
+							if ds.ca.Clusters.max() < 500:
+								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
+								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
+							if "GA" in dsagg.col_graphs:
+								cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
+							if "cluster-validation" in self.config.steps:
+								ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
+							if "unspliced_ratio" in ds.ca:
+								cgplot.attrs_on_TSNE(
+									ds = ds,
+									out_file=os.path.join(out_dir, f"{pool}_QC.png"), 
+									attrs=["DoubletFinderFlag", "DoubletFinderScore", "TotalUMI", "NGenes", "unspliced_ratio", "MT_ratio"], 
+									plot_title=["Doublet Flag", "Doublet Score", "UMI counts", "Number of genes", "Unspliced / Total UMI", "Mitochondrial / Total UMI"])
 
 		# If there's a punchcard for this subset, go ahead and compute the subsets for that card
 		card_for_subset = self.deck.get_card(self.name)
@@ -496,9 +497,10 @@ class PoolWorkflow(Workflow):
 
 		logging.info(f"Collecting all cells into {out_file}")
 		files = [os.path.join(self.config.paths.build, "data", subset.longname() + ".loom") for subset in self.deck.get_leaves()]
-		loompy.combine_faster(files, out_file, None, key="Accession")
+		loompy.combine_faster(files, out_file, None, key="Accession", skip_attrs=["PCA", "TSNE"])
 
 		with loompy.connect(out_file) as dsout:
 			dsout.ca.Punchcard = punchcards
 			dsout.ca.PunchcardClusters = punchcard_clusters
 			dsout.ca.Clusters = clusters
+			logging.info(f"{dsout.ca.Clusters.max() + 1} clusters")

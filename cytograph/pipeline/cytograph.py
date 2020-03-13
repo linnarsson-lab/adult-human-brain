@@ -6,13 +6,14 @@ import networkx as nx
 import numpy as np
 import scipy.sparse as sparse
 from umap import UMAP
+from sklearn.manifold import TSNE
 from numba import NumbaPerformanceWarning, NumbaPendingDeprecationWarning
 from scipy.sparse import SparseEfficiencyWarning
 from pynndescent import NNDescent
 
 import loompy
 from cytograph.annotation import CellCycleAnnotator
-from cytograph.clustering import PolishedLouvain, PolishedSurprise
+from cytograph.clustering import Louvain, PolishedLouvain, PolishedSurprise
 from cytograph.decomposition import HPF, PCA
 from cytograph.embedding import art_of_tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
@@ -165,24 +166,36 @@ class Cytograph:
 		if "embeddings" in self.config.steps or "clustering" in self.config.steps:
 			logging.info(f"Computing 2D and 3D embeddings from latent space")
 			metric_f = (jensen_shannon_distance if metric == "js" else metric)  # Replace js with the actual function, since OpenTSNE doesn't understand js
-			logging.info(f"  Art of tSNE with {metric} distance metric")
-			ds.ca.TSNE = np.array(art_of_tsne(transformed, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
-			logging.info(f"  UMAP with {metric} distance metric")
-			ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
-			ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
+			if transformed.shape[0] <= 200:
+				ds.ca.TSNE = TSNE(perplexity=5).fit_transform(transformed)
+				ds.ca.UMAP = UMAP(n_components=2, metric=metric_f).fit_transform(transformed)
+				ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f).fit_transform(transformed)
+			else:
+				logging.info(f"  Art of tSNE with {metric} distance metric")
+				ds.ca.TSNE = np.array(art_of_tsne(transformed, metric=metric_f))  # art_of_tsne returns a TSNEEmbedding, which can be cast to an ndarray (its actually just a subclass)
+				logging.info(f"  UMAP with {metric} distance metric")
+				ds.ca.UMAP = UMAP(n_components=2, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
+				ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 
 		if "clustering" in self.config.steps:
-			logging.info("Clustering by polished Louvain")
-			pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE")
-			labels = pl.fit_predict(ds)
+			if transformed.shape[0] <= 50:
+				logging.info("Clustering by Louvain without polish")
+				labels = Louvain(graph="RNN", embedding="TSNE").fit_predict(ds)
+			else:
+				logging.info("Clustering by polished Louvain")
+				pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE")
+				labels = pl.fit_predict(ds)
 			ds.ca.ClustersModularity = labels + min(labels)
 			ds.ca.OutliersModularity = (labels == -1).astype('int')
 
 			logging.info("Clustering by polished Surprise")
-			ps = PolishedSurprise(graph="RNN", embedding="TSNE")
-			labels = ps.fit_predict(ds)
-			ds.ca.ClustersSurprise = labels + min(labels)
-			ds.ca.OutliersSurprise = (labels == -1).astype('int')
+			try:
+				ps = PolishedSurprise(graph="RNN", embedding="TSNE")
+				labels = ps.fit_predict(ds)
+				ds.ca.ClustersSurprise = labels + min(labels)
+				ds.ca.OutliersSurprise = (labels == -1).astype('int')
+			except:
+				logging.info('Error in polished surprise')
 
 			if self.config.params.clusterer == "louvain":
 				ds.ca.Clusters = ds.ca.ClustersModularity

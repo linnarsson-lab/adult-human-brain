@@ -138,12 +138,6 @@ class PolishedLouvain:
 			partitions = community.best_partition(g, resolution=self.resolution, randomize=False)
 			labels = np.array([partitions[key] for key in range(knn.shape[0])])
 
-		# Mark tiny clusters as outliers
-		logging.info("Marking tiny clusters as outliers")
-		bigs = np.where(np.bincount(labels) >= 10)[0]
-		mapping = {k: v for v, k in enumerate(bigs)}
-		labels = np.array([mapping[x] if x in bigs else -1 for x in labels])
-
 		# Mark outliers using DBSCAN
 		logging.info("Using DBSCAN to mark outliers")
 		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
@@ -204,6 +198,11 @@ class PolishedLouvain:
 			neighbors = knn.col[np.where(knn.row == ix)[0]]
 			temp.append(mode(labels[neighbors])[0][0])
 		labels = np.array(temp)
+
+		# Mark tiny clusters as outliers
+		logging.info("Marking tiny clusters as outliers")
+		ix, counts = np.unique(labels, return_counts=True)
+		labels[np.isin(labels, ix[counts < self.min_cells])] = -1
 
 		# Renumber the clusters (since some clusters might have been lost in poor neighborhoods)
 		retain = list(set(labels))

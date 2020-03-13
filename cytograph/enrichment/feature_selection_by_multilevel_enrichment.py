@@ -61,7 +61,7 @@ class FeatureSelectionByMultilevelEnrichment:
 
 			# Agglomerative clustering
 			data = np.log(means + 1)[all_markers, :].T
-			D = pdist(data, 'euclidean')
+			D = pdist(data, 'correlation')
 			Z = hc.linkage(D, 'ward', optimal_ordering=True)
 			old_labels_per_cluster = hc.leaves_list(Z)
 			old_labels_per_cell = labels.copy()
@@ -131,6 +131,11 @@ class FeatureSelectionByMultilevelEnrichment:
 			excluded = set(np.where(~self.valid_genes)[0])
 		else:
 			excluded = set(np.where(((~self.valid_genes) | self.mask))[0])
+
+		# Handle datasets with thousands of clusters	
+		if n_genes - len(excluded) < self.n_markers_per_cluster * n_labels:
+			included = self.valid_genes & ~self.mask
+			return (included, enrichment, means)
 
 		included = np.zeros(n_genes, dtype=bool)
 		for ix in range(n_labels):

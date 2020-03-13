@@ -40,18 +40,10 @@ class Aggregator:
 		logging.info("Aggregating clusters")
 		ds.aggregate(out_file, None, "Clusters", "mean", agg_spec)
 		with loompy.connect(out_file) as dsout:
-			logging.info("Trinarizing")
-			if type(self.f) is list or type(self.f) is tuple:
-				for ix, f in enumerate(self.f):  # type: ignore
-					trinaries = Trinarizer(f=f).fit(ds)
-					if ix == 0:
-						dsout.layers["trinaries"] = trinaries
-					else:
-						dsout.layers[f"trinaries_{f}"] = trinaries
-			else:
-				trinaries = Trinarizer(f=self.f).fit(ds)  # type:ignore
-				dsout.layers["trinaries"] = trinaries
 
+			if n_labels <= 1:
+				return
+				
 			logging.info("Computing cluster gene enrichment scores")
 			fe = FeatureSelectionByMultilevelEnrichment(mask=self.mask)
 			markers = fe.fit(ds)
@@ -63,7 +55,7 @@ class Aggregator:
 			logging.info("Renumbering clusters by similarity, and permuting columns")
 
 			data = np.log(dsout[:, :] + 1)[markers, :].T
-			D = pdist(data, 'euclidean')
+			D = pdist(data, 'correlation')
 			Z = hc.linkage(D, 'ward', optimal_ordering=True)
 			ordering = hc.leaves_list(Z)
 
@@ -73,7 +65,7 @@ class Aggregator:
 
 			# Redo the Ward's linkage just to get a tree that corresponds with the new ordering
 			data = np.log(dsout[:, :] + 1)[markers, :].T
-			D = pdist(data, 'euclidean')
+			D = pdist(data, 'correlation')
 			dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
 			# Renumber the original file, and permute
@@ -93,6 +85,23 @@ class Aggregator:
 			gene_order = np.argsort(gene_order)
 			ds.permute(gene_order, axis=0)
 			dsout.permute(gene_order, axis=0)
+
+			if n_labels > 300:
+				dsout.ca.MarkerGenes = np.empty(n_labels, dtype='str')
+				dsout.ca.AutoAnnotation = np.empty(n_labels, dtype='str')
+				return
+
+			logging.info("Trinarizing")
+			if type(self.f) is list or type(self.f) is tuple:
+				for ix, f in enumerate(self.f):  # type: ignore
+					trinaries = Trinarizer(f=f).fit(ds)
+					if ix == 0:
+						dsout.layers["trinaries"] = trinaries
+					else:
+						dsout.layers[f"trinaries_{f}"] = trinaries
+			else:
+				trinaries = Trinarizer(f=self.f).fit(ds)  # type:ignore
+				dsout.layers["trinaries"] = trinaries
 
 			logging.info("Computing auto-annotation")
 			AutoAnnotator(root=config.paths.autoannotation, ds=dsout).annotate(dsout)

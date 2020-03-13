@@ -13,7 +13,8 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 	pos = ds.ca.TSNE
 
 	# Compute a good size for the markers, based on local density
-	min_pts = 50
+	n_cells = ds.shape[1]
+	min_pts = min(int(n_cells / 3), 50)
 	eps_pct = 60
 	nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
 	nn.fit(pos)

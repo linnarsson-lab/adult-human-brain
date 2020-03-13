@@ -21,7 +21,7 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tag1: List[str] = None, t
 		g = ds.col_graphs.MKNN
 		has_edges = True
 	if embedding in ds.ca:
-		pos = ds.ca[embedding]
+		pos = ds.ca[embedding][:, :2]
 	else:
 		raise ValueError("Embedding not found in the file")
 	labels = ds.ca["Clusters"]
@@ -30,7 +30,7 @@ def manifold(ds: loompy.LoomConnection, out_file: str, tag1: List[str] = None, t
 	else:
 		outliers = np.zeros(ds.shape[1])
 	# Compute a good size for the markers, based on local density
-	min_pts = 50
+	min_pts = min(int(n_cells / 3), 50)
 	eps_pct = 60
 	nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
 	nn.fit(pos)

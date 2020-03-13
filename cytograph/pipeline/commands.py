@@ -11,6 +11,7 @@ import click
 import numpy as np
 from loompy import create_from_fastq, connect, combine_faster
 from ..preprocessing import qc_functions, doublet_finder
+from ..postprocessing import split_subset, merge_subset
 from .._version import __version__ as version
 from .config import load_config
 from .engine import CondorEngine, Engine, LocalEngine
@@ -18,6 +19,9 @@ from .punchcards import PunchcardDeck, PunchcardSubset, PunchcardView
 from .workflow import (PoolWorkflow, RootWorkflow, SubsetWorkflow,
                        ViewWorkflow, Workflow)
 import csv
+import subprocess
+import shutil
+import time
 
 
 def create_build_folders(path: str) -> None:
@@ -319,3 +323,185 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 		elif len(passed_qc_files) == len(sampleids):
 			logging.info(f"All samples in this batch already passed QC, to rerun the QC module again add --rerun to the command line")
 	logging.info("Done.")
+
+
+@cli.command()
+@click.option('--subset', default=None)
+def split(subset: str = None) -> None:
+
+    config = load_config()
+
+    if subset:
+
+        logging.info(f"Splitting {subset}...")
+        if split_subset(subset, config):
+            deck = PunchcardDeck(config.paths.build)
+            card = deck.get_card(subset)
+            Workflow(deck, "").compute_subsets(card)
+            logging.error(f"Done.")
+        else:
+            logging.error(f"Subset cannot be split further.")
+
+    else:
+        logging.info(f"Splitting build...")
+        cytograph_exe = shutil.which('cytograph')
+        exportdir = os.path.abspath(os.path.join(config.paths.build, "exported"))
+        exdir = os.path.abspath(os.path.join(config.paths.build, "split"))
+        if not os.path.exists(exdir):
+            os.mkdir(exdir)
+
+        # Run build before starting
+        logging.info("Making sure the build is complete before splitting...")
+        subprocess.run(["cytograph", "build", "--engine", "condor"])
+
+        # Wait until build has been processed
+        deck = PunchcardDeck(config.paths.build)
+        leaves = deck.get_leaves()
+        done = False
+        while not done:
+            time.sleep(30)
+            logging.info('Checking build...')
+            done = True
+            for subset in leaves:
+                f = os.path.join(exportdir, subset.longname())
+                if not os.path.exists(f):
+                    done = False
+
+        split = False
+        while not split:
+
+            for subset in leaves:
+
+                # Check if dataset was fit already
+                f = os.path.join(exportdir, subset.longname(), "SVC")
+                if not os.path.exists(f):
+
+                    # get command for task
+                    task = subset.longname()
+                    cmd = f"split --subset {task}"
+
+                    # create submit file for split
+                    with open(os.path.join(exdir, task + ".condor"), "w") as f:
+                        f.write(f"""
+            getenv       = true
+            executable   = {os.path.abspath(cytograph_exe)}
+            arguments    = "{cmd}"
+            log          = {os.path.join(exdir, task)}.log
+            output       = {os.path.join(exdir, task)}.out
+            error        = {os.path.join(exdir, task)}.error
+            request_cpus = 7
+            queue 1\n
+            """)
+
+                    # Submit
+                    subprocess.run(["condor_submit", os.path.join(exdir, task + ".condor")])
+
+            logging.info("Splitting leaves")
+            # Wait until all leaves have been checked for splitting
+            done = False
+            while not done:
+                time.sleep(30)
+                logging.info('Checking for split...')
+                done = True
+                for subset in leaves:
+                    f = os.path.join(exportdir, subset.longname(), "SVC")
+                    if not os.path.exists(f):
+                        done = False
+
+            # Run build
+            logging.info("Processing new build")
+            subprocess.run(["cytograph", "build", "--engine", "condor"])
+
+            # Wait until all new subsets have been processed
+            deck = PunchcardDeck(config.paths.build)
+            leaves = deck.get_leaves()
+            done = False
+            while not done:
+                time.sleep(30)
+                logging.info('Checking build...')
+                done = True
+                for subset in leaves:
+                    f = os.path.join(exportdir, subset.longname())
+                    if not os.path.exists(f):
+                        done = False
+
+            # Check if all leaves have been checked for splitting
+            logging.info("Checking if all leaves have been split...")
+            split = True
+            for subset in leaves:
+                f = os.path.join(exportdir, subset.longname(), "SVC")
+                if not os.path.exists(f):
+                    split = False
+
+
+@cli.command()
+@click.option('--subset', default=None)
+@click.option('--overwrite', is_flag=True)
+def merge(subset: str = None, overwrite: bool = False) -> None:
+    config = load_config()
+    deck = PunchcardDeck(config.paths.build)
+
+    if subset:
+
+        loom_file = os.path.join(config.paths.build, "data", subset + ".loom")
+        if os.path.exists(loom_file):
+            merge_subset(subset, config)
+            logging.info(f"Done.")
+        else:
+            logging.error(f"Loom file '{loom_file}' not found")
+
+    else:
+        exdir = os.path.abspath(os.path.join(config.paths.build, "merge"))
+        cytograph_exe = shutil.which('cytograph')
+        # Make directory for log files
+        if not os.path.exists(exdir):
+            os.mkdir(exdir)
+
+        if not overwrite:
+            logging.info("Rearranging directories...")
+            datadir = os.path.join(config.paths.build, "data")
+            exportdir = os.path.join(config.paths.build, "exported")
+            shutil.copytree(datadir, os.path.join(config.paths.build, "data_premerge"))
+            shutil.copytree(exportdir, os.path.join(config.paths.build, "exported_premerge"))
+
+        logging.info("Submitting jobs")
+        for subset in deck.get_leaves():
+            # Use CPUs and memory from subset config
+            config = load_config(subset)
+            n_cpus = config.execution.n_cpus
+            memory = config.execution.memory
+            # Remove agg file and export directory
+            task = subset.longname()
+            os.remove(os.path.join(datadir, task + ".agg.loom"))
+            shutil.rmtree(os.path.join(exportdir, task))
+            # Make submit file
+            cmd = f"merge --subset {task}"
+            with open(os.path.join(exdir, task + ".condor"), "w") as f:
+                f.write(f"""
+    getenv       = true
+    executable   = {os.path.abspath(cytograph_exe)}
+    arguments    = "{cmd}"
+    log          = {os.path.join(exdir, task)}.log
+    output       = {os.path.join(exdir, task)}.out
+    error        = {os.path.join(exdir, task)}.error
+    request_cpus = {n_cpus}
+    request_memory = {memory * 1024}
+    queue 1\n
+    """)
+            # Submit
+            subprocess.run(["condor_submit", os.path.join(exdir, task + ".condor")])
+
+        # Check if merges are complete
+        done = False
+        while not done:
+            time.sleep(30)
+            logging.info("Checking merges...")
+            done = True
+            for subset in deck.get_leaves():
+                f = os.path.join(exdir, "plots", f'{subset.longname()}.png')
+                if not os.path.exists(f):
+                    done = False
+
+        # Reaggregate and generate export folders
+        logging.info("Processing new build...")
+        subprocess.run(["cytograph", "build", "--engine", "condor"])
