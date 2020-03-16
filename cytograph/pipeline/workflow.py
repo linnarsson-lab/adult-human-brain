@@ -14,6 +14,7 @@ from cytograph.annotation import AutoAnnotator
 from cytograph.clustering import ClusterValidator
 from cytograph.preprocessing import doublet_finder
 from cytograph.species import Species
+from collections import defaultdict
 
 from .aggregator import Aggregator
 from .config import load_config
@@ -369,16 +370,14 @@ class SubsetWorkflow(Workflow):
 
 		# Verify that there are some cells in the subset
 		with loompy.connect(parent, mode="r") as ds:
-			if (ds.ca.Subset == self.subset.name).sum() == 0:
+			cells = (ds.ca.Subset == self.subset.name)
+			if cells.sum() == 0:
 				logging.info(f"Skipping {self.name} because the subset was empty")
 				sys.exit(0)
 
 		logging.info(f"Collecting cells for {self.name}")
-		with loompy.new(out_file) as dsout:
-			# Collect from a previous punchard subset
-			with loompy.connect(parent, mode="r") as ds:
-				for (_, _, view) in ds.scan(items=(ds.ca.Subset == self.subset.name), axis=1, key="Accession", layers=["", "spliced", "unspliced"], what=["layers", "col_attrs", "row_attrs"]):
-					dsout.add_columns(view.layers, view.ca, row_attrs=view.ra)
+		# Collect from a previous punchard subset
+		loompy.combine_faster([parent], out_file, None, selections=[cells], key="Accession")
 
 
 class ViewWorkflow(Workflow):
@@ -487,6 +486,8 @@ class PoolWorkflow(Workflow):
 		if err:
 			sys.exit(1)
 
+		type_dict = defaultdict(list)
+		shape_dict = defaultdict(list)
 		for subset in self.deck.get_leaves():
 			logging.info(f"Collecting metadata from {subset.longname()}")
 			with loompy.connect(os.path.join(self.config.paths.build, "data", subset.longname() + ".loom"), mode="r") as ds:
@@ -494,10 +495,16 @@ class PoolWorkflow(Workflow):
 				punchcard_clusters = punchcard_clusters + list(ds.ca.Clusters)
 				clusters = clusters + list(ds.ca.Clusters + next_cluster)
 				next_cluster = max(clusters) + 1
+				for k, v in ds.ca.items():
+					type_dict[k].append(v.dtype)
+					sh = 0 if len(v.shape) == 1 else v.shape[1]
+					shape_dict[k].append(sh)
+		skip_attrs = [k for k, v in type_dict.items() if not len(set(v)) == 1 or not len(set(shape_dict[k])) == 1]
+		logging.info(f"Skipping attrs: {skip_attrs}")
 
 		logging.info(f"Collecting all cells into {out_file}")
 		files = [os.path.join(self.config.paths.build, "data", subset.longname() + ".loom") for subset in self.deck.get_leaves()]
-		loompy.combine_faster(files, out_file, None, key="Accession", skip_attrs=["PCA", "TSNE"])
+		loompy.combine_faster(files, out_file, None, key="Accession", skip_attrs=skip_attrs)
 
 		with loompy.connect(out_file) as dsout:
 			dsout.ca.Punchcard = punchcards
