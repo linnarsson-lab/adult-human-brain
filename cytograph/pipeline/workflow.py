@@ -350,7 +350,6 @@ class RootWorkflow(Workflow):
 					ds.ca[attr] = np.concatenate([x[attr][sel] for x, sel in zip(new_col_attrs, selections)])
 				else:
 					logging.warn(f"Skipping column attribute {attr} because it was only present in some of the inputs")
-			ds.attrs['Species'] = species	
 	
 class SubsetWorkflow(Workflow):
 	"""
