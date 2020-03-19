@@ -18,6 +18,12 @@ cd cytograph-dev
 pip install -e .
 ```
 
+If, when importing cytograph in python, you get errors related to imports from 'harmony', solve by:
+```
+pip install harmony-pytorch
+```
+(further reading on https://pypi.org/project/harmony-pytorch/)
+
 ## Creating a build
 
 An analysis in cytograph is called a "build" and is driven by configurations (settings, such as parameters to the algorithms) and punchcards (text files that define how samples are combined in the analysis). To create a build, you must first create a
