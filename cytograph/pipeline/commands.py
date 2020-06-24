@@ -291,16 +291,8 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 				low_us_ratio = len(np.where(ds.ca.unspliced_ratio < config.params.min_fraction_unspliced_reads)[0]) / ds.shape[1]
 				if low_us_ratio > 1 - config.params.min_fraction_good_cells:
 					logging.warn(f"Possible high fraction damaged cells in {sample_id}.loom:  {len(np.where(ds.ca.unspliced_ratio < config.params.min_fraction_unspliced_reads)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had low ratio of unspliced gene expression.")
-				low_ngenes_ratio = len(np.where(ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)[0]) / ds.shape[1]
-				if low_ngenes_ratio > 1 - config.params.min_fraction_good_cells:
-					logging.warn(f"Possible high fraction damaged cells in {sample_id}.loom:  {len(np.where(ds.ca.NGenes/ds.ca.TotalUMI>config.params.min_fraction_genes_UMI)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had good ratio of gene expressed vs. UMI counts.")
-
-				ds.ca.PassedQC_TotalUMI = good_cells
-				ds.ca.PassedQC_MT_ratio = (ds.ca.MT_ratio > config.params.max_fraction_MT_genes)
-				ds.ca.PassedQC_UnsplicedRatio = (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads)
-				ds.ca.PassedQC_UMIPerGene = (ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)
-				ds.ca.PassedQC = good_cells & (ds.ca.MT_ratio > config.params.max_fraction_MT_genes) & (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads) & (ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)
-
+				
+        #Run doubletFinder on combined loom file of all the samples that passed QC together
 		# Create a combined loom file for all the good samples
 		if len(files) > 0 and len(passed_qc_files) < len(sampleids):
 			batch_name = '-'.join(good_samples)

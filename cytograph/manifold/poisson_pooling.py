@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 import scipy.sparse as sparse
-from numba import NumbaPendingDeprecationWarning, NumbaPerformanceWarning
+from numba.core.errors import NumbaPendingDeprecationWarning, NumbaPerformanceWarning
 from pynndescent import NNDescent
 from scipy.sparse import SparseEfficiencyWarning
 

@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 from sklearn.manifold import TSNE
-
+import os
 import loompy
 
 from .colors import colorize

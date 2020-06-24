@@ -12,7 +12,6 @@ import cytograph.plotting as cgplot
 import loompy
 from cytograph.annotation import AutoAnnotator
 from cytograph.clustering import ClusterValidator
-from cytograph.preprocessing import doublet_finder
 from cytograph.species import Species
 from collections import defaultdict
 
@@ -294,9 +293,9 @@ class RootWorkflow(Workflow):
 			if not self.config.params.skip_metadata:
 				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
 			with loompy.connect(full_path, "r") as ds:
-				if self.config.params.passedQC and not ds.attrs.passedQC :
-					logging.warn(f"Skipping {sample_id}.loom - did not pass QC.")
-					continue
+				if not ds.attrs.passedQC:
+					logging.error(f"Exiting  - please run QC module.")
+					sys.exit(1)
 				species = Species.detect(ds).name
 				col_attrs = dict(ds.ca)
 				if not self.config.params.skip_metadata:
@@ -309,30 +308,27 @@ class RootWorkflow(Workflow):
 					if attr == "LOOM_SPEC_VERSION" or attr in col_attrs:
 						continue
 					col_attrs[attr] = np.array([val] * ds.shape[1])
-				if "doublets" in self.config.steps or self.config.params.passedQC :
-					if "DoubletFinderFlag" not in ds.ca:
-						logging.info("Scoring doublets using DoubletFinder")
-						doublet_finder_score, predicted_doublets = doublet_finder(ds,graphs = False)
-						col_attrs["DoubletFinderScore"] = doublet_finder_score 
-						col_attrs["DoubletFinderFlag"] = predicted_doublets
-					else:
-						logging.info("Using QC DoubletFinder flag")
-						predicted_doublets  = ds.ca.DoubletFinderFlag
-				if "TotalUMI" not in ds.ca or "NGenes" not in ds.ca:		
-					logging.info(f"Computing total UMIs")
-					(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
-					col_attrs["TotalUMI"] = totals
-					col_attrs["NGenes"] = genes
-					good_cells = (totals >= self.config.params.min_umis)
-				else:
-					good_cells = (ds.ca.TotalUMI >= self.config.params.min_umis)
 				
-				if ("doublets" in self.config.steps or self.config.params.passedQC) and self.config.params.doublets_action == "remove":
-					logging.info(f"Removing {np.sum(predicted_doublets>0)} doublets and {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")
+				predicted_doublets  = ds.ca.DoubletFinderFlag
+				high_UMI = ds.ca.TotalUMI >= self.config.params.min_umis
+				low_MT = ds.ca.MT_ratio < self.config.params.max_fraction_MT_genes
+				high_unspliced = ds.ca.unspliced_ratio > self.config.params.min_fraction_unspliced_reads
+				
+				good_cells = np.ones(ds.shape[1],dtype=bool)
+				if self.config.params.remove_low_quality :
+					good_cells = np.all([high_UMI, low_MT , high_unspliced ],axis = 0)
+					logging.info(f"Removing  {(~good_cells).sum()} low quality cells: ")
+					if(ds.shape[1]-high_UMI.sum()>0):
+						logging.info(f"{(ds.shape[1]-high_UMI.sum())} cells with <{self.config.params.min_umis} UMIs ")
+					if(ds.shape[1]-low_MT.sum()>0):	
+						logging.info(f"{(ds.shape[1]-low_MT.sum())} cells with >{self.config.params.max_fraction_MT_genes} mitochondrial genes rate")
+					if(ds.shape[1]-high_unspliced.sum()):	
+						logging.info(f"{(ds.shape[1]-high_unspliced.sum())} cells with <{self.config.params.min_fraction_unspliced_reads} unspliced rate")
+				if(self.config.params.remove_doublets):
 					good_cells = np.logical_and(good_cells , predicted_doublets==0)
-				else:
-					logging.info(f"Removing {(~good_cells).sum()} cells with <{self.config.params.min_umis} UMIs")					
-				
+					if(np.sum(predicted_doublets>0)>0):
+						logging.info(f"Removing {(np.sum(predicted_doublets>0))} doublets")
+	
 				if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
 					logging.info(f"Including {good_cells.sum()} of {ds.shape[1]} cells")
 					n_cells += good_cells.sum()

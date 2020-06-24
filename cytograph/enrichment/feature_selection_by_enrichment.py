@@ -2,7 +2,7 @@ import logging
 from typing import Tuple, List
 
 import numpy as np
-from statsmodels.sandbox.stats.multicomp import multipletests
+from statsmodels.stats.multitest import multipletests
 
 import loompy
 
