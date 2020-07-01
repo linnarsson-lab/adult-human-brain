@@ -5,7 +5,6 @@ import numpy as np
 import numpy_groupies as npg
 from scipy.spatial.distance import squareform, pdist
 import matplotlib.pyplot as plt
-from ..clustering import Louvain
 from ..plotting.colors import colorize
 from ..species import Species
 from ..enrichment import FeatureSelectionByEnrichment
@@ -19,20 +18,14 @@ def merge_subset(subset: str, config, threshold: int = 50) -> None:
 
         # Copy original clusters
         ds.ca.ClustersPremerge = np.copy(ds.ca.Clusters)
-        logging.info("Reclustering without polish...")
-        # Recalculate clusters without polishing on the manifold
-        clusters = Louvain(graph="RNN", embedding="UMAP", min_cells=5).fit_predict(ds)
-        ds.ca.ClustersUnpolished = clusters
-
-        logging.info(f'Starting with {clusters.max() + 1} clusters')
+        logging.info(f'Starting with {ds.shape[1]} cells in {ds.ca.Clusters.max() + 1} clusters')
         logging.info(f'Threshold: {threshold} enriched genes with qval < 0.001')
 
         merge_flag = True
 
         while merge_flag:
             # Renumber clusters
-            _, clusters = np.unique(clusters, return_inverse=True)
-            ds.ca.Clusters = clusters
+            clusters = ds.ca.Clusters
 
             # Stop if only one cluster
             n = clusters.max()
@@ -45,11 +38,11 @@ def merge_subset(subset: str, config, threshold: int = 50) -> None:
             features = FeatureSelectionByEnrichment(1, Species.mask(ds, config.params.mask), findq=True)
             features.fit(ds)
             # Count statistically enriched genes for each cluster
-            scores = [(features.qvals[:, i] < 0.001).sum() for i in range(n + 1)]
+            scores = np.count_nonzero(features.qvals < 0.001, axis=0)
             scores = np.array(scores)
             logging.info(scores)
 
-            # If any cluster have fewer than threshold
+            # If more than one cluster has fewer enriched genes than threshold
             if (scores < threshold).sum() > 1:
                 # Calculate cluster distances on the UMAP
                 mu = npg.aggregate(clusters, ds.ca.UMAP.T, func='mean', axis=1, fill_value=0)
@@ -65,7 +58,7 @@ def merge_subset(subset: str, config, threshold: int = 50) -> None:
             else:
                 merge_flag = False
 
-        _, ds.ca.Clusters = np.unique(clusters, return_inverse=True)
+            _, ds.ca.Clusters = np.unique(clusters, return_inverse=True)
 
         # Plot unmerged and merged clusters
         exportdir = os.path.join(config.paths.build, "merge", "plots")

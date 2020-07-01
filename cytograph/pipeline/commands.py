@@ -319,14 +319,15 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 
 @cli.command()
 @click.option('--subset', default=None)
-def split(subset: str = None) -> None:
+@click.option('--method', default='svc', type=click.Choice(['svc', 'dendrogram', 'cluster']))
+def split(subset: str = None, method: str = 'svc') -> None:
 
     config = load_config()
 
     if subset:
 
         logging.info(f"Splitting {subset}...")
-        if split_subset(subset, config):
+        if split_subset(config, subset, method):
             deck = PunchcardDeck(config.paths.build)
             card = deck.get_card(subset)
             Workflow(deck, "").compute_subsets(card)
@@ -365,12 +366,12 @@ def split(subset: str = None) -> None:
             for subset in leaves:
 
                 # Check if dataset was fit already
-                f = os.path.join(exportdir, subset.longname(), "SVC")
+                f = os.path.join(exportdir, subset.longname(), method)
                 if not os.path.exists(f):
 
                     # get command for task
                     task = subset.longname()
-                    cmd = f"split --subset {task}"
+                    cmd = f"split --subset {task} --method {method}"
 
                     # create submit file for split
                     with open(os.path.join(exdir, task + ".condor"), "w") as f:
@@ -396,13 +397,16 @@ def split(subset: str = None) -> None:
                 logging.info('Checking for split...')
                 done = True
                 for subset in leaves:
-                    f = os.path.join(exportdir, subset.longname(), "SVC")
+                    f = os.path.join(exportdir, subset.longname(), method)
                     if not os.path.exists(f):
                         done = False
 
             # Run build
             logging.info("Processing new build")
             subprocess.run(["cytograph", "build", "--engine", "condor"])
+
+            if method != 'svc':
+                return
 
             # Wait until all new subsets have been processed
             deck = PunchcardDeck(config.paths.build)
@@ -421,7 +425,7 @@ def split(subset: str = None) -> None:
             logging.info("Checking if all leaves have been split...")
             split = True
             for subset in leaves:
-                f = os.path.join(exportdir, subset.longname(), "SVC")
+                f = os.path.join(exportdir, subset.longname(), method)
                 if not os.path.exists(f):
                     split = False
 
@@ -449,10 +453,10 @@ def merge(subset: str = None, overwrite: bool = False) -> None:
         if not os.path.exists(exdir):
             os.mkdir(exdir)
 
+        datadir = os.path.join(config.paths.build, "data")
+        exportdir = os.path.join(config.paths.build, "exported")
         if not overwrite:
             logging.info("Rearranging directories...")
-            datadir = os.path.join(config.paths.build, "data")
-            exportdir = os.path.join(config.paths.build, "exported")
             shutil.copytree(datadir, os.path.join(config.paths.build, "data_premerge"))
             shutil.copytree(exportdir, os.path.join(config.paths.build, "exported_premerge"))
 
