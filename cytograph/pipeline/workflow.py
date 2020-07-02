@@ -293,9 +293,6 @@ class RootWorkflow(Workflow):
 			if not self.config.params.skip_metadata:
 				metadata = load_sample_metadata(self.config.paths.metadata, sample_id)
 			with loompy.connect(full_path, "r") as ds:
-				if not ds.attrs.passedQC:
-					logging.error(f"Exiting  - please run QC module.")
-					sys.exit(1)
 				species = Species.detect(ds).name
 				col_attrs = dict(ds.ca)
 				if not self.config.params.skip_metadata:
@@ -309,11 +306,14 @@ class RootWorkflow(Workflow):
 						continue
 					col_attrs[attr] = np.array([val] * ds.shape[1])
 				
-				predicted_doublets  = ds.ca.DoubletFinderFlag
-				high_UMI = ds.ca.TotalUMI >= self.config.params.min_umis
-				low_MT = ds.ca.MT_ratio < self.config.params.max_fraction_MT_genes
-				high_unspliced = ds.ca.unspliced_ratio > self.config.params.min_fraction_unspliced_reads
-				
+				if "passedQC" in ds.attrs:
+					predicted_doublets = ds.ca.DoubletFinderFlag
+					high_UMI = ds.ca.TotalUMI >= self.config.params.min_umis
+					low_MT = ds.ca.MT_ratio < self.config.params.max_fraction_MT_genes
+					high_unspliced = ds.ca.unspliced_ratio > self.config.params.min_fraction_unspliced_reads
+				else:
+					logging.warning(f"QC module has not been run! Please run, or make sure 'remove_low_quality' and 'remove doublets' are set to False.")
+
 				good_cells = np.ones(ds.shape[1],dtype=bool)
 				if self.config.params.remove_low_quality :
 					good_cells = np.all([high_UMI, low_MT , high_unspliced ],axis = 0)
