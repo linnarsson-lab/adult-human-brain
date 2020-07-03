@@ -52,6 +52,7 @@ def load_sample_metadata(path: str, sample_id: str) -> Dict[str, str]:
 			vals = cursor.fetchone()
 			if vals is not None:
 				return dict(zip(keys, vals))
+			return {}
 			raise ValueError(f"SampleID '{sample_id}' was not found in the samples database.")
 	else:
 		result = {}
