@@ -312,8 +312,13 @@ class RootWorkflow(Workflow):
 					low_MT = ds.ca.MT_ratio < self.config.params.max_fraction_MT_genes
 					high_unspliced = ds.ca.unspliced_ratio > self.config.params.min_fraction_unspliced_reads
 				else:
-					logging.warning(f"QC module has not been run! Please run, or make sure 'remove_low_quality' and 'remove doublets' are set to False.")
-
+					logging.warning(f"QC module has not been run! Please run, or make sure 'remove_low_quality' and 'remove_doublets' are set to False.")
+					if "TotalUMI" not in ds.ca or "NGenes" not in ds.ca:		
+ 						logging.info(f"Computing total UMIs")
+ 						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+ 						col_attrs["TotalUMI"] = totals
+ 						col_attrs["NGenes"] = genes
+						 
 				good_cells = np.ones(ds.shape[1],dtype=bool)
 				if self.config.params.remove_low_quality :
 					good_cells = np.all([high_UMI, low_MT , high_unspliced ],axis = 0)
