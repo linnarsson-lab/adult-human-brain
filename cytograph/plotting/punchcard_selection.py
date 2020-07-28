@@ -50,7 +50,7 @@ def punchcard_selection(ds: loompy.LoomConnection, out_file: str = None, tag1: L
 			tag2_names.append(f"{txt} " + tag2[i].replace("\n", " "))
 
 	# Add legends
-	if ds.ca.Clusters.max() < 300:
+	if ds.ca.Clusters.max() <= 500:
 		ax2 = fig.add_axes([0.4, 0, 0.3, 1])
 		ax2.axis("off")
 		ax2.legend(plots, tag1_names, scatterpoints=1, markerscale=2, loc='center', mode='expand', fancybox=True, framealpha=0.5, fontsize=12)

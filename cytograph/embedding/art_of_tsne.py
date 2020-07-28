@@ -5,7 +5,8 @@ import numpy as np
 from openTSNE import TSNEEmbedding, affinity, callbacks, initialization
 
 
-def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exaggeration: float = -1, perplexity: int = 30) -> TSNEEmbedding:
+def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exaggeration: float = -1,  \
+                perplexity: int = 30, init_method: Union[str, Callable] = "pca") -> TSNEEmbedding:
 	"""
 	Implementation of Dmitry Kobak and Philipp Berens "The art of using t-SNE for single-cell transcriptomics" based on openTSNE.
 	See https://doi.org/10.1038/s41467-019-13056-x | www.nature.com/naturecommunications
@@ -15,10 +16,15 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 		metric			Any metric allowed by PyNNDescent (default: 'euclidean')
 		exaggeration	The exaggeration to use for the embedding
 		perplexity		The perplexity to use for the embedding
+		init_method	Either 'pca', 'random', or a custom method with the same signature as initialization.pca.
 	
 	Returns:
 		The embedding as an opentsne.TSNEEmbedding object (which can be cast to an np.ndarray)
 	"""
+	if init_method == "random":
+		init_method = initialization.random
+	elif init_method == "pca":
+		init_method = initialization.pca
 	n = X.shape[0]
 	if n > 100_000:
 		if exaggeration == -1:
@@ -74,7 +80,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			method="approx",
 			n_jobs=-1
 		)
-		init = initialization.pca(X)
+		init = init_method(X)
 		Z = TSNEEmbedding(
 			init,
 			affinities_multiscale_mixture,
@@ -97,7 +103,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			n_jobs=-1
 		)
 
-		init = initialization.pca(X)
+		init = init_method(X)
 
 		Z = TSNEEmbedding(
 			init,

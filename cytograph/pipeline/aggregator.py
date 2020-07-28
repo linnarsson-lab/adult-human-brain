@@ -86,7 +86,7 @@ class Aggregator:
 			ds.permute(gene_order, axis=0)
 			dsout.permute(gene_order, axis=0)
 
-			if n_labels > 300:
+			if n_labels > 500:
 				dsout.ca.MarkerGenes = np.empty(n_labels, dtype='str')
 				dsout.ca.AutoAnnotation = np.empty(n_labels, dtype='str')
 				return

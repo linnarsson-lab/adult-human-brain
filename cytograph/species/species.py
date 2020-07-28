@@ -25,6 +25,12 @@ class Species:
 				name = "Homo sapiens"
 			elif name == "Mm":
 				name = "Mus musculus"
+		elif "Species" in ds.ca:
+			name = ds.ca.Species[0]
+			if name == "Hs":
+				name = "Homo sapiens"
+			elif name == "Mm":
+				name = "Mus musculus"
 		elif "Gene" in ds.ra:
 			for gene, species in {
 				"ACTB": "Homo sapiens",

@@ -63,23 +63,22 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"k_pooling": 10,
 			"factorization": "PCA",  # or "HPF" or "both"
 			"n_factors": 50,
-			"min_umis": 1500,
+			"min_umis": 1000,
 			"n_genes": 2000,
-			"doublets_action": "remove",
+			"remove_doublets": True,
+			"remove_low_quality": True,
 			"mask": ("cellcycle", "sex", "ieg", "mt"),
 			"min_fraction_good_cells": 0.4,
-			"max_fraction_MT_genes": 0.05,
-			"min_fraction_unspliced_reads": 0.2,
-			"min_fraction_genes_UMI": 0.3,
+			"max_fraction_MT_genes": 1,
+			"min_fraction_unspliced_reads": 0.1,
 			"max_doubletFinder_TH": 0.4,
 			"skip_missing_samples": False,
 			"skip_metadata": False,
 			"features": "enrichment",  # or "variance"
-			"passedQC": False,
 			"clusterer": "louvain",  # or "surprise"
 			"nn_space": "auto"
 		}),
-		"steps": ("doublets", "poisson_pooling", "nn", "embeddings", "clustering"),
+		"steps": ("poisson_pooling", "nn", "embeddings", "clustering"),
 		"execution": Config(**{
 			"n_cpus": available_cpu_count(),
 			"n_gpus": 0,

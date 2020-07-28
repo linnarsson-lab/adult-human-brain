@@ -291,16 +291,8 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 				low_us_ratio = len(np.where(ds.ca.unspliced_ratio < config.params.min_fraction_unspliced_reads)[0]) / ds.shape[1]
 				if low_us_ratio > 1 - config.params.min_fraction_good_cells:
 					logging.warn(f"Possible high fraction damaged cells in {sample_id}.loom:  {len(np.where(ds.ca.unspliced_ratio < config.params.min_fraction_unspliced_reads)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had low ratio of unspliced gene expression.")
-				low_ngenes_ratio = len(np.where(ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)[0]) / ds.shape[1]
-				if low_ngenes_ratio > 1 - config.params.min_fraction_good_cells:
-					logging.warn(f"Possible high fraction damaged cells in {sample_id}.loom:  {len(np.where(ds.ca.NGenes/ds.ca.TotalUMI>config.params.min_fraction_genes_UMI)[0])} of {ds.shape[1]} cells (more than {(1-config.params.min_fraction_good_cells) * 100}%) had good ratio of gene expressed vs. UMI counts.")
-
-				ds.ca.PassedQC_TotalUMI = good_cells
-				ds.ca.PassedQC_MT_ratio = (ds.ca.MT_ratio > config.params.max_fraction_MT_genes)
-				ds.ca.PassedQC_UnsplicedRatio = (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads)
-				ds.ca.PassedQC_UMIPerGene = (ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)
-				ds.ca.PassedQC = good_cells & (ds.ca.MT_ratio > config.params.max_fraction_MT_genes) & (ds.ca.unspliced_ratio > config.params.min_fraction_unspliced_reads) & (ds.ca.NGenes / ds.ca.TotalUMI < config.params.min_fraction_genes_UMI)
-
+				
+        #Run doubletFinder on combined loom file of all the samples that passed QC together
 		# Create a combined loom file for all the good samples
 		if len(files) > 0 and len(passed_qc_files) < len(sampleids):
 			batch_name = '-'.join(good_samples)
@@ -327,14 +319,15 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 
 @cli.command()
 @click.option('--subset', default=None)
-def split(subset: str = None) -> None:
+@click.option('--method', default='svc', type=click.Choice(['svc', 'dendrogram', 'cluster']))
+def split(subset: str = None, method: str = 'svc') -> None:
 
     config = load_config()
 
     if subset:
 
         logging.info(f"Splitting {subset}...")
-        if split_subset(subset, config):
+        if split_subset(config, subset, method):
             deck = PunchcardDeck(config.paths.build)
             card = deck.get_card(subset)
             Workflow(deck, "").compute_subsets(card)
@@ -373,12 +366,12 @@ def split(subset: str = None) -> None:
             for subset in leaves:
 
                 # Check if dataset was fit already
-                f = os.path.join(exportdir, subset.longname(), "SVC")
+                f = os.path.join(exportdir, subset.longname(), method)
                 if not os.path.exists(f):
 
                     # get command for task
                     task = subset.longname()
-                    cmd = f"split --subset {task}"
+                    cmd = f"split --subset {task} --method {method}"
 
                     # create submit file for split
                     with open(os.path.join(exdir, task + ".condor"), "w") as f:
@@ -404,13 +397,16 @@ def split(subset: str = None) -> None:
                 logging.info('Checking for split...')
                 done = True
                 for subset in leaves:
-                    f = os.path.join(exportdir, subset.longname(), "SVC")
+                    f = os.path.join(exportdir, subset.longname(), method)
                     if not os.path.exists(f):
                         done = False
 
             # Run build
             logging.info("Processing new build")
             subprocess.run(["cytograph", "build", "--engine", "condor"])
+
+            if method != 'svc':
+                return
 
             # Wait until all new subsets have been processed
             deck = PunchcardDeck(config.paths.build)
@@ -429,7 +425,7 @@ def split(subset: str = None) -> None:
             logging.info("Checking if all leaves have been split...")
             split = True
             for subset in leaves:
-                f = os.path.join(exportdir, subset.longname(), "SVC")
+                f = os.path.join(exportdir, subset.longname(), method)
                 if not os.path.exists(f):
                     split = False
 
@@ -457,10 +453,10 @@ def merge(subset: str = None, overwrite: bool = False) -> None:
         if not os.path.exists(exdir):
             os.mkdir(exdir)
 
+        datadir = os.path.join(config.paths.build, "data")
+        exportdir = os.path.join(config.paths.build, "exported")
         if not overwrite:
             logging.info("Rearranging directories...")
-            datadir = os.path.join(config.paths.build, "data")
-            exportdir = os.path.join(config.paths.build, "exported")
             shutil.copytree(datadir, os.path.join(config.paths.build, "data_premerge"))
             shutil.copytree(exportdir, os.path.join(config.paths.build, "exported_premerge"))
 
