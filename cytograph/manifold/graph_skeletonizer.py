@@ -51,5 +51,7 @@ class GraphSkeletonizer:
 		as the location of the vertices of the abstracted graph.
 		"""
 		dsagg.col_graphs.GA = self.fit(ds)
-		dsagg.ca.TSNE = np.array([np.median(ds.ca.TSNE[ds.ca.Clusters == c], axis=0) for c in range(ds.ca.Clusters.max() + 1)])
-		dsagg.ca.UMAP = np.array([np.median(ds.ca.UMAP[ds.ca.Clusters == c], axis=0) for c in range(ds.ca.Clusters.max() + 1)])
+		if 'TSNE' in ds.ca:
+			dsagg.ca.TSNE = np.array([np.median(ds.ca.TSNE[ds.ca.Clusters == c], axis=0) for c in range(ds.ca.Clusters.max() + 1)])
+		if 'UMAP' in ds.ca:
+			dsagg.ca.UMAP = np.array([np.median(ds.ca.UMAP[ds.ca.Clusters == c], axis=0) for c in range(ds.ca.Clusters.max() + 1)])
