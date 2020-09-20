@@ -315,14 +315,14 @@ class RootWorkflow(Workflow):
 				else:
 					logging.warning(f"QC module has not been run! Please run, or make sure 'remove_low_quality' and 'remove_doublets' are set to False.")
 					if "TotalUMI" not in ds.ca or "NGenes" not in ds.ca:		
- 						logging.info(f"Computing total UMIs")
- 						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
- 						col_attrs["TotalUMI"] = totals
- 						col_attrs["NGenes"] = genes
-						 
+						logging.info(f"Computing total UMIs")
+						(totals, genes) = ds.map([np.sum, np.count_nonzero], axis=1)
+						col_attrs["TotalUMI"] = totals
+						col_attrs["NGenes"] = genes
+							
 				good_cells = np.ones(ds.shape[1],dtype=bool)
-				if self.config.params.remove_low_quality :
-					good_cells = np.all([high_UMI, low_MT , high_unspliced ],axis = 0)
+				if self.config.params.remove_low_quality:
+					good_cells = np.all([high_UMI, low_MT, high_unspliced], axis = 0)
 					logging.info(f"Removing  {(~good_cells).sum()} low quality cells: ")
 					if(ds.shape[1]-high_UMI.sum()>0):
 						logging.info(f"{(ds.shape[1]-high_UMI.sum())} cells with <{self.config.params.min_umis} UMIs ")
@@ -331,8 +331,8 @@ class RootWorkflow(Workflow):
 					if(ds.shape[1]-high_unspliced.sum()):	
 						logging.info(f"{(ds.shape[1]-high_unspliced.sum())} cells with <{self.config.params.min_fraction_unspliced_reads} unspliced rate")
 				if(self.config.params.remove_doublets):
-					good_cells = np.logical_and(good_cells , predicted_doublets==0)
-					if(np.sum(predicted_doublets>0)>0):
+					good_cells = np.logical_and(good_cells, predicted_doublets == 0)
+					if(np.sum(predicted_doublets > 0) > 0):
 						logging.info(f"Removing {(np.sum(predicted_doublets>0))} doublets")
 	
 				if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
