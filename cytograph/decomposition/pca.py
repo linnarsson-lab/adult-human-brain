@@ -37,6 +37,7 @@ class PCA:
 	def fit(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> None:
 		if cells is None:
 			cells = np.fromiter(range(ds.shape[1]), dtype='int')
+		self.n_components = min(self.n_components, cells.shape[0])
 
 		# Support out-of-order datasets
 		key = None
