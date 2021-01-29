@@ -88,7 +88,7 @@ class Heatmap():
 					d = (ds.ca[attr] == val).astype("int")
 					ax = plt.subplot2grid(grid, (offset, 0), rowspan=strip_height)
 					offset += strip_height
-					plt.imshow(np.expand_dims(d, axis=0), aspect='auto', cmap="Greys")
+					plt.imshow(np.expand_dims(d, axis=0), aspect='auto', cmap="Greys", interpolation='nearest')
 					plt.text(0, 0.9, val, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="black")
 					plt.axis("off")
 				plt.text(1, 0.9, attr, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="black")
@@ -96,7 +96,7 @@ class Heatmap():
 				d = colorize(np.nan_to_num(ds.ca[attr]))
 				ax = plt.subplot2grid(grid, (offset, 0), rowspan=strip_height)
 				offset += strip_height
-				plt.imshow(np.expand_dims(d, axis=0), aspect='auto')
+				plt.imshow(np.expand_dims(d, axis=0), aspect='auto', interpolation='nearest')
 				plt.text(0, 0.9, attr, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="black")
 			else:
 				d = ds.ca[attr]
@@ -104,7 +104,7 @@ class Heatmap():
 					d = np.log(d + 1)
 				ax = plt.subplot2grid(grid, (offset, 0), rowspan=strip_height)
 				offset += strip_height
-				plt.imshow(np.expand_dims(d, axis=0), aspect='auto', cmap=kind)
+				plt.imshow(np.expand_dims(d, axis=0), aspect='auto', cmap=kind, interpolation='nearest')
 				plt.text(0, 0.9, attr, horizontalalignment='right', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="black")
 			plt.axis("off")
 
@@ -118,7 +118,7 @@ class Heatmap():
 				vals = vals / (np.percentile(vals, 99) + 0.1)
 				ax = plt.subplot2grid(grid, (offset, 0), rowspan=strip_height)
 				offset += strip_height
-				ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1)
+				ax.imshow(np.expand_dims(vals, axis=0), aspect='auto', cmap="viridis", vmin=0, vmax=1, interpolation='nearest')
 				if write_cat:
 					plt.text(1.001, 0.9, cat, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes, fontsize=7, color="black")
 					write_cat = False
@@ -136,7 +136,7 @@ class Heatmap():
 			lc = LineCollection(zip(tops, bottoms), linewidths=1, color='white', alpha=0.5)
 			ax.add_collection(lc)
 
-		ax.imshow(data_scaled, aspect='auto', cmap="viridis", vmin=0, vmax=1)
+		ax.imshow(data_scaled, aspect='auto', cmap="viridis", vmin=0, vmax=1, interpolation='nearest')
 		n_genes = ds.ra.Gene[self.genes].shape[0]
 		for ix, gene in enumerate(gene_names):
 			xpos = gene_pos[ix]

@@ -68,80 +68,89 @@ def split_subset(config, subset: str, method: str) -> None:
                 logging.info("Only one cluster found.")
                 return False
 
+            # change method to dendrogram if more than # of clusters
+            if ds.ca.Clusters.max() + 1 > 30:
+                logging.info("More than 30 clusters. Using dendrogram.")
+                method = 'dendrogram'
+            
+            else:
+                logging.info("Fewer than 30 clusters. Stopping")
+                return False
+
             if method == 'svc':
 
-                # Recluster data without polishing on the manifold
+                # # Recluster data without polishing on the manifold
                 logging.info("Reclustering without polish")
-                clusters = Louvain(graph="RNN", embedding="UMAP").fit_predict(ds)
-                ds.ca.ClustersUnpolished = clusters
+                # clusters = Louvain(graph="RNN", embedding="UMAP").fit_predict(ds)
+                # ds.ca.ClustersUnpolished = clusters
 
-                # Plot unpolished clusters
-                logging.info("Plotting ClustersUnpolished")
-                plt.figure(None, (16, 16))
-                plt.scatter(ds.ca.UMAP3D[:, 0], ds.ca.UMAP3D[:, 1], c=colorize(ds.ca.ClustersUnpolished), s=5)
-                plt.savefig(os.path.join(exportdir, "ClustersUnpolished.png"), dpi=150)
-                plt.close()
+                # # Plot unpolished clusters
+                # logging.info("Plotting ClustersUnpolished")
+                # plt.figure(None, (16, 16))
+                # plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(ds.ca.ClustersUnpolished), s=5)
+                # plt.savefig(os.path.join(exportdir, "ClustersUnpolished.png"), dpi=150)
+                # plt.close()
 
-                logging.info("Testing for separable clusters with SVC")
+                # logging.info("Testing for separable clusters with SVC")
 
-                clusters = np.copy(ds.ca.ClustersUnpolished)
-                # Track separable clusters
-                separable_clusters = []
-                for c1 in np.unique(ds.ca.ClustersUnpolished):
-                    # Skip c1 if it was already merged
-                    if not np.isin(c1, clusters):
-                        continue
-                    merge_flag = True
-                    while merge_flag:
-                        # Stop if only one cluster or at the last cluster
-                        if len(np.unique(clusters)) == 1 or c1 == clusters.max():
-                            merge_flag = False
-                            break
-                        # Test if cluster is separable by SVC
-                        one_vs_all = np.ones(ds.shape[1])
-                        one_vs_all[clusters == c1] = 0
-                        if separable(ds, one_vs_all, 0, 1, exportdir):
-                            logging.info(f'{c1} is separable')
-                            merge_flag = False
-                            separable_clusters.append(c1)
-                            break
-                        else:
-                            logging.info(f'{c1} is not separable')
-                            # Calculate distances between remaining clusters
-                            mu = npg.aggregate(clusters, ds.ca.UMAP.T, func='mean', axis=1, fill_value=0)
-                            ix = np.unique(clusters)
-                            D = squareform(pdist(mu[:, ix].T, 'euclidean'))
-                            # Map index of D to cluster
-                            mapping = dict(zip(range(len(ix)), ix))
-                            # Select row of D that corresponds to c1
-                            for temp in np.argsort(D[np.where(ix == c1)[0][0], :]):
-                                # Find c2 corresponding to column of D
-                                c2 = mapping[temp]
-                                if (c1 != c2) and not (c2 in separable_clusters):
-                                    logging.info(f'Testing {c1} and {c2}')
-                                    if not separable(ds, clusters, c1, c2, exportdir):
-                                        logging.info(f'Merging cluster {c2} into cluster {c1}')
-                                        clusters[(clusters == c1) | (clusters == c2)] = c1
-                                        merge_flag = True
-                                        break
-                                    else:
-                                        merge_flag = False
-                            # Cluster is separable if unable to merge with any clusters
-                            logging.info(f'{c1} is separable')
-                            separable_clusters.append(c1)
+                # clusters = np.copy(ds.ca.ClustersUnpolished)
+                # # Track separable clusters
+                # separable_clusters = []
+                # for c1 in np.unique(ds.ca.ClustersUnpolished):
+                #     # Skip c1 if it was already merged
+                #     if not np.isin(c1, clusters):
+                #         continue
+                #     merge_flag = True
+                #     while merge_flag:
+                #         # Stop if only one cluster or at the last cluster
+                #         if len(np.unique(clusters)) == 1 or c1 == clusters.max():
+                #             merge_flag = False
+                #             break
+                #         # Test if cluster is separable by SVC
+                #         one_vs_all = np.ones(ds.shape[1])
+                #         one_vs_all[clusters == c1] = 0
+                #         if separable(ds, one_vs_all, 0, 1, exportdir):
+                #             logging.info(f'{c1} is separable')
+                #             merge_flag = False
+                #             separable_clusters.append(c1)
+                #             break
+                #         else:
+                #             logging.info(f'{c1} is not separable')
+                #             # Calculate distances between remaining clusters
+                #             mu = npg.aggregate(clusters, ds.ca.UMAP.T, func='mean', axis=1, fill_value=0)
+                #             ix = np.unique(clusters)
+                #             D = squareform(pdist(mu[:, ix].T, 'euclidean'))
+                #             # Map index of D to cluster
+                #             mapping = dict(zip(range(len(ix)), ix))
+                #             # Select row of D that corresponds to c1
+                #             for temp in np.argsort(D[np.where(ix == c1)[0][0], :]):
+                #                 # Find c2 corresponding to column of D
+                #                 c2 = mapping[temp]
+                #                 if (c1 != c2) and not (c2 in separable_clusters):
+                #                     logging.info(f'Testing {c1} and {c2}')
+                #                     if not separable(ds, clusters, c1, c2, exportdir):
+                #                         logging.info(f'Merging cluster {c2} into cluster {c1}')
+                #                         clusters[(clusters == c1) | (clusters == c2)] = c1
+                #                         merge_flag = True
+                #                         break
+                #                     else:
+                #                         merge_flag = False
+                #             # Cluster is separable if unable to merge with any clusters
+                #             logging.info(f'{c1} is separable')
+                #             separable_clusters.append(c1)
 
-                # Finalize, save, plot separable clusters
-                _, clusters = np.unique(clusters, return_inverse=True)
-                ds.ca.Split = clusters
-                plt.figure(None, (16, 16))
-                plt.scatter(ds.ca.UMAP3D[:, 0], ds.ca.UMAP3D[:, 1], c=colorize(ds.ca.Split), s=5)
-                plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
-                plt.close()
+                # # Finalize, save, plot separable clusters
+                # _, clusters = np.unique(clusters, return_inverse=True)
+                # ds.ca.Split = clusters
+                # plt.figure(None, (16, 16))
+                # plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(ds.ca.Split), s=5)
+                # plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
+                # plt.close()
 
-                # Stop if only one cluster remains
-                if clusters.max() == 0:
-                    logging.info("No separable clusters")
-                    return False
+                # # Stop if only one cluster remains
+                # if clusters.max() == 0:
+                #     logging.info("No separable clusters")
+                #     return False
 
             if method == 'dendrogram':
                 agg_file = os.path.join(config.paths.build, "data", subset + ".agg.loom")
@@ -150,6 +159,10 @@ def split_subset(config, subset: str, method: str) -> None:
                     branch = cut_tree(Z, 2).T[0]
                 clusters = np.array([branch[x] for x in ds.ca.Clusters])
                 ds.ca.Split = clusters
+                plt.figure(None, (16, 16))
+                plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(ds.ca.Split), s=5)
+                plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
+                plt.close()
 
             if method == 'cluster':
                 clusters = ds.ca.Clusters
@@ -174,6 +187,9 @@ def split_subset(config, subset: str, method: str) -> None:
                 if sizes[i] <= 50:
                     f.write('  params:\n')
                     f.write(f'    k: {int(sizes[i] / 3)}\n')
+                    f.write(f'    features: variance\n')
+                elif sizes[i] <= 1000:
+                    f.write(f'  steps: nn, embeddings, clustering, aggregate, export\n')
                 f.write('  execution:\n')
                 f.write(f'    n_cpus: {n_cpus}\n')
                 f.write(f'    memory: {memory}\n')

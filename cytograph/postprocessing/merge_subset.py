@@ -10,7 +10,7 @@ from ..species import Species
 from ..enrichment import FeatureSelectionByEnrichment
 
 
-def merge_subset(subset: str, config, threshold: int = 50) -> None:
+def merge_subset(subset: str, config, threshold: int = 10) -> None:
 
     loom_file = os.path.join(config.paths.build, "data", subset + ".loom")
 
@@ -69,9 +69,6 @@ def merge_subset(subset: str, config, threshold: int = 50) -> None:
         plt.scatter(ds.ca.UMAP[:, 0], ds.ca.UMAP[:, 1], c=colorize(ds.ca.ClustersPremerge), s=5)
         plt.title('Pre-merge clusters')
         plt.subplot(132)
-        plt.scatter(ds.ca.UMAP[:, 0], ds.ca.UMAP[:, 1], c=colorize(ds.ca.ClustersUnpolished), s=5)
-        plt.title('Unpolished clusters')
-        plt.subplot(133)
         plt.scatter(ds.ca.UMAP[:, 0], ds.ca.UMAP[:, 1], c=colorize(ds.ca.Clusters), s=5)
         plt.title('Post-merge clusters')
         plt.savefig(os.path.join(exportdir, f'{subset}.png'), dpi=150)

@@ -64,7 +64,7 @@ class Cytograph:
 		if "poisson_pooling" in self.config.steps:
 			logging.info(f"Poisson pooling with k_pooling == {self.config.params.k_pooling}")
 			main_layer = "pooled"  # if not in config.steps, use the main layer
-			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, compute_velocity=False, n_threads=self.config.execution.n_cpus, factorization=self.config.params.factorization, batch_keys=self.config.params.batch_keys)
+			pp = PoissonPooling(self.config.params.k_pooling, self.config.params.n_genes, self.config.params.n_factors, compute_velocity=False, n_threads=self.config.execution.n_cpus, factorization=self.config.params.factorization, batch_keys=self.config.params.batch_keys)
 			pp.fit_transform(ds)
 		
 		# Select features
@@ -117,7 +117,8 @@ class Cytograph:
 			logging.debug(f"  Data shape is {data.shape}")
 
 			# HPF factorization
-			hpf = HPF(k=self.config.params.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=self.config.execution.n_cpus)
+			n_components = min(self.config.params.n_factors, round(ds.shape[1]/3))
+			hpf = HPF(k=n_components, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=self.config.execution.n_cpus)
 			hpf.fit(data)
 			beta_all = np.zeros((ds.shape[0], hpf.beta.shape[1]))
 			beta_all[genes] = hpf.beta

@@ -62,7 +62,8 @@ class PoissonPooling:
 			data = sparse.coo_matrix(temp)
 
 			# HPF factorization
-			hpf = HPF(k=self.n_factors, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=self.n_threads)
+			n_components = min(self.n_factors, round(ds.shape[1]/3))
+			hpf = HPF(k=n_components, validation_fraction=0.05, min_iter=10, max_iter=200, compute_X_ppv=False, n_threads=self.n_threads)
 			hpf.fit(data)
 			transformed = (hpf.theta.T / hpf.theta.sum(axis=1)).T  # Normalize so the sums are one because JSD requires it
 

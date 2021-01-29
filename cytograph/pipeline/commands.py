@@ -323,6 +323,7 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 def split(subset: str = None, method: str = 'svc') -> None:
 
     config = load_config()
+    exportdir = os.path.abspath(os.path.join(config.paths.build, "exported"))
 
     if subset:
 
@@ -331,14 +332,16 @@ def split(subset: str = None, method: str = 'svc') -> None:
             deck = PunchcardDeck(config.paths.build)
             card = deck.get_card(subset)
             Workflow(deck, "").compute_subsets(card)
-            logging.error(f"Done.")
+            logging.info(f"Done.")
         else:
             logging.error(f"Subset cannot be split further.")
+        # Leave split file in subset directory
+        with open(os.path.join(exportdir, subset, 'split.txt'), 'w') as f:
+            f.write('Done.')
 
     else:
         logging.info(f"Splitting build...")
         cytograph_exe = shutil.which('cytograph')
-        exportdir = os.path.abspath(os.path.join(config.paths.build, "exported"))
         exdir = os.path.abspath(os.path.join(config.paths.build, "split"))
         if not os.path.exists(exdir):
             os.mkdir(exdir)
@@ -365,8 +368,8 @@ def split(subset: str = None, method: str = 'svc') -> None:
 
             for subset in leaves:
 
-                # Check if dataset was fit already
-                f = os.path.join(exportdir, subset.longname(), method)
+                # Check if dataset was subset already
+                f = os.path.join(exportdir, subset.longname(), 'split.txt')
                 if not os.path.exists(f):
 
                     # get command for task
@@ -397,7 +400,8 @@ def split(subset: str = None, method: str = 'svc') -> None:
                 logging.info('Checking for split...')
                 done = True
                 for subset in leaves:
-                    f = os.path.join(exportdir, subset.longname(), method)
+                    # Check for split file
+                    f = os.path.join(exportdir, subset.longname(), 'split.txt')
                     if not os.path.exists(f):
                         done = False
 
@@ -425,7 +429,8 @@ def split(subset: str = None, method: str = 'svc') -> None:
             logging.info("Checking if all leaves have been split...")
             split = True
             for subset in leaves:
-                f = os.path.join(exportdir, subset.longname(), method)
+                # Check for split file
+                f = os.path.join(exportdir, subset.longname(), 'split.txt')
                 if not os.path.exists(f):
                     split = False
 

@@ -34,7 +34,7 @@ def batch_covariates(ds: loompy.LoomConnection, out_file: str) -> None:
 	elif "Age" in ds.ca:
 		names, labels = np.unique(ds.ca.Age, return_inverse=True)
 	else:
-		labels = np.array(["(unknown)"] * ds.shape[1])
+		names, labels = np.unique(np.array(["(unknown)"] * ds.shape[1]), return_inverse=True)
 	ax = plt.subplot(222)
 	colors = colorize(names)
 	cells = np.random.permutation(labels.shape[0])

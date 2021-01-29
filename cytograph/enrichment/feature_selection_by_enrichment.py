@@ -103,7 +103,7 @@ class FeatureSelectionByEnrichment:
 			enriched = np.argsort(enrichment[:, ix])[::-1]
 			n = 0
 			count = 0
-			while count < self.n_markers:
+			while (count < self.n_markers) & (n < ds.shape[0]):
 				if enriched[n] in excluded:
 					n += 1
 					continue
