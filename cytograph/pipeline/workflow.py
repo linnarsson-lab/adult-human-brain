@@ -218,7 +218,7 @@ class Workflow:
 								cgplot.manifold(ds, os.path.join(out_dir, pool + "_UMAP_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="UMAP")
 							if "PCA" in ds.ca:
 								cgplot.manifold(ds, os.path.join(out_dir, pool + "_PCA_manifold.png"), list(dsagg.ca.MarkerGenes), list(dsagg.ca.AutoAnnotation), embedding="PCA")
-							if ds.ca.Clusters.max() <= 3000:
+							if ds.ca.Clusters.max() <= 500:
 								cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_pooled_heatmap.pdf"), layer="pooled")
 								cgplot.markerheatmap(ds, dsagg, out_file=os.path.join(out_dir, pool + "_markers_heatmap.pdf"), layer="")
 							if "HPF" in ds.ca:
@@ -229,7 +229,7 @@ class Workflow:
 								cgplot.radius_characteristics(ds, out_file=os.path.join(out_dir, pool + "_neighborhoods.png"))
 							cgplot.batch_covariates(ds, out_file=os.path.join(out_dir, pool + "_batches.png"))
 							cgplot.umi_genes(ds, out_file=os.path.join(out_dir, pool + "_umi_genes.png"))
-							if ds.ca.Clusters.max() <= 3000:
+							if ds.ca.Clusters.max() <= 500:
 								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
 								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
 							if "GA" in dsagg.col_graphs:
