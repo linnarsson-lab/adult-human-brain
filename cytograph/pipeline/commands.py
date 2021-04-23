@@ -279,8 +279,13 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 					good_samples.append(sample_id)
 					ds.attrs.passedQC = True
 				else:
-					logging.warn(f"Skipping {sample_id}.loom because only {good_cells.sum()} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) passed QC.")
+					logging.warn(f"Skipping DoubletFinder for {sample_id}: only {good_cells.sum()} of {ds.shape[1]} cells (less than {config.params.min_fraction_good_cells * 100}%) passed QC.")
 					ds.attrs.passedQC = False
+					# make qc plots even if the sample doesn't pass qc
+					ds.ca["DoubletFinderScore"] = np.zeros(ds.shape[1])
+					ds.ca["DoubletFinderFlag"] = np.zeros(ds.shape[1])
+					qc_plots.all_QC_plots(ds=ds, out_file=os.path.join(config.paths.qc + "/" + sample_id + "_QC.png"))
+					continue
 				# Assess demaged/dead cells using ratio of mitochondrial gene expression and unspliced reads ratio
 				qc_functions.mito_genes_ratio(ds)
 				low_mito_ratio = len(np.where(ds.ca.MT_ratio < config.params.max_fraction_MT_genes)[0]) / ds.shape[1]
