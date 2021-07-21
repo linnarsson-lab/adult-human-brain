@@ -323,8 +323,8 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 
 @cli.command()
 @click.option('--subset', default=None)
-@click.option('--method', default='svc', type=click.Choice(['svc', 'dendrogram', 'cluster']))
-def split(subset: str = None, method: str = 'svc') -> None:
+@click.option('--method', default='coverage', type=click.Choice(['coverage', 'dendrogram', 'cluster']))
+def split(subset: str = None, method: str = 'coverage') -> None:
 
     config = load_config()
     exportdir = os.path.abspath(os.path.join(config.paths.build, "exported"))
@@ -413,7 +413,7 @@ def split(subset: str = None, method: str = 'svc') -> None:
             logging.info("Processing new build")
             subprocess.run(["cytograph", "build", "--engine", "condor"])
 
-            if method != 'svc':
+            if method != 'coverage':
                 return
 
             # Wait until all new subsets have been processed
