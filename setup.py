@@ -17,7 +17,7 @@ setup(
 		'hdbscan',
 		'pyyaml',
 		'statsmodels',  # for multiple testing
-		'numpy-groupies==0.9.6',
+		'numpy-groupies', #==0.9.6',
 		# 'python-igraph',  # imported as "igraph"; a challenge to install so better do it manually
 		'tqdm',
 		'umap-learn',  # imported as "umap"

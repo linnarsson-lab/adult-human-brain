@@ -8,6 +8,7 @@ from .manifold import *
 from .metrics import *
 #from .pipeline import *
 from .preprocessing import *
+from .postprocessing import *
 from .species import *
 from .velocity import *
 from .interpolation import *

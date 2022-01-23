@@ -1,8 +1,10 @@
-from typing import Tuple
+from typing import Tuple, List
 import loompy
 import numpy as np
 from sklearn.decomposition import IncrementalPCA
 import logging
+from harmony import harmonize
+import pandas as pd
 
 
 class IncrementalResidualsPCA():
@@ -10,12 +12,13 @@ class IncrementalResidualsPCA():
 	Project a dataset into a reduced feature space using PCA on Pearson residuals.
 	See https://www.biorxiv.org/content/10.1101/2020.12.01.405886v1.full.pdf
 	"""
-	def __init__(self, n_factors: int = 50, **kwargs) -> None:
+	def __init__(self, n_factors: int = 50, batch_keys: List[str] = None, **kwargs) -> None:
 		"""
 		Args:
 			n_factors:  	The number of retained components
 		"""
 		self.n_factors = n_factors
+		self.batch_keys = batch_keys
 
 	def fit(self, ds: loompy.LoomConnection) -> Tuple[np.ndarray, np.ndarray]:
 		logging.info(" ResidualsPCA: Loading gene and cell totals")
@@ -31,7 +34,7 @@ class IncrementalResidualsPCA():
 			expected = totals[ix:ix + batch_size, None] @ (gene_totals[None, :] / overall_totals)
 			residuals = (data - expected) / np.sqrt(expected + np.power(expected, 2) / 100)
 			n_cells = residuals.shape[0]
-			# residuals = np.clip(residuals, -np.sqrt(n_cells), np.sqrt(n_cells))
+			residuals = np.clip(residuals, -np.sqrt(n_cells), np.sqrt(n_cells))
 			pca.partial_fit(residuals)
 
 		logging.info(f" ResidualsPCA: Transforming residuals incrementally in batches of {batch_size:,} cells")
@@ -41,10 +44,16 @@ class IncrementalResidualsPCA():
 			expected = totals[ix:ix + batch_size, None] @ (gene_totals[None, :] / overall_totals)
 			residuals = (data - expected) / np.sqrt(expected + np.power(expected, 2) / 100)
 			n_cells = residuals.shape[0]
-			# residuals = np.clip(residuals, -np.sqrt(n_cells), np.sqrt(n_cells))
+			residuals = np.clip(residuals, -np.sqrt(n_cells), np.sqrt(n_cells))
 			factors[ix:ix + batch_size] = pca.transform(residuals)
 
 		loadings = pca.components_.T
 		loadings_all = np.zeros_like(loadings, shape=(ds.shape[0], self.n_factors))
 		loadings_all[ds.ra.Selected == 1] = loadings
+
+		if self.batch_keys is not None and len(self.batch_keys) > 0:
+			logging.info(f" PCA: Harmonizing factors on batch keys: {self.batch_keys}")
+			keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
+			factors = harmonize(factors, keys_df, batch_key=self.batch_keys)
+
 		return factors
