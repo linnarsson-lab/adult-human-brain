@@ -8,6 +8,7 @@ from sklearn.decomposition import IncrementalPCA
 
 import loompy
 from cytograph.preprocessing import Normalizer
+import logging
 
 
 class PCA:
@@ -46,11 +47,12 @@ class PCA:
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
 		layer = self.layer if self.layer is not None else ""
-		for (_, selection, view) in ds.scan(items=cells, axis=1, layers=[layer], key=key):
-			if len(selection) < self.n_components:
-				continue
-			vals = normalizer.transform(view.layers[layer][:, :], selection)
-			self.pca.partial_fit(vals[self.genes, :].transpose())		# PCA on the selected genes
+		batch_size = 100_000
+		for ix in range(0, ds.shape[1], batch_size):
+			data = ds[:, ix:ix + batch_size]
+			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
+			vals = normalizer.transform(data, selection)
+			self.pca.partial_fit(vals[ds.ra.Selected == 1, :].T)
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
@@ -65,11 +67,12 @@ class PCA:
 			key = "Accession"
 
 		layer = self.layer if self.layer is not None else ""
-		for (_, selection, view) in ds.scan(items=cells, axis=1, layers=[layer], key=key):
-			vals = normalizer.transform(view.layers[layer][:, :], selection)
-			n_cells_in_batch = selection.shape[0]
-			transformed[j:j + n_cells_in_batch, :] = self.pca.transform(vals[self.genes, :].transpose())
-			j += n_cells_in_batch
+		batch_size = 100_000
+		for ix in range(0, ds.shape[1], batch_size):
+			data = ds[:, ix:ix + batch_size]
+			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
+			vals = normalizer.transform(data, selection)
+			transformed[ix:ix + batch_size, :] = self.pca.transform(vals[ds.ra.Selected == 1, :].T)
 
 		if self.test_significance:
 			# Must select significant components only once, and reuse for future transformations
@@ -84,6 +87,7 @@ class PCA:
 			transformed = transformed[:, self.sigs]
 
 		if self.batch_keys is not None and len(self.batch_keys) > 0:
+			logging.info(f'Harmonizing on keys: {self.batch_keys}')
 			keys_df = pd.DataFrame.from_dict({k: ds.ca[k] for k in self.batch_keys})
 			transformed = harmonize(transformed, keys_df, batch_key=self.batch_keys)
 		return transformed
