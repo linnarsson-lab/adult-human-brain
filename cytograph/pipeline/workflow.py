@@ -232,7 +232,7 @@ class Workflow:
 							if ds.ca.Clusters.max() <= 500:
 								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_pooled_heatmap.pdf"), layer="pooled")
 								cgplot.TF_heatmap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_TFs_heatmap.pdf"), layer="")
-							if "GA" in dsagg.col_graphs:
+							if "skeletonize" in self.config.steps:
 								cgplot.metromap(ds, dsagg, out_file=os.path.join(out_dir, f"{pool}_metromap.png"))
 							if "cluster-validation" in self.config.steps:
 								ClusterValidator().fit(ds, os.path.join(out_dir, f"{pool}_cluster_pp.png"))
@@ -324,15 +324,15 @@ class RootWorkflow(Workflow):
 				if self.config.params.remove_low_quality:
 					good_cells = np.all([high_UMI, low_MT, high_unspliced], axis = 0)
 					logging.info(f"Removing  {(~good_cells).sum()} low quality cells: ")
-					if(ds.shape[1]-high_UMI.sum()>0):
-						logging.info(f"{(ds.shape[1]-high_UMI.sum())} cells with <{self.config.params.min_umis} UMIs ")
-					if(ds.shape[1]-low_MT.sum()>0):	
-						logging.info(f"{(ds.shape[1]-low_MT.sum())} cells with >{self.config.params.max_fraction_MT_genes} mitochondrial genes rate")
-					if(ds.shape[1]-high_unspliced.sum()):	
-						logging.info(f"{(ds.shape[1]-high_unspliced.sum())} cells with <{self.config.params.min_fraction_unspliced_reads} unspliced rate")
-				if(self.config.params.remove_doublets):
+					if ds.shape[1] - high_UMI.sum() > 0:
+						logging.info(f"{(ds.shape[1] - high_UMI.sum())} cells with < {self.config.params.min_umis} UMIs ")
+					if ds.shape[1] - low_MT.sum() > 0:	
+						logging.info(f"{(ds.shape[1] - low_MT.sum())} cells with > {self.config.params.max_fraction_MT_genes} mitochondrial genes rate")
+					if ds.shape[1] - high_unspliced.sum():	
+						logging.info(f"{(ds.shape[1] - high_unspliced.sum())} cells with < {self.config.params.min_fraction_unspliced_reads} unspliced rate")
+				if self.config.params.remove_doublets:
 					good_cells = np.logical_and(good_cells, predicted_doublets == 0)
-					if(np.sum(predicted_doublets > 0) > 0):
+					if np.sum(predicted_doublets > 0) > 0:
 						logging.info(f"Removing {(np.sum(predicted_doublets>0))} doublets")
 	
 				if good_cells.sum() / ds.shape[1] > self.config.params.min_fraction_good_cells:
