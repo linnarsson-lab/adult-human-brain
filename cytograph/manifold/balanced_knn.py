@@ -159,15 +159,7 @@ class BalancedKNN:
 			self.sight_k = sight_k
 		logging.debug(f"First search the {self.sight_k} nearest neighbours for {self.n_samples}")
 		np.random.seed(13)
-		if self.metric == "correlation":
-			self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, algorithm="brute")
-			self.nn.fit(self.fitdata)
-		elif self.metric == "js":
-			# self.nn = cg.BallTreeJS(data=self.fitdata, leaf_size=10)
-			self.nn = NNDescent(data=self.fitdata, metric=jensen_shannon_distance)
-		else:
-			self.nn = NearestNeighbors(n_neighbors=self.sight_k + 1, metric=self.metric, p=self.minkowski_p, n_jobs=self.n_jobs, leaf_size=30)
-			self.nn.fit(self.fitdata)
+		self.nn = NNDescent(data=self.fitdata, metric=self.metric, n_jobs=-1)
 		return self
 
 	def kneighbors(self, X: np.ndarray = None, maxl: int = None, mode: str = "distance") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -206,15 +198,9 @@ class BalancedKNN:
 		if maxl is not None:
 			self.maxl = maxl
 		if mode == "distance":
-			if self.metric == "js":
-				self.dsi, self.dist = self.nn.query(self.data, k=self.sight_k + 1)
-			else:
-				self.dist, self.dsi = self.nn.kneighbors(self.data, return_distance=True)
+			self.dsi, self.dist = self.nn.query(self.data, k=self.sight_k + 1)
 		else:
-			if self.metric == "js":
-				self.dsi, _ = self.nn.query(self.data, k=self.sight_k + 1)
-			else:
-				self.dsi = self.nn.kneighbors(self.data, return_distance=False)
+			self.dsi, _ = self.nn.query(self.data, k=self.sight_k + 1)
 			self.dist = np.ones_like(self.dsi, dtype='float64')
 			self.dist[:, 0] = 0
 		logging.debug(f"Using the initialization network to find a {self.k}-NN graph with maximum connectivity of {self.maxl}")
