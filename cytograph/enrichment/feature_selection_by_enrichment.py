@@ -3,7 +3,7 @@ from typing import Tuple, List
 
 import numpy as np
 from statsmodels.stats.multitest import multipletests
-
+from scipy import sparse
 import loompy
 
 
@@ -66,15 +66,43 @@ class FeatureSelectionByEnrichment:
 		n_labels = max(labels) + 1
 		n_cells = ds.shape[1]
 
+		# reorder matrix
+		mtx = ds.sparse().tocsr()
+		ordering = np.argsort(labels)
+		arr_list = []
+		chunksize = 100000000 // mtx.shape[1]
+		start = 0
+		while start < mtx.shape[0]:
+			submatrix = mtx[start:start + chunksize, :]
+			arr_list.append(submatrix[:, ordering])
+			start = start + chunksize
+		mtx = sparse.vstack(arr_list)
+
+		# split matrix on label indices
+		ix = [np.where(np.sort(labels) == x)[0][0] for x in range(n_labels)] + [n_cells]
+		arr_list = []
+		for i in range(len(ix) - 1):
+			arr_list.append(mtx[:, ix[i]:ix[i + 1]])
+
 		# Number of cells per cluster
-		sizes = np.bincount(labels, minlength=n_labels)
+		sizes = np.zeros(n_labels)
 		# Number of nonzero values per cluster
-		nnz = ds.aggregate(None, None, labels, np.count_nonzero, None)
+		nnz = np.zeros((ds.shape[0], n_labels))
 		# Mean value per cluster
-		means = ds.aggregate(None, None, labels, "mean", None)
+		means = np.zeros((ds.shape[0], n_labels))
+
+		for i, arr in enumerate(arr_list):
+			nnz[:, i] = arr.getnnz(axis=1)
+			means[:, i] = np.squeeze((arr.mean(axis=1).A))
+			sizes[i] = arr.shape[1]
+
 		# Non-zeros and means over all cells
-		(nnz_overall, means_overall) = ds.map([np.count_nonzero, np.mean], axis=0)
+		mtx = sparse.hstack(arr_list)
+		nnz_overall = mtx.getnnz(axis=1)
+		means_overall = np.squeeze((mtx.mean(axis=1).A))
+
 		# Scale by number of cells
+		n_cells = mtx.shape[1]
 		f_nnz = nnz / sizes
 		f_nnz_overall = nnz_overall / n_cells
 
@@ -91,7 +119,7 @@ class FeatureSelectionByEnrichment:
 			nnz = ds.map([np.count_nonzero], axis=0)[0]
 			valid_genes = np.logical_and(nnz > 10, nnz < ds.shape[1] * 0.6)
 			ds.ra.Valid = valid_genes.astype('int')
-			
+
 		included: List[int] = []
 
 		if self.mask is None:
