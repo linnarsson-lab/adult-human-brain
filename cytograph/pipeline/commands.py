@@ -465,20 +465,23 @@ def merge(subset: str = None, overwrite: bool = False) -> None:
         datadir = os.path.join(config.paths.build, "data")
         exportdir = os.path.join(config.paths.build, "exported")
         if not overwrite:
-            logging.info("Rearranging directories...")
+            logging.info("Backing up data...")
             shutil.copytree(datadir, os.path.join(config.paths.build, "data_premerge"))
-            shutil.copytree(exportdir, os.path.join(config.paths.build, "exported_premerge"))
+        logging.info("Backing up export...")
+        shutil.copytree(exportdir, os.path.join(config.paths.build, "exported_premerge"))
 
         logging.info("Submitting jobs")
         for subset in deck.get_leaves():
             # Use CPUs and memory from subset config
             config = load_config(subset)
-            n_cpus = config.execution.n_cpus
+            n_cpus = min(config.execution.n_cpus, 14)
             memory = config.execution.memory
             # Remove agg file and export directory
             task = subset.longname()
-            os.remove(os.path.join(datadir, task + ".agg.loom"))
-            shutil.rmtree(os.path.join(exportdir, task))
+            if os.path.exists(os.path.join(datadir, task + ".agg.loom")):
+                os.remove(os.path.join(datadir, task + ".agg.loom"))
+            if os.path.exists(os.path.join(exportdir, task)):
+                shutil.rmtree(os.path.join(exportdir, task))
             # Make submit file
             cmd = f"merge --subset {task}"
             with open(os.path.join(exdir, task + ".condor"), "w") as f:
