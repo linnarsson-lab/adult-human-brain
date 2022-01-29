@@ -4,7 +4,7 @@ import loompy
 import os
 
 def mito_genes_ratio(ds: loompy.LoomConnection) -> None:
-    mito_genes = np.where(ds.ra.Chromosome=="MT")[0]
+    mito_genes = np.where(ds.ra.Chromosome=="chrM")[0]
     exp_mito = ds[mito_genes,:]
     sum_mito = exp_mito.sum(axis=0)
     sum_all = ds.ca.TotalUMI
