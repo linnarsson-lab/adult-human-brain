@@ -198,7 +198,7 @@ class Workflow:
 					dsout.ca.ClustersCollected = dsout.ca.Clusters
 					dsout.ca.Clusters = labels
 				with Tempname(self.agg_file) as out_file:
-					Aggregator(mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
+					Aggregator(config=self.config, mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
 				with loompy.connect(self.agg_file) as dsagg:
 					dsagg.attrs.config = config.to_string()
 

@@ -14,6 +14,7 @@ class FeatureSelectionByEnrichment:
 		self.alpha = 0.1
 		self.mask = mask
 		self.findq = findq
+		self.nnz: np.ndarray = None
 		self.enrichment: np.ndarray = None
 		self.qvals: np.ndarray = None
 
@@ -88,6 +89,7 @@ class FeatureSelectionByEnrichment:
 		sizes = np.zeros(n_labels)
 		# Number of nonzero values per cluster
 		nnz = np.zeros((ds.shape[0], n_labels))
+		self.nnz = nnz
 		# Mean value per cluster
 		means = np.zeros((ds.shape[0], n_labels))
 

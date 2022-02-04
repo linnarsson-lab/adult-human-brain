@@ -63,7 +63,7 @@ class FeatureSelectionByMultilevelEnrichment:
 			# Agglomerative clustering
 			data = np.log(means + 1)[all_markers, :].T
 			D = pdist(data, 'correlation')
-			Z = hc.linkage(D, 'ward', optimal_ordering=True)
+			Z = hc.linkage(D, 'complete', optimal_ordering=True)
 			old_labels_per_cluster = hc.leaves_list(Z)
 			old_labels_per_cell = labels.copy()
 

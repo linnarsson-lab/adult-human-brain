@@ -1,25 +1,22 @@
 import logging
 from typing import Dict, List, Union
-
 import numpy as np
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
-
 import loompy
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
-from cytograph.enrichment import FeatureSelectionByMultilevelEnrichment, Trinarizer
+from cytograph.enrichment import FeatureSelectionByEnrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
-
-from .config import load_config
+from .config import Config
 
 
 class Aggregator:
-	def __init__(self, *, f: Union[float, List[float]] = 0.2, mask: np.ndarray = None) -> None:
+	def __init__(self, *, config: Config, f: Union[float, List[float]] = 0.2, mask: np.ndarray = None) -> None:
 		self.f = f
 		self.mask = mask
+		self.config = config
 
 	def aggregate(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
-		config = load_config()  # Generic config, just to get the paths
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",
@@ -43,20 +40,21 @@ class Aggregator:
 
 			if n_labels <= 1:
 				return
-				
-			logging.info("Computing cluster gene enrichment scores")
-			fe = FeatureSelectionByMultilevelEnrichment(mask=self.mask)
-			markers = fe.fit(ds)
-			dsout.layers["enrichment"] = fe.enrichment
+
+			logging.info("Computing gene enrichment and nonzero fractions")
+			fs = FeatureSelectionByEnrichment(findq=False)
+			_, enrichment = fs._fit(ds)
+			dsout.layers["enrichment"] = enrichment
+			dsout.layers["nonzeros"] = fs.nnz
 
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
 
 			# Renumber the clusters
 			logging.info("Renumbering clusters by similarity, and permuting columns")
-
+			markers = ds.ra.Selected == 1
 			data = np.log(dsout[:, :] + 1)[markers, :].T
 			D = pdist(data, 'correlation')
-			Z = hc.linkage(D, 'ward', optimal_ordering=True)
+			Z = hc.linkage(D, 'complete', optimal_ordering=True)
 			ordering = hc.leaves_list(Z)
 
 			# Permute the aggregated file, and renumber
@@ -66,7 +64,7 @@ class Aggregator:
 			# Redo the Ward's linkage just to get a tree that corresponds with the new ordering
 			data = np.log(dsout[:, :] + 1)[markers, :].T
 			D = pdist(data, 'correlation')
-			dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
+			dsout.attrs.linkage = hc.linkage(D, 'complete', optimal_ordering=True)
 
 			# Renumber the original file, and permute
 			d = dict(zip(ordering, np.arange(n_labels)))
@@ -86,29 +84,16 @@ class Aggregator:
 			ds.permute(gene_order, axis=0)
 			dsout.permute(gene_order, axis=0)
 
-			if n_labels > 3000:
-				dsout.ca.MarkerGenes = np.empty(n_labels, dtype='str')
-				dsout.ca.AutoAnnotation = np.empty(n_labels, dtype='str')
-				return
-
 			logging.info("Trinarizing")
-			if type(self.f) is list or type(self.f) is tuple:
-				for ix, f in enumerate(self.f):  # type: ignore
-					trinaries = Trinarizer(f=f).fit(ds)
-					if ix == 0:
-						dsout.layers["trinaries"] = trinaries
-					else:
-						dsout.layers[f"trinaries_{f}"] = trinaries
-			else:
-				trinaries = Trinarizer(f=self.f).fit(ds)  # type:ignore
-				dsout.layers["trinaries"] = trinaries
+			trinaries = Trinarizer(f=self.f).fit(dsout)
+			dsout.layers["trinaries"] = trinaries
 
 			logging.info("Computing auto-annotation")
-			AutoAnnotator(root=config.paths.autoannotation, ds=dsout).annotate(dsout)
+			AutoAnnotator(root=self.config.paths.autoannotation, ds=dsout).annotate(dsout)
 
 			logging.info("Computing auto-auto-annotation")
 			AutoAutoAnnotator(n_genes=6).annotate(dsout)
 
-			if "skeletonize" in config.steps:
+			if "skeletonize" in self.config.steps:
 				logging.info("Graph skeletonization")
 				GraphSkeletonizer(min_pct=1).abstract(ds, dsout)
