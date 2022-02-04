@@ -47,9 +47,9 @@ class PCA:
 
 		self.pca = IncrementalPCA(n_components=self.n_components)
 		layer = self.layer if self.layer is not None else ""
-		batch_size = 100_000
+		batch_size = 50_000
 		for ix in range(0, ds.shape[1], batch_size):
-			data = ds[:, ix:ix + batch_size]
+			data = ds[:, ix:ix + batch_size].astype('float32')
 			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
 			vals = normalizer.transform(data, selection)
 			self.pca.partial_fit(vals[ds.ra.Selected == 1, :].T)
@@ -67,9 +67,9 @@ class PCA:
 			key = "Accession"
 
 		layer = self.layer if self.layer is not None else ""
-		batch_size = 100_000
+		batch_size = 50_000
 		for ix in range(0, ds.shape[1], batch_size):
-			data = ds[:, ix:ix + batch_size]
+			data = ds[:, ix:ix + batch_size].astype('float32')
 			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
 			vals = normalizer.transform(data, selection)
 			transformed[ix:ix + batch_size, :] = self.pca.transform(vals[ds.ra.Selected == 1, :].T)
