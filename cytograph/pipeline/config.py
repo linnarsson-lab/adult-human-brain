@@ -76,7 +76,8 @@ def load_config(subset_obj: Union[Optional[PunchcardSubset], Optional[PunchcardV
 			"skip_metadata": False,
 			"features": "enrichment",  # or "variance"
 			"clusterer": "louvain",  # or "surprise"
-			"nn_space": "auto"
+			"nn_space": "auto",
+			"graph": "RNN" # or KNN or MKNN
 		}),
 		"steps": ("poisson_pooling", "nn", "embeddings", "clustering"),
 		"execution": Config(**{

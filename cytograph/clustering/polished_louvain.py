@@ -110,7 +110,8 @@ class PolishedLouvain:
 			xy = ds.ca[self.embedding]
 		else:
 			raise ValueError(f"Embedding '{self.embedding}' not found in file")
-			
+		
+		logging.info(f"Using {self.graph} graph")
 		knn = ds.col_graphs[self.graph]
 
 		logging.info("Louvain community detection")

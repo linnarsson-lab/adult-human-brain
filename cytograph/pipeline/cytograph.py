@@ -179,19 +179,15 @@ class Cytograph:
 				ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 
 		if "clustering" in self.config.steps:
-			if transformed.shape[0] <= 50:
-				logging.info("Clustering by Louvain without polish")
-				labels = Louvain(graph="RNN", embedding="TSNE").fit_predict(ds)
-			else:
-				logging.info("Clustering by polished Louvain")
-				pl = PolishedLouvain(outliers=False, graph="RNN", embedding="TSNE")
-				labels = pl.fit_predict(ds)
+			logging.info("Clustering by polished Louvain")
+			pl = PolishedLouvain(outliers=False, graph=self.config.params.graph, embedding="TSNE")
+			labels = pl.fit_predict(ds)
 			ds.ca.ClustersModularity = labels + min(labels)
 			ds.ca.OutliersModularity = (labels == -1).astype('int')
 
 			logging.info("Clustering by polished Surprise")
 			try:
-				ps = PolishedSurprise(graph="RNN", embedding="TSNE")
+				ps = PolishedSurprise(graph=self.config.params.graph, embedding="TSNE")
 				labels = ps.fit_predict(ds)
 				ds.ca.ClustersSurprise = labels + min(labels)
 				ds.ca.OutliersSurprise = (labels == -1).astype('int')
