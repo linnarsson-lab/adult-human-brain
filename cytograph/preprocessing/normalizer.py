@@ -24,12 +24,12 @@ class Normalizer:
 		self.totals = np.zeros(ds.shape[1])
 
 		for _, selection, view in ds.scan(axis=0):
-			vals = view[self.layer][:, :].astype("float")
+			vals = view[self.layer][:, :].astype("float32")
 			self.totals += np.sum(vals, axis=0)
 		self.level = np.median(self.totals)
 
 		for _, selection, view in ds.scan(axis=0):
-			vals = view[self.layer][:, :].astype("float")
+			vals = view[self.layer][:, :].astype("float32")
 			# Rescale to the median total UMI count, plus 1 (to avoid log of zero), then log transform
 			vals = np.log2(div0(vals, self.totals) * self.level + 1)
 			self.mu[selection] = np.mean(vals, axis=1)
@@ -49,7 +49,7 @@ class Normalizer:
 		# Adjust total count per cell to the desired overall level
 		if cells is None:
 			cells = slice(None)
-		vals = vals.astype("float")
+		vals = vals.astype("float32")
 		vals = np.log2(div0(vals, self.totals[cells]) * self.level + 1)
 
 		# Subtract mean per gene
