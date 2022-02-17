@@ -9,7 +9,9 @@ from scipy.stats import mode
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
+from pynndescent import NNDescent
 from scipy.sparse.csgraph import connected_components
+from scipy.sparse import csr_matrix
 
 import loompy
 
@@ -48,6 +50,30 @@ def is_outlier(points: np.ndarray, thresh: float = 3.5) -> np.ndarray:
 	return modified_z_score > thresh
 
 
+def kneighbors_graph(indices: np.ndarray, distances: np.ndarray, mode: str = 'distance'):
+
+	# Adapted from scikit-learn kneighbors_graph (2022-02-15)
+	# https://github.com/scikit-learn/scikit-learn/blob/7e1e6d09b/sklearn/neighbors/_graph.py#L38
+
+	n_queries = indices.shape[0]
+	n_neighbors = indices.shape[1]
+
+	if mode == "connectivity":
+		data = np.ones(n_queries * n_neighbors)
+
+	elif mode == "distance":
+		data = np.ravel(distances)
+
+	n_entries = n_queries * n_neighbors
+	indptr = np.arange(0, n_entries + 1, n_neighbors)
+
+	kneighbors_graph = csr_matrix(
+		(data, indices.ravel(), indptr), shape=(n_queries, n_queries)
+	)
+
+	return kneighbors_graph
+
+
 class PolishedLouvain:
 	def __init__(self, resolution: float = 1.0, outliers: bool = True, min_cells: int = 10, graph: str = "MKNN", embedding: str = "TSNE", method: str = "python-louvain") -> None:
 		self.resolution = resolution
@@ -81,9 +107,14 @@ class PolishedLouvain:
 
 		# See if the cluster is very dispersed
 		min_pts = min(50, min(x.shape[0] - 1, max(5, round(0.1 * x.shape[0]))))
-		nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
-		nn.fit(xy)
-		knn = nn.kneighbors_graph(mode='distance')
+		if xy.shape[0] < 1000:
+			nn = NearestNeighbors(n_neighbors=min_pts, algorithm="ball_tree", n_jobs=4)
+			nn.fit(xy)
+			knn = nn.kneighbors_graph(mode='distance')
+		else:
+			nn = NNDescent(data=xy, n_jobs=-1)
+			indices, distances = nn.query(xy, k=min_pts + 1)
+			knn = kneighbors_graph(indices, distances, mode='distance')
 		k_radius = knn.max(axis=1).toarray()
 		epsilon = np.percentile(k_radius, 70)
 		# Not too many outliers, and not too dispersed
@@ -141,9 +172,9 @@ class PolishedLouvain:
 
 		# Mark outliers using DBSCAN
 		logging.info("Using DBSCAN to mark outliers")
-		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(xy)
-		knn = nn.kneighbors_graph(mode='distance')
+		nn = NNDescent(data=xy, n_jobs=-1)
+		indices, distances = nn.query(xy, k=11)
+		knn = kneighbors_graph(indices, distances, mode='distance')
 		k_radius = knn.max(axis=1).toarray()
 		epsilon = np.percentile(k_radius, 80)
 		clusterer = DBSCAN(eps=epsilon, min_samples=10)
@@ -152,9 +183,9 @@ class PolishedLouvain:
 
 		# Mark outliers as cells in bad neighborhoods
 		logging.info("Using neighborhood to mark outliers")
-		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(xy)
-		knn = nn.kneighbors_graph(mode='connectivity').tocoo()
+		nn = NNDescent(data=xy, n_jobs=-1)
+		indices, distances = nn.query(xy, k=11)
+		knn = kneighbors_graph(indices, distances, mode='connectivity').tocoo()
 		temp = []
 		for ix in range(labels.shape[0]):
 			if labels[ix] == -1:
@@ -191,9 +222,9 @@ class PolishedLouvain:
 
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
-		nn = NearestNeighbors(n_neighbors=10, algorithm="ball_tree", n_jobs=4)
-		nn.fit(xy)
-		knn = nn.kneighbors_graph(mode='connectivity').tocoo()
+		nn = NNDescent(data=xy, n_jobs=-1)
+		indices, distances = nn.query(xy, k=11)
+		knn = kneighbors_graph(indices, distances, mode='connectivity').tocoo()
 		temp = []
 		for ix in range(labels.shape[0]):
 			neighbors = knn.col[np.where(knn.row == ix)[0]]
@@ -219,9 +250,8 @@ class PolishedLouvain:
 
 		if not self.outliers and np.any(labels == -1):
 			# Assign each outlier to the same cluster as the nearest non-outlier
-			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
-			nn.fit(xy[labels >= 0])
-			nearest = nn.kneighbors(xy[labels == -1], n_neighbors=1, return_distance=False)
+			nn = NNDescent(data=xy[labels >= 0], n_jobs=-1)
+			nearest, _ = nn.query(xy[labels == -1], k=1)
 			labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
 
 		return labels
