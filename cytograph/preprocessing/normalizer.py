@@ -21,19 +21,23 @@ class Normalizer:
 	def fit(self, ds: loompy.LoomConnection) -> None:
 		self.sd = np.zeros(ds.shape[0])
 		self.mu = np.zeros(ds.shape[0])
-		self.totals = np.zeros(ds.shape[1])
 
-		for _, selection, view in ds.scan(axis=0):
-			vals = view[self.layer][:, :].astype("float32")
-			self.totals += np.sum(vals, axis=0)
+		batch_size = 1000
+		if 'TotalUMI' in ds.ca:
+			self.totals = ds.ca.TotalUMI
+		else:
+			self.totals = np.zeros(ds.shape[1])
+			for ix in range(0, ds.shape[0], batch_size):
+				vals = ds[ix:ix + batch_size, :].astype('float32')
+				self.totals += np.sum(vals, axis=0)
 		self.level = np.median(self.totals)
 
-		for _, selection, view in ds.scan(axis=0):
-			vals = view[self.layer][:, :].astype("float32")
+		for ix in range(0, ds.shape[0], batch_size):
+			vals = ds[ix:ix + batch_size, :].astype("float32")
 			# Rescale to the median total UMI count, plus 1 (to avoid log of zero), then log transform
 			vals = np.log2(div0(vals, self.totals) * self.level + 1)
-			self.mu[selection] = np.mean(vals, axis=1)
-			self.sd[selection] = np.std(vals, axis=1)
+			self.mu[ix:ix + batch_size] = np.mean(vals, axis=1)
+			self.sd[ix:ix + batch_size] = np.std(vals, axis=1)
 
 	def transform(self, vals: np.ndarray, cells: np.ndarray = None) -> np.ndarray:
 		"""
