@@ -5,18 +5,25 @@ import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
 import loompy
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
-from cytograph.enrichment import FeatureSelectionByEnrichment, Trinarizer
+from cytograph.enrichment import Enrichment, Trinarizer
 from cytograph.manifold import GraphSkeletonizer
 from .config import Config
 
 
 class Aggregator:
+	"""
+	Generates a new loom file aggregated by cluster
+	"""
+
 	def __init__(self, *, config: Config, f: Union[float, List[float]] = 0.2, mask: np.ndarray = None) -> None:
 		self.f = f
 		self.mask = mask
 		self.config = config
 
 	def aggregate(self, ds: loompy.LoomConnection, *, out_file: str, agg_spec: Dict[str, str] = None) -> None:
+		"""
+		Generates a new loom file aggregated by cluster
+		"""
 		if agg_spec is None:
 			agg_spec = {
 				"Age": "tally",
@@ -41,13 +48,12 @@ class Aggregator:
 			if n_labels <= 1:
 				return
 
-			logging.info("Computing gene enrichment and nonzero fractions")
-			fs = FeatureSelectionByEnrichment(findq=False)
-			_, enrichment = fs._fit(ds)
-			dsout.layers["enrichment"] = enrichment
-			dsout.layers["nonzeros"] = fs.nnz
-
 			dsout.ca.NCells = np.bincount(labels, minlength=n_labels)
+
+			logging.info("Computing gene enrichment and nonzero fractions")
+			enr = Enrichment()
+			dsout.layers["enrichment"] = enr.fit(dsout, ds)
+			dsout.layers["nonzeros"] = enr.nonzeros
 
 			# Renumber the clusters
 			logging.info("Renumbering clusters by similarity, and permuting columns")
@@ -71,6 +77,28 @@ class Aggregator:
 			new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
 			ds.ca.Clusters = new_clusters
 			ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
+
+			# Find cluster markers
+			n_markers = 10
+			if self.mask is None:
+				excluded = set(np.where(ds.ra.Valid == 0)[0])
+			else:
+				excluded = set(np.where(np.logical_or(ds.ra.Valid == 0, self.mask))[0])
+
+			included = []
+			for ix in range(n_labels):
+				enriched = np.argsort(dsout.layers["enrichment"][:, ix])[::-1]
+				n = 0
+				count = 0
+				while count < n_markers:
+					if enriched[n] in excluded:
+						n += 1
+						continue
+					included.append(enriched[n])
+					excluded.add(enriched[n])
+					n += 1
+					count += 1
+			markers = np.array(included)
 
 			# Reorder the genes, markers first, ordered by enrichment in clusters
 			logging.info("Permuting rows")
