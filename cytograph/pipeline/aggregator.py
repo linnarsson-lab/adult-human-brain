@@ -3,6 +3,7 @@ from typing import Dict, List, Union
 import numpy as np
 import scipy.cluster.hierarchy as hc
 from scipy.spatial.distance import pdist
+from sklearn.preprocessing import scale
 import loompy
 from cytograph.annotation import AutoAnnotator, AutoAutoAnnotator
 from cytograph.enrichment import Enrichment, Trinarizer
@@ -58,9 +59,11 @@ class Aggregator:
 			# Renumber the clusters
 			logging.info("Renumbering clusters by similarity, and permuting columns")
 			markers = ds.ra.Selected == 1
-			data = np.log(dsout[:, :] + 1)[markers, :].T
-			D = pdist(data, 'correlation')
-			Z = hc.linkage(D, 'complete', optimal_ordering=True)
+			total_genes = np.sum(dsout[:, :], axis=0)
+			data = np.log(dsout[:, :] / total_genes * np.median(total_genes) + 1)[markers, :].T
+			data = scale(data)
+			D = pdist(data, 'euclidean')
+			Z = hc.linkage(D, 'ward', optimal_ordering=True)
 			ordering = hc.leaves_list(Z)
 
 			# Permute the aggregated file, and renumber
@@ -68,9 +71,10 @@ class Aggregator:
 			dsout.ca.Clusters = np.arange(n_labels)
 
 			# Redo the Ward's linkage just to get a tree that corresponds with the new ordering
-			data = np.log(dsout[:, :] + 1)[markers, :].T
-			D = pdist(data, 'correlation')
-			dsout.attrs.linkage = hc.linkage(D, 'complete', optimal_ordering=True)
+			data = np.log(dsout[:, :] / total_genes * np.median(total_genes) + 1)[markers, :].T
+			data = scale(data)
+			D = pdist(data, 'euclidean')
+			dsout.attrs.linkage = hc.linkage(D, 'ward', optimal_ordering=True)
 
 			# Renumber the original file, and permute
 			d = dict(zip(ordering, np.arange(n_labels)))

@@ -48,6 +48,8 @@ class PCA:
 		self.pca = IncrementalPCA(n_components=self.n_components)
 		layer = self.layer if self.layer is not None else ""
 		batch_size = 50_000
+		while ds.shape[1] % batch_size < self.n_components:  # This is necessary to avoid a small final batch with too few samples
+			batch_size -= self.n_components
 		for ix in range(0, ds.shape[1], batch_size):
 			data = ds[:, ix:ix + batch_size].astype('float32')
 			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
