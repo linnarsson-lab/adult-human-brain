@@ -112,7 +112,7 @@ class PolishedLouvain:
 			nn.fit(xy)
 			knn = nn.kneighbors_graph(mode='distance')
 		else:
-			nn = NNDescent(data=xy, n_jobs=-1)
+			nn = NNDescent(data=xy, n_jobs=-1, random_state=0)
 			indices, distances = nn.query(xy, k=min_pts + 1)
 			knn = kneighbors_graph(indices, distances, mode='distance')
 		k_radius = knn.max(axis=1).toarray()
@@ -167,12 +167,12 @@ class PolishedLouvain:
 			labels = all_labels
 		else:
 			g = nx.from_scipy_sparse_matrix(knn)
-			partitions = community.best_partition(g, resolution=self.resolution, randomize=False)
+			partitions = community.best_partition(g, resolution=self.resolution, randomize=False, random_state=0)
 			labels = np.array([partitions[key] for key in range(knn.shape[0])])
 
 		# Mark outliers using DBSCAN
 		logging.info("Using DBSCAN to mark outliers")
-		nn = NNDescent(data=xy, n_jobs=-1)
+		nn = NNDescent(data=xy, n_jobs=-1, random_state=0)
 		indices, distances = nn.query(xy, k=11)
 		knn = kneighbors_graph(indices, distances, mode='distance')
 		k_radius = knn.max(axis=1).toarray()
@@ -183,21 +183,10 @@ class PolishedLouvain:
 
 		# Mark outliers as cells in bad neighborhoods
 		logging.info("Using neighborhood to mark outliers")
-		nn = NNDescent(data=xy, n_jobs=-1)
+		nn = NNDescent(data=xy, n_jobs=-1, random_state=0)
 		indices, distances = nn.query(xy, k=11)
-		knn = kneighbors_graph(indices, distances, mode='connectivity').tocoo()
-		temp = []
-		for ix in range(labels.shape[0]):
-			if labels[ix] == -1:
-				temp.append(-1)
-				continue
-			neighbors = knn.col[np.where(knn.row == ix)[0]]
-			neighborhood = labels[neighbors] == labels[ix]
-			if neighborhood.sum() / neighborhood.shape[0] > 0.2:
-				temp.append(labels[ix])
-			else:
-				temp.append(-1)
-		labels = np.array(temp)
+		neighborhood = labels[indices] == labels[:, None]
+		labels[neighborhood.sum(axis=1) / neighborhood.shape[1] < 0.2] = -1
 
 		# Renumber the clusters
 		retain = sorted(list(set(labels)))
@@ -222,14 +211,9 @@ class PolishedLouvain:
 
 		# Set the local cluster label to the local majority vote
 		logging.info("Smoothing cluster identity on the embedding")
-		nn = NNDescent(data=xy, n_jobs=-1)
+		nn = NNDescent(data=xy, n_jobs=-1, random_state=0)
 		indices, distances = nn.query(xy, k=11)
-		knn = kneighbors_graph(indices, distances, mode='connectivity').tocoo()
-		temp = []
-		for ix in range(labels.shape[0]):
-			neighbors = knn.col[np.where(knn.row == ix)[0]]
-			temp.append(mode(labels[neighbors])[0][0])
-		labels = np.array(temp)
+		labels = mode(labels[indices], axis=1)[0].flatten()
 
 		# Mark tiny clusters as outliers
 		logging.info("Marking tiny clusters as outliers")
@@ -250,7 +234,7 @@ class PolishedLouvain:
 
 		if not self.outliers and np.any(labels == -1):
 			# Assign each outlier to the same cluster as the nearest non-outlier
-			nn = NNDescent(data=xy[labels >= 0], n_jobs=-1)
+			nn = NNDescent(data=xy[labels >= 0], n_jobs=-1, random_state=0)
 			nearest, _ = nn.query(xy[labels == -1], k=1)
 			labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
 
