@@ -179,28 +179,18 @@ class Cytograph:
 				ds.ca.UMAP3D = UMAP(n_components=3, metric=metric_f, n_neighbors=self.config.params.k // 2, learning_rate=0.3, min_dist=0.25).fit_transform(transformed)
 
 		if "clustering" in self.config.steps:
-			logging.info("Clustering by polished Louvain")
-			pl = PolishedLouvain(outliers=False, graph=self.config.params.graph, embedding="TSNE")
-			labels = pl.fit_predict(ds)
-			ds.ca.ClustersModularity = labels + min(labels)
-			ds.ca.OutliersModularity = (labels == -1).astype('int')
-
-			logging.info("Clustering by polished Surprise")
-			try:
+			if self.config.params.clusterer == "louvain":
+				logging.info("Clustering by polished Louvain")
+				pl = PolishedLouvain(outliers=False, graph=self.config.params.graph, embedding="TSNE")
+				labels = pl.fit_predict(ds)
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
+			else:
+				logging.info("Clustering by polished Surprise")
 				ps = PolishedSurprise(graph=self.config.params.graph, embedding="TSNE")
 				labels = ps.fit_predict(ds)
-				ds.ca.ClustersSurprise = labels + min(labels)
-				ds.ca.OutliersSurprise = (labels == -1).astype('int')
-			except:
-				logging.info('Error in polished surprise')
-
-			if self.config.params.clusterer == "louvain":
-				ds.ca.Clusters = ds.ca.ClustersModularity
-				ds.ca.Outliers = ds.ca.OutliersModularity
-			else:
-				ds.ca.Clusters = ds.ca.ClustersSurprise
-				ds.ca.Outliers = ds.ca.OutliersSurprise
-
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
 			logging.info(f"Found {ds.ca.Clusters.max() + 1} clusters")
 
 		if species.name in ["Homo sapiens", "Mus musculus"]:
