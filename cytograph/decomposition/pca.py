@@ -54,7 +54,7 @@ class PCA:
 			data = ds[:, ix:ix + batch_size].astype('float32')
 			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
 			vals = normalizer.transform(data, selection)
-			self.pca.partial_fit(vals[ds.ra.Selected == 1, :].T)
+			self.pca.partial_fit(vals[self.genes, :].T)
 
 	def transform(self, ds: loompy.LoomConnection, normalizer: Normalizer, cells: np.ndarray = None) -> np.ndarray:
 		if cells is None:
@@ -74,7 +74,7 @@ class PCA:
 			data = ds[:, ix:ix + batch_size].astype('float32')
 			selection = np.arange(ix, min(ds.shape[1], ix + batch_size))
 			vals = normalizer.transform(data, selection)
-			transformed[ix:ix + batch_size, :] = self.pca.transform(vals[ds.ra.Selected == 1, :].T)
+			transformed[ix:ix + batch_size, :] = self.pca.transform(vals[self.genes, :].T)
 
 		if self.test_significance:
 			# Must select significant components only once, and reuse for future transformations
