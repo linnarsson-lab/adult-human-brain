@@ -28,7 +28,7 @@ setup(
 		'click',
 		'leidenalg',
 		'unidip',
-		'opentsne<=0.5.1'
+		'opentsne'
 	],
 	include_package_data=True,
 	entry_points='''

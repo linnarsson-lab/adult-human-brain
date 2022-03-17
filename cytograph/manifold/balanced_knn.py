@@ -159,7 +159,8 @@ class BalancedKNN:
 			self.sight_k = sight_k
 		logging.debug(f"First search the {self.sight_k} nearest neighbours for {self.n_samples}")
 		np.random.seed(13)
-		self.nn = NNDescent(data=self.fitdata, metric=self.metric, n_jobs=-1)
+		metric_f = (jensen_shannon_distance if self.metric == "js" else self.metric)
+		self.nn = NNDescent(data=self.fitdata, metric=metric_f, n_jobs=-1)
 		return self
 
 	def kneighbors(self, X: np.ndarray = None, maxl: int = None, mode: str = "distance") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

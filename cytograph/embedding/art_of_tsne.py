@@ -62,8 +62,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			init_full,
 			affinities,
 			negative_gradient_method="fft",
-			n_jobs=-1,
-			callbacks=[callbacks.ErrorLogger()]
+			n_jobs=-1
 		)
 		logging.info(f"Optimizing, stage 1")
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
@@ -85,8 +84,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			init,
 			affinities_multiscale_mixture,
 			negative_gradient_method="fft",
-			n_jobs=-1,
-			callbacks=[callbacks.ErrorLogger()]
+			n_jobs=-1
 		)
 		Z.optimize(n_iter=250, inplace=True, exaggeration=12, momentum=0.5, learning_rate=n / 12, n_jobs=-1)
 		Z.optimize(n_iter=750, inplace=True, exaggeration=exaggeration, momentum=0.8, learning_rate=n / 12, n_jobs=-1)
@@ -110,8 +108,7 @@ def art_of_tsne(X: np.ndarray, metric: Union[str, Callable] = "euclidean", exagg
 			aff,
 			learning_rate=lr,
 			n_jobs=-1,
-			negative_gradient_method="fft",
-			callbacks=[callbacks.ErrorLogger()]
+			negative_gradient_method="fft"
 		)
 		Z.optimize(250, exaggeration=12, momentum=0.5, inplace=True, n_jobs=-1)
 		Z.optimize(750, exaggeration=exaggeration, momentum=0.8, inplace=True, n_jobs=-1)
