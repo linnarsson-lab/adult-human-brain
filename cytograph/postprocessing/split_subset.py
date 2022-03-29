@@ -26,6 +26,9 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
         os.mkdir(exportdir)
         with loompy.connect(loom_file) as ds:
 
+            if ds.ca.Clusters.max() == 0:
+                return False
+
             if method == 'dendrogram':
 
                 logging.info("Splitting by dendrogram")

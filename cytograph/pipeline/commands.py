@@ -324,7 +324,8 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 @cli.command()
 @click.option('--subset', default=None)
 @click.option('--method', default='coverage', type=click.Choice(['coverage', 'dendrogram', 'cluster']))
-def split(subset: str = None, method: str = 'coverage') -> None:
+@click.option('--thresh', default=0.99)
+def split(subset: str = None, method: str = 'coverage', thresh: float = 0.99) -> None:
 
     config = load_config()
     exportdir = os.path.abspath(os.path.join(config.paths.build, "exported"))
@@ -332,7 +333,7 @@ def split(subset: str = None, method: str = 'coverage') -> None:
     if subset:
 
         logging.info(f"Splitting {subset}...")
-        if split_subset(config, subset, method):
+        if split_subset(config, subset, method, thresh):
             deck = PunchcardDeck(config.paths.build)
             card = deck.get_card(subset)
             Workflow(deck, "").compute_subsets(card)
@@ -378,7 +379,7 @@ def split(subset: str = None, method: str = 'coverage') -> None:
 
                     # get command for task
                     task = subset.longname()
-                    cmd = f"split --subset {task} --method {method}"
+                    cmd = f"split --subset {task} --method {method} --thresh {thresh}"
 
                     # create submit file for split
                     with open(os.path.join(exdir, task + ".condor"), "w") as f:
