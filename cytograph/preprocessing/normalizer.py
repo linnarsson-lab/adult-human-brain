@@ -24,7 +24,7 @@ class Normalizer:
 
 		batch_size = 1000
 		if 'TotalUMI' in ds.ca:
-			self.totals = ds.ca.TotalUMI
+			self.totals = ds.ca.TotalUMI.astype('float32')
 		else:
 			self.totals = np.zeros(ds.shape[1])
 			for ix in range(0, ds.shape[0], batch_size):

@@ -323,7 +323,7 @@ def qc(sampleids: List[str], rerun: bool = False, file: str = None, fixed_thresh
 
 @cli.command()
 @click.option('--subset', default=None)
-@click.option('--method', default='coverage', type=click.Choice(['coverage', 'dendrogram', 'cluster']))
+@click.option('--method', default='coverage', type=click.Choice(['coverage', 'dendrogram', 'cluster', 'paris']))
 @click.option('--thresh', default=0.99)
 def split(subset: str = None, method: str = 'coverage', thresh: float = 0.99) -> None:
 
@@ -414,7 +414,7 @@ def split(subset: str = None, method: str = 'coverage', thresh: float = 0.99) ->
             logging.info("Processing new build")
             subprocess.run(["cytograph", "build", "--engine", "condor"])
 
-            if method != 'coverage':
+            if not method in ('coverage', 'paris'):
                 return
 
             # Wait until all new subsets have been processed

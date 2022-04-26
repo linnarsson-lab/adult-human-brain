@@ -10,7 +10,7 @@ from ..species import Species
 from ..enrichment import FeatureSelectionByEnrichment
 
 
-def merge_subset(subset: str, config, threshold: int = 5) -> None:
+def merge_subset(subset: str, config, threshold: int = 1) -> None:
 
     loom_file = os.path.join(config.paths.build, "data", subset + ".loom")
 
@@ -19,7 +19,7 @@ def merge_subset(subset: str, config, threshold: int = 5) -> None:
         # Copy original clusters
         ds.ca.ClustersPremerge = np.copy(ds.ca.Clusters)
         logging.info(f'Starting with {ds.shape[1]} cells in {ds.ca.Clusters.max() + 1} clusters')
-        logging.info(f'Threshold: {threshold} enriched genes with qval < 0.001, enrichment > 5')
+        logging.info(f'Threshold: {threshold} enriched genes with qval < 1e-5, enrichment > 5')
 
         merge_flag = True
 
@@ -38,12 +38,12 @@ def merge_subset(subset: str, config, threshold: int = 5) -> None:
             features = FeatureSelectionByEnrichment(1, Species.mask(ds, config.params.mask), findq=True)
             features.fit(ds)
             # Count statistically enriched genes for each cluster
-            scores = np.count_nonzero((features.qvals < 0.001) & (features.enrichment > 5), axis=0)
+            scores = np.count_nonzero((features.qvals < 1e-5) & (features.enrichment > 5), axis=0)
             scores = np.array(scores)
             logging.info(scores)
 
             # If more than one cluster has fewer enriched genes than threshold
-            if (scores < threshold).sum() > 1:
+            if (scores < threshold).sum() > 0:
                 # Calculate cluster distances on the TSNE
                 mu = npg.aggregate(clusters, ds.ca.TSNE.T, func=lambda x: np.median(x), axis=1, fill_value=0)
                 D = squareform(pdist(mu.T))

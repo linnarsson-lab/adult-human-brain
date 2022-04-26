@@ -8,6 +8,7 @@ from ..plotting.colors import colorize
 from ..pipeline import Tempname
 import networkx as nx
 import community
+from sknetwork.hierarchy import Paris
 
 
 def calc_cpu(n_cells):
@@ -16,9 +17,14 @@ def calc_cpu(n_cells):
     idx = (np.abs(n - n_cells)).argmin()
     return cpus[idx]
 
+def coverage(clusters, G):
+    partition = [set(np.where(clusters == c)[0]) for c in np.unique(clusters)]
+    return nx.community.partition_quality(G, partition)[0]
 
 def split_subset(config, subset: str, method: str = 'coverage', thresh: float = None) -> None:
-
+    """
+    split
+    """
     loom_file = os.path.join(config.paths.build, "data", subset + ".loom")
     out_dir = os.path.join(config.paths.build, "exported", subset, method)
 
@@ -66,8 +72,7 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 clusters = branch[ds.ca.Clusters]
 
                 # Check cluster sizes
-                total = len(clusters)
-                if np.any(np.bincount(clusters) / total < 0.01):
+                if np.any(np.bincount(clusters) < 25):
                     logging.info(f"A cluster is too small.")
                     return False
 
@@ -99,6 +104,62 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 plt.title(f"Coverage: {cov:.5f}", fontsize=20)
                 plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
                 plt.close()
+
+            if method == 'paris':
+
+                    # change thresh to 0.999 if not specified
+                    if thresh is None:
+                        thresh = 0.999
+
+                    # load, partition, and cluster graph
+                    logging.info("Loading KNN graph")
+                    G = nx.from_scipy_sparse_matrix(ds.col_graphs.KNN)
+                    logging.info("Partitioning graph by Cytograph clusters")
+                    partition = dict(zip(np.arange(ds.shape[1]), ds.ca.Clusters))
+                    logging.info("Generating induced adjacency  matrix")
+                    induced = community.induced_graph(partition, G)
+                    adj = nx.linalg.graphmatrix.adjacency_matrix(induced)
+                    logging.info("Paris clustering")
+                    Z = Paris().fit_transform(adj)
+                    ds.attrs.paris_linkage = Z
+
+                    # calculate coverage for a range of cuts
+                    logging.info("Calculating coverage")
+                    cov = [coverage(cut_tree(Z, n).T[0][ds.ca.Clusters], G) for n in range(2, 11)]
+                    cov = np.array(cov)
+
+                    # Plot coverage
+                    plt.figure(None, (5, 4))
+                    plt.scatter(range(2, 11), cov)
+                    plt.hlines(thresh, 2, 10)
+                    plt.xticks(range(2, 11))
+                    plt.title('Coverage', fontsize=15)
+                    plt.ylabel('Coverage')
+                    plt.xlabel('Number of Cuts')
+                    plt.tight_layout()
+                    plt.savefig(os.path.join(exportdir, "Coverage.png"), dpi=150)
+                    plt.close()
+
+                    # Check coverage
+                    logging.info(f"Coverage threshold set at {thresh}")
+                    if not any(cov > thresh):
+                        logging.info("No split found")
+                        clusters = np.zeros(ds.shape[1])
+                        return False
+                    else:
+                        n = np.where(cov > thresh)[0][-1] + 2
+                        logging.info(f"Cutting Paris dendrogram into {n} branches")
+                        branch = cut_tree(Z, n).T[0]
+                        clusters = branch[ds.ca.Clusters]
+
+                    # Otherwise save split attribute and plot
+                    ds.ca.Split = clusters
+                    plt.figure(None, (4, 4))
+                    plt.scatter(ds.ca.TSNE[:, 0], ds.ca.TSNE[:, 1], c=colorize(ds.ca.Split), s=1)
+                    plt.title('Split')
+                    plt.axis('off')
+                    plt.savefig(os.path.join(exportdir, "Split.png"), dpi=150)
+                    plt.close()
 
             if method == 'cluster':
 

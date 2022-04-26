@@ -10,10 +10,11 @@ from sklearn.manifold import TSNE
 from numba import NumbaPerformanceWarning, NumbaPendingDeprecationWarning
 from scipy.sparse import SparseEfficiencyWarning
 from pynndescent import NNDescent
+from sknetwork.clustering import Louvain
 
 import loompy
 from cytograph.annotation import CellCycleAnnotator
-from cytograph.clustering import Louvain, PolishedLouvain, PolishedSurprise
+from cytograph.clustering import PolishedLouvain, PolishedSurprise
 from cytograph.decomposition import HPF, PCA
 from cytograph.embedding import art_of_tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
@@ -183,6 +184,13 @@ class Cytograph:
 				logging.info("Clustering by polished Louvain")
 				pl = PolishedLouvain(outliers=False, graph=self.config.params.graph, embedding="TSNE")
 				labels = pl.fit_predict(ds)
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
+			elif self.config.params.clusterer == "sknetwork":
+				logging.info("Clustering by unpolished scikit-network Louvain")
+				G = nx.from_scipy_sparse_matrix(ds.col_graphs.KNN)
+				adj = nx.linalg.graphmatrix.adjacency_matrix(G)
+				labels = Louvain().fit_transform(adj)
 				ds.ca.Clusters = labels + min(labels)
 				ds.ca.Outliers = (labels == -1).astype('int')
 			else:
