@@ -176,7 +176,7 @@ def split_subset(config, subset: str, method: str = 'coverage', thresh: float = 
                 n_cpus = calc_cpu(sizes[i])
                 memory = 750 if n_cpus == 56 else config.execution.memory
                 # Write to punchcard
-                name = chr(i + 65) if i < 26 else chr(i + 39) * 2
+                name = chr(i % 26 + 65) * (1 + int(i / 26))
                 f.write(f'{name}:\n')
                 f.write('  include: []\n')
                 f.write(f'  onlyif: Split == {i}\n')
