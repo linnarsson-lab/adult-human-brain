@@ -76,6 +76,7 @@ class Aggregator:
 			d = dict(zip(ordering, np.arange(n_labels)))
 			new_clusters = np.array([d[x] if x in d else -1 for x in ds.ca.Clusters])
 			ds.ca.Clusters = new_clusters
+			ds.attrs.Ordering = np.argsort(ds.col_attrs["Clusters"])
 			ds.permute(np.argsort(ds.col_attrs["Clusters"]), axis=1)
 
 			# Find cluster markers

@@ -192,11 +192,15 @@ class Workflow:
 			logging.info(f"Skipping '{self.name}.agg.loom' because it was already complete.")
 		else:
 			with loompy.connect(self.loom_file) as dsout:
-				clusts, labels = np.unique(dsout.ca.Clusters, return_inverse=True)
-				if len(np.unique(clusts)) != dsout.ca.Clusters.max() + 1:
+				unique_clust, ixs = np.unique(dsout.ca.Clusters, return_index=True)
+				ordering = np.array([dsout.ca.Clusters[ix] for ix in sorted(ixs)])
+				if not np.array_equal(ordering, unique_clust):
 					logging.info(f"Renumbering clusters before aggregating.")
+					d = dict(zip(ordering, unique_clust))
+					new_clusters = np.array([d[x] if x in d else -1 for x in dsout.ca.Clusters])
+					logging.info(f"Found {len(np.unique(new_clusters))} clusters")
 					dsout.ca.ClustersCollected = dsout.ca.Clusters
-					dsout.ca.Clusters = labels
+					dsout.ca.Clusters = new_clusters
 				with Tempname(self.agg_file) as out_file:
 					Aggregator(config=self.config, mask=Species.detect(dsout).mask(dsout, config.params.mask)).aggregate(dsout, out_file=out_file)
 				with loompy.connect(self.agg_file) as dsagg:

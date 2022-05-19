@@ -190,7 +190,7 @@ class Cytograph:
 				logging.info("Clustering by unpolished scikit-network Louvain")
 				G = nx.from_scipy_sparse_matrix(ds.col_graphs.KNN)
 				adj = nx.linalg.graphmatrix.adjacency_matrix(G)
-				labels = Louvain().fit_transform(adj)
+				labels = Louvain(random_state=0).fit_transform(adj)
 				ds.ca.Clusters = labels + min(labels)
 				ds.ca.Outliers = (labels == -1).astype('int')
 			else:
