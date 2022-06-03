@@ -14,7 +14,7 @@ from sknetwork.clustering import Louvain
 
 import loompy
 from cytograph.annotation import CellCycleAnnotator
-from cytograph.clustering import PolishedLouvain, PolishedSurprise
+from cytograph.clustering import UnpolishedLouvain, PolishedLouvain, PolishedSurprise
 from cytograph.decomposition import HPF, PCA
 from cytograph.embedding import art_of_tsne
 from cytograph.enrichment import FeatureSelectionByEnrichment, FeatureSelectionByVariance
@@ -191,6 +191,11 @@ class Cytograph:
 				G = nx.from_scipy_sparse_matrix(ds.col_graphs.KNN)
 				adj = nx.linalg.graphmatrix.adjacency_matrix(G)
 				labels = Louvain(random_state=0).fit_transform(adj)
+				ds.ca.Clusters = labels + min(labels)
+				ds.ca.Outliers = (labels == -1).astype('int')
+			elif self.config.params.clusterer == "unpolished":
+				pl = UnpolishedLouvain(graph=self.config.params.graph, embedding="PCA")
+				labels = pl.fit_predict(ds)
 				ds.ca.Clusters = labels + min(labels)
 				ds.ca.Outliers = (labels == -1).astype('int')
 			else:

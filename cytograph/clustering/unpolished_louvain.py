@@ -9,7 +9,7 @@ from scipy.sparse.csgraph import connected_components
 import loompy
 
 
-class Louvain:
+class UnpolishedLouvain:
 	def __init__(self, resolution: float = 1.0, min_cells: int = 10, graph: str = "MKNN", embedding: str = "TSNE", method: str = "python-louvain") -> None:
 		self.resolution = resolution
 		self.min_cells = min_cells
@@ -81,7 +81,7 @@ class Louvain:
 
 		if np.any(labels == -1):
 			# Assign each outlier to the same cluster as the nearest non-outlier
-			nn = NearestNeighbors(n_neighbors=50, algorithm="ball_tree")
+			nn = NearestNeighbors(n_neighbors=25, algorithm="ball_tree")
 			nn.fit(xy[labels >= 0])
 			nearest = nn.kneighbors(xy[labels == -1], n_neighbors=1, return_distance=False)
 			labels[labels == -1] = labels[labels >= 0][nearest.flat[:]]
