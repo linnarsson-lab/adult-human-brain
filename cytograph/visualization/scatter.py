@@ -5,7 +5,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 from .colors import Colorizer
-from ..utils import div0
+from ..preprocessing import div0
 
 
 def _draw_edges(ax: plt.Axes, pos: np.ndarray, g: np.ndarray, gcolor: str, galpha: float, glinewidths: float) -> None:
@@ -98,7 +98,7 @@ def scatterm(xy: np.ndarray, *, c: List[np.ndarray], cmaps: List[Any], bgval: An
 					final_cmaps.append(plt.cm.get_cmap(cmap))
 				except ValueError:
 					if cmap in mcolors.BASE_COLORS or cmap in mcolors.TABLEAU_COLORS or cmap in mcolors.CSS4_COLORS:
-						final_cmaps.append(mcolors.LinearSegmentedColormap.from_list(name=cmap,colors=["white", cmap]))
+						final_cmaps.append(mcolors.LinearSegmentedColormap.from_list(name=cmap, colors=["white", cmap]))
 					else:
 						raise ValueError("Unknown color or colormap " + cmap)
 		else:
@@ -114,7 +114,12 @@ def scatterm(xy: np.ndarray, *, c: List[np.ndarray], cmaps: List[Any], bgval: An
 	s = kwargs.pop("s", marker_size)
 	lw = kwargs.pop("lw", 0)
 
-	plt.scatter(xy[:, 0], xy[:, 1], c=data, s=s, lw=lw, **kwargs)
+	if bgval is not None:
+		bgpoints = colors == bgval
+		plt.scatter(xy[bgpoints, 0], xy[bgpoints, 1], c="lightgrey", s=s, lw=lw, **kwargs)
+		plt.scatter(xy[~bgpoints, 0], xy[~bgpoints, 1], c=data[~bgpoints], s=s, lw=lw, **kwargs)
+	else:
+		plt.scatter(xy[:, 0], xy[:, 1], c=data, s=s, lw=lw, **kwargs)
 	if g is not None:
 		ax = plt.gca()
 		_draw_edges(ax, xy, g, gcolor, galpha, glinewidths)

@@ -13,4 +13,5 @@ from .species import *
 from .velocity import *
 from .interpolation import *
 from .utils import *
+from .visualization import *
 
