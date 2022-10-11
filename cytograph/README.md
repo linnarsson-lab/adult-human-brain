@@ -121,14 +121,13 @@ Neurons:
   include: []
 ```
 
-The name of the punchcard (`MySamples.yaml`) indicates that this is a punchcard that takes its cells from the `MySamples` subset in `Root.yaml`. The name is case-sensitive.
+The name of the punchcard (`MySamples.yaml`) indicates that this punchcard takes its cells from the `MySamples` subset in `Root.yaml`. The name is case-sensitive.
 
-Each section in the punchcard (e.g. `Microglia`) defines a new subset. However, this time we are not getting cells from raw samples, but rather selecting cells using auto-annotation, and taking them from the parent punchcard (i.e. `MySamples.loom`). The statement `include: [P-FPE, P-FPL]` means *include all clusters that were annotated with `P-FPE` or `P-FPL`*. 
-Note that the subsets are evaluated in order, and cells are assigned to the first subset that matches. The empty subset `[]` is special; it means 
-*include all cells that have not yet been included*. In the case above, any cell that was not assigned to any of the previous
-subsets, is assigned to `Neurons`.
+Each section in the punchcard (e.g. `Microglia`) defines a new subset. However, this time we are not getting cells from raw samples, but rather selecting cells using auto-annotation, and taking them from the parent punchcard (i.e. `MySamples.loom`). The statement `include: [MGL]` means *include all clusters that were annotated with `MGL`*. 
+Note that subsets are evaluated in order, and cells are assigned to the first subset they match. The empty subset `[]` is special; it means 
+*include all cells that have not yet been included*. In the case above, any cell that was not assigned to `Microglia` or `Astrocytes` is assigned to `Neurons`.
 
-2. `onlyif ` splits a dataset according to a Boolean expression. The expressions must refer to an attribute in the loom file. For example, the punchcard below would remove all cells with fewer than 1000 UMIs if total unique molecular identifier (UMI) counts were stored in the attribute "TotalUMI." 
+2. `onlyif ` splits a dataset according to a Boolean expression. The expressions must refer to an attribute in the loom file. For example, the punchcard below would remove all cells with fewer than 1000 total unique molecular identifiers (UMIs) if total UMI counts were stored in the attribute "TotalUMI." 
 
 ```
 GoodCells:
@@ -146,16 +145,24 @@ GoodMicroglia:
 
 #### Processing the new subsets
 
-Now we have two punchcards, defining nine subsets (`MySamples` in `Root.yaml`, and `Microglia`, ...., `Neurons` in `MySamples.yaml`). Assuming you have already processed `MySamples` as above, you can now do:
+Now we have two punchcards that three subsets (`MySamples` in `Root.yaml`, and `Microglia`, `Astrocytes`, `Neurons` in `MySamples.yaml`). 
+
+If you have already processed `MySamples` as above and later added the `MySamples.yaml` punchcard, first run:
+
+```
+cytograph subset MySamples
+```
+
+and then process the subsets by running:
 
 ```
 cytograph process MySamples_Microglia
 ```
 
-(Note: if you run this command in the build folder, you can omit the `--build-location` parameter as we did here.)
+(Note: if you run `cytograph process {subset}` in the build folder, you can omit the `--build-location` parameter as we did here.)
 
-Each subset is designated by its "long name", which is the sequence of punchcards you have to go through to get to it (but 
-omitting `Root`). If you had defined another punchcard `Microglia.yaml`, with another subset `ActivatedMicroglia`, then the long name of that subset would be `MySamples_Microglia_ActivatedMicroglia`.
+Each subset is named by the sequence of punchcards analyzed to reach it (but 
+omitting `Root`). Here the new subsets will be called `MySamples_Microglia`, `MySamples_Astrocytes`, and `MySamples_Neurons`.
 
 #### Running a complete build automatically
 
@@ -168,9 +175,6 @@ cytograph build --engine local
 
 Cytograph computes an execution graph based on the punchcard dependencies, sorts it so that dependencies come before the
 subsets that depends on them, and then runs `cytograph process` on them sequentially.
-
-As a bonus, cytograph also runs `cytograph pool` on the result, which pools all the leaf subsets into a merged file `Pool.loom` and corresponding `Pool.agg.loom` and `exported/Pool`. Pooling does not involve re-clustering, but does
-include embeddings (e.g. tSNE), matrix factorization etc. and all the standard plots.
 
 #### Running a complete build on a compute cluster
 
