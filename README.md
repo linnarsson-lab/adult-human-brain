@@ -12,4 +12,4 @@ Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsso
 
 ## Code used for analysis
 
-Clustering was performed using cytograph as described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other scripts named in the Methods section can be found in the "scripts" folder. Notebooks used to make figures are found in "notebooks."
+Clustering was performed using cytograph. Usage is described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other scripts named in the Methods section can be found in the "scripts" folder. Notebooks used to make figures are found in "notebooks."
