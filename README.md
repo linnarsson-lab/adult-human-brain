@@ -12,4 +12,9 @@ Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsso
 
 ## Code used for analysis
 
-Clustering was performed using cytograph. Usage is described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other scripts named in the Methods section can be found in the "scripts" folder. Notebooks used to make figures are found in "notebooks." Auto-annotations are available in a separate [repository](https://github.com/linnarsson-lab/auto-annotation-ah).
+Clustering was performed using `cytograph`. Installation and usage are described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other materials include:
+- `scripts`: other scripts named in the Methods section
+- `notebooks`: some of the code used to make figures
+- `tables`: the sample-metadata and cluster-annotation tables (Tables S1 and S2). Note that Tables S3 and S4 correspond to "de_oligos.csv" and "de_opcs.csv" in the "notebooks" folder.
+
+ Auto-annotations are available in a separate [repository](https://github.com/linnarsson-lab/auto-annotation-ah).

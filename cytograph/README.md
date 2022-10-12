@@ -3,12 +3,12 @@
 
 ## Installation
 
-The following instructions should work for Linux and Mac (unfortunately, we have no 
-experience with Windows).
+The following instructions should work for Linux and Mac. We have no 
+experience with Windows.
 
 1. [Install Anaconda](https://www.continuum.io/downloads)
 
-3. Create a new conda environment and install `cytograph`:
+2. Create a new conda environment and install `cytograph` as below:
 
 ```
 git clone https://github.com/linnarsson-lab/adult-human-brain.git
