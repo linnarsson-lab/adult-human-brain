@@ -6,15 +6,15 @@
 The following instructions should work for Linux and Mac (unfortunately, we have no 
 experience with Windows).
 
-1. [Install Anaconda](https://www.continuum.io/downloads), Python 3.7 version
+1. [Install Anaconda](https://www.continuum.io/downloads)
 
-2. Install [loompy](http://loompy.org)
-
-3. Install `cytograph`:
+3. Create a new conda environment and install `cytograph`:
 
 ```
-git clone https://github.com/linnarsson-lab/cytograph-dev.git
-cd cytograph-dev
+git clone https://github.com/linnarsson-lab/adult-human-brain.git
+cd adult-human-brain
+conda create -n cgenv python==3.9.12
+conda activate cgenv
 pip install -e .
 ```
 
