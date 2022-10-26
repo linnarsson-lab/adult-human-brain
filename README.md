@@ -2,6 +2,10 @@
 
 This repository contains the code used for analysis by Siletti et al. (2022). You can also find links below to the complete dataset of 3,369,219 cells.
 
+## Preprint (bioRxiv)
+
+[https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1](https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1)
+
 ## Data availability
 
 The final dataset is available for download at https://storage.cloud.google.com/linnarsson-lab-human. Two files are available:
