@@ -2,6 +2,8 @@
 
 This repository contains the code used for analysis by Siletti et al. (2022). You can also find links below to the complete dataset of 3,369,219 cells.
 
+<img width="805" alt="image" src="https://user-images.githubusercontent.com/10656387/198325102-80260347-1bc3-4c30-91ac-f42e682cff26.png">
+
 ## Preprint (bioRxiv)
 
 [https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1](https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1)
