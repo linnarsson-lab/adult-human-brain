@@ -20,7 +20,7 @@ Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsso
 
 ## EEL Data
 
-The files with the molecule coordinates (as .parquet) and gene x cell counts (as .loom) are available at: (https://storage.cloud.google.com/linnarsson-lab-human/EEL_adult/)
+The files with the molecule coordinates (as .parquet) and gene x cell counts (as .loom) are available at: https://storage.cloud.google.com/linnarsson-lab-human/EEL_adult
 
 Data in the [.parquet](https://parquet.apache.org/) format and can be opened by [FISHscale](https://github.com/linnarsson-lab/FISHscale), Python [Pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_parquet.html) or any other Parquet reader.  
 `r_px_microscope_stitched` and `c_px_microscope_stitched` contain the RNA molecule coordinates in pixels (pixel size of 0.18um).  
