@@ -18,6 +18,10 @@ These files use the [loom](http://loompy.org) file format.
 
 Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.loom) contains both "Cluster" and "Subcluster" attributes that correspond to the 461 clusters and 3313 subclusters described in the paper. The loom file additionally contains the attributes "Roi" and "ROIGroupCoarse" that correspond to "dissections" and "regions" in the paper, respectively.
 
+## EEL Data
+
+The files for the molecule coordinates and gene x cell counts are available at as .parquet and .loom respectively.
+
 ## Code used for analysis
 
 Clustering was performed using `cytograph`. Installation and usage are described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other materials include:
