@@ -20,7 +20,7 @@ Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsso
 
 ## EEL Data
 
-The files for the molecule coordinates and gene x cell counts are available at as .parquet and .loom respectively.
+The files with the molecule coordinates (as .parquet) and gene x cell counts (as .loom) are available at: (https://storage.cloud.google.com/linnarsson-lab-human/EEL_adult)
 
 ## Code used for analysis
 
