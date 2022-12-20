@@ -8,6 +8,10 @@ This repository contains the code used for analysis by Siletti et al. (2022). Yo
 
 [https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1](https://www.biorxiv.org/content/10.1101/2022.10.12.511898v1)
 
+## Browser
+
+The dataset can be browsed at [CELLxGENE](https://cellxgene.cziscience.com/collections/283d65eb-dd53-496d-adb7-7570c7caa443). There is one browser per dissection, and one browser per supercluster.
+
 ## Data availability
 
 The final dataset is available for download at https://storage.cloud.google.com/linnarsson-lab-human. Two files are available:
