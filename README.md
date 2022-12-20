@@ -16,7 +16,7 @@ The dataset can be browsed from [our collection](https://cellxgene.cziscience.co
 
 ### Raw sequence reads
 
-Raw data in fastq and BAM format is available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/raw/).
+Raw data in fastq and BAM format is available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/).
 
 ### Expression matrices
 
