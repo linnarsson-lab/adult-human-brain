@@ -28,7 +28,7 @@ These files use the [loom](http://loompy.org) file format.
 
 Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.loom) contains both "Cluster" and "Subcluster" attributes that correspond to the 461 clusters and 3313 subclusters described in the paper. The loom file additionally contains the attributes "Roi" and "ROIGroupCoarse" that correspond to "dissections" and "regions" in the paper, respectively.
 
-💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in .h5ad (AnnData, for Scanpy) and .rds (for Seurat) by following the links to the browsers above.
+💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in `.h5ad` (AnnData, for Scanpy) and `.rds` (for Seurat) formats by following the links to the browsers above.
 
 ## EEL Data
 
