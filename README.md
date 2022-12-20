@@ -16,6 +16,8 @@ The dataset can be browsed from [our collection](https://cellxgene.cziscience.co
 
 ### Raw sequence reads
 
+Raw data in fastq and BAM format is available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/raw/).
+
 ### Expression matrices
 
 The final dataset is available for download at https://storage.cloud.google.com/linnarsson-lab-human. Two files are available:
@@ -26,7 +28,7 @@ These files use the [loom](http://loompy.org) file format.
 
 Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.loom) contains both "Cluster" and "Subcluster" attributes that correspond to the 461 clusters and 3313 subclusters described in the paper. The loom file additionally contains the attributes "Roi" and "ROIGroupCoarse" that correspond to "dissections" and "regions" in the paper, respectively.
 
-💡**Note:** data for superclusters and dissections can also be downloaded from CELLxGENE in .h5ad (AnnData, for Scanpy) and .rds (for Seurat) by following the links to the browsers above.
+💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in .h5ad (AnnData, for Scanpy) and .rds (for Seurat) by following the links to the browsers above.
 
 ## EEL Data
 
