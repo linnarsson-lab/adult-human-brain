@@ -16,16 +16,9 @@ The dataset can be browsed from [our collection](https://cellxgene.cziscience.co
 
 ### Raw sequence reads
 
-Raw data in fastq and BAM format is available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/).
+Raw data in fastq and BAM format are available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/).
 
-Our gene and transcripts annotation is based on Based on GRCh38.p13 gencode V35 primary sequence assembly. 
-
-We discarded genes or transcripts that overlapped or mapped to other genes or non-coding RNAs 3’ UTR.
-
-The GTF file used for read counts: [gb_pri_annot_filtered.gtf](https://storage.googleapis.com/linnarsson-lab-tmp/gb_pri_annot.gtf)
-
-The genes and transcripts that were discarded: [filtered_transcripts.txt](https://storage.googleapis.com/linnarsson-lab-tmp/filtered_transcripts.txt)
-
+Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://storage.googleapis.com/linnarsson-lab-tmp/gb_pri_annot.gtf), and [the genes and transcripts that were discarded](https://storage.googleapis.com/linnarsson-lab-tmp/filtered_transcripts.txt).
 
 ### Expression matrices
 
@@ -43,7 +36,7 @@ Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsso
 
 The files with the molecule coordinates (as .parquet) and gene x cell counts (as .loom) are available in the EEL_adult folder at: https://storage.cloud.google.com/linnarsson-lab-human
 
-Data in the [.parquet](https://parquet.apache.org/) format and can be opened by [FISHscale](https://github.com/linnarsson-lab/FISHscale), Python [Pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_parquet.html) or any other Parquet reader.  
+Data in the [.parquet](https://parquet.apache.org/) format can be opened by [FISHscale](https://github.com/linnarsson-lab/FISHscale), Python [Pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_parquet.html) or any other Parquet reader.  
 `r_px_microscope_stitched` and `c_px_microscope_stitched` contain the RNA molecule coordinates in pixels (pixel size of 0.18um).  
 `r_transformed` and	`c_transformed` contain the RNA molecule coordinates in pixels (pixel size of 0.27um).  
 
@@ -51,7 +44,7 @@ Data in the [.parquet](https://parquet.apache.org/) format and can be opened by 
 
 Clustering was performed using `cytograph`. Installation and usage are described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other materials include:
 - `scripts`: other scripts named in the Methods section
-- `notebooks`: some of the code used to make figures
-- `tables`: the sample-metadata and cluster-annotation tables (Tables S1 and S2). Note that Tables S3 and S4 correspond to "de_oligos.csv" and "de_opcs.csv" in the "notebooks" folder.
+- `notebooks`: the code used to make figures
+- `tables`: the manuscript's supplementary tables
 
  Auto-annotations are available in a separate [repository](https://github.com/linnarsson-lab/auto-annotation-ah).
