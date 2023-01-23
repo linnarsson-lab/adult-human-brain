@@ -1,0 +1,107 @@
+,index,ROI Group,Order,ROI Group Coarse
+78,Human A13,Cerebral cortex,0,Cerebral cortex
+81,Human A14,Cerebral cortex,0,Cerebral cortex
+45,Human A19,Cerebral cortex,0,Cerebral cortex
+68,Human A1C,Cerebral cortex,0,Cerebral cortex
+61,Human A23,Cerebral cortex,0,Cerebral cortex
+75,Human A25,Cerebral cortex,0,Cerebral cortex
+34,Human A29-A30,Cerebral cortex,0,Cerebral cortex
+84,Human A32,Cerebral cortex,0,Cerebral cortex
+59,Human A35-A36,Cerebral cortex,0,Cerebral cortex
+105,Human A35r,Cerebral cortex,0,Cerebral cortex
+41,Human A38,Cerebral cortex,0,Cerebral cortex
+79,Human A40,Cerebral cortex,0,Cerebral cortex
+66,Human A43,Cerebral cortex,0,Cerebral cortex
+73,Human A44-A45,Cerebral cortex,0,Cerebral cortex
+58,Human A46,Cerebral cortex,0,Cerebral cortex
+104,Human A5-A7,Cerebral cortex,0,Cerebral cortex
+70,Human ACC,Cerebral cortex,0,Cerebral cortex
+77,Human AON,Cerebral cortex,0,Cerebral cortex
+80,Human FI,Cerebral cortex,0,Cerebral cortex
+91,Human ITG,Cerebral cortex,0,Cerebral cortex
+88,Human Idg,Cerebral cortex,0,Cerebral cortex
+89,Human Ig,Cerebral cortex,0,Cerebral cortex
+56,Human LEC,Cerebral cortex,0,Cerebral cortex
+46,Human M1C,Cerebral cortex,0,Cerebral cortex
+27,Human MEC,Cerebral cortex,0,Cerebral cortex
+57,Human MTG,Cerebral cortex,0,Cerebral cortex
+63,Human Pir,Cerebral cortex,0,Cerebral cortex
+83,Human Pro,Cerebral cortex,0,Cerebral cortex
+69,Human S1C,Cerebral cortex,0,Cerebral cortex
+60,Human STG,Cerebral cortex,0,Cerebral cortex
+29,Human TF,Cerebral cortex,0,Cerebral cortex
+54,Human TH-TL,Cerebral cortex,0,Cerebral cortex
+85,Human V1C,Cerebral cortex,0,Cerebral cortex
+62,Human V2,Cerebral cortex,0,Cerebral cortex
+65,Human CA1,Hippocampus,1,Hippocampus
+82,Human CA1-2R,Hippocampus,1,Hippocampus
+37,Human CA1C-CA3C,Hippocampus,1,Hippocampus
+50,Human CA1R-CA2R-CA3R,Hippocampus,1,Hippocampus
+64,Human CA1U-CA2U-CA3U,Hippocampus,1,Hippocampus
+72,Human CA2U-CA3U,Hippocampus,1,Hippocampus
+92,Human CA3R,Hippocampus,1,Hippocampus
+38,Human CA4C-DGC,Hippocampus,1,Hippocampus
+87,Human DGR-CA4,Hippocampus,1,Hippocampus
+19,Human DGR-CA4Rpy,Hippocampus,1,Hippocampus
+36,Human DGU-CA4Upy,Hippocampus,1,Hippocampus
+90,Human Sub,Hippocampus,1,Hippocampus
+76,Human Cla,Claustrum,2,Cerebral nuclei
+48,Human CaB,Basal nuclei,3,Cerebral nuclei
+20,Human GPe,Basal nuclei,3,Cerebral nuclei
+53,Human GPi,Basal nuclei,3,Cerebral nuclei
+98,Human NAC,Basal nuclei,3,Cerebral nuclei
+97,Human Pu,Basal nuclei,3,Cerebral nuclei
+18,Human SEP,Basal forebrain,4,Cerebral nuclei
+51,Human SI,Basal forebrain,4,Cerebral nuclei
+23,Human BL,Amygdaloid complex,5,Cerebral nuclei
+101,Human BM,Amygdaloid complex,5,Cerebral nuclei
+39,Human CEN,Amygdaloid complex,5,Cerebral nuclei
+47,Human CMN,Amygdaloid complex,5,Cerebral nuclei
+86,Human CoA,Amygdaloid complex,5,Cerebral nuclei
+102,Human La,Amygdaloid complex,5,Cerebral nuclei
+55,Human BNST,Extended amygdala,6,Cerebral nuclei
+49,Human HTHma,Hypothalamus,7,Hypothalamus
+95,Human HTHma-HTHtub,Hypothalamus,7,Hypothalamus
+74,Human HTHpo,Hypothalamus,7,Hypothalamus
+25,Human HTHpo-HTHso,Hypothalamus,7,Hypothalamus
+71,Human HTHso,Hypothalamus,7,Hypothalamus
+28,Human HTHso-HTHtub,Hypothalamus,7,Hypothalamus
+67,Human HTHtub,Hypothalamus,7,Hypothalamus
+14,Human MN,Hypothalamus,7,Hypothalamus
+30,Human ANC,Thalamus,8,Thalamus
+94,Human CM,Thalamus,8,Thalamus
+44,Human CM-Pf,Thalamus,8,Thalamus
+42,Human ETH,Thalamus,8,Thalamus
+11,Human LG,Thalamus,8,Thalamus
+40,Human LP,Thalamus,8,Thalamus
+103,Human LP-VPL,Thalamus,8,Thalamus
+32,Human MD,Thalamus,8,Thalamus
+93,Human MD-Re,Thalamus,8,Thalamus
+35,Human MG,Thalamus,8,Thalamus
+22,Human Pul,Thalamus,8,Thalamus
+96,Human STH,Thalamus,8,Thalamus
+99,Human VA,Thalamus,8,Thalamus
+52,Human VLN,Thalamus,8,Thalamus
+100,Human VPL,Thalamus,8,Thalamus
+5,Human IC,Midbrain,9,Midbrain
+16,Human PAG,Midbrain,9,Midbrain
+10,Human PAG-DR,Midbrain,9,Midbrain
+21,Human PTR,Midbrain,9,Midbrain
+43,Human RN,Midbrain,9,Midbrain
+33,Human SC,Midbrain,9,Midbrain
+26,Human SN,Midbrain,9,Midbrain
+31,Human SN-RN,Midbrain,9,Midbrain
+15,Human CBL,Cerebellum,10,Cerebellum
+6,Human CBV,Cerebellum,10,Cerebellum
+4,Human CbDN,Cerebellum,10,Cerebellum
+24,Human DTg,Pons,11,Pons
+12,Human PB,Pons,11,Pons
+13,Human PN,Pons,11,Pons
+2,Human PnAN,Pons,11,Pons
+8,Human PnEN,Pons,11,Pons
+9,Human PnRF,Pons,11,Pons
+7,Human IO,Myelencephalon,12,Myelencephalon
+0,Human MoAN,Myelencephalon,12,Myelencephalon
+3,Human MoRF-MoEN,Myelencephalon,12,Myelencephalon
+1,Human MoSR,Myelencephalon,12,Myelencephalon
+17,Human SpC,Spinal cord,13,Spinal cord
