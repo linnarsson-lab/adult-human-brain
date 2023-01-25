@@ -22,13 +22,13 @@ Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary se
 
 ### Expression matrices
 
-The final dataset is available for download at https://storage.cloud.google.com/linnarsson-lab-human. Two files are available:
+The final dataset is available for download at https://storage.cloud.google.com/linnarsson-lab-human. Two files are available in [loom](http://loompy.org) file format:
 - Genes x cells: [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.loom)
 - Genes x clusters: [adult_human_20221007.agg.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.agg.loom)
 
-These files use the [loom](http://loompy.org) file format. 
-
-Note that [adult_human_20221007.loom](https://storage.cloud.google.com/linnarsson-lab-human/adult_human_20221007.loom) contains both "Cluster" and "Subcluster" attributes that correspond to the 461 clusters and 3313 subclusters described in the paper. The loom file additionally contains the attributes "Roi" and "ROIGroupCoarse" that correspond to "dissections" and "regions" in the paper, respectively.
+The genes x cells dataset is alternatively available in two .h5ad files:
+- Neurons: [Neurons.h5ad](https://storage.googleapis.com/linnarsson-lab-human/Neurons.h5ad)
+- Non-neuronal cells: [Nonneurons.h5ad](https://storage.googleapis.com/linnarsson-lab-human/Nonneurons.h5ad)
 
 💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in `.h5ad` (AnnData, for Scanpy) and `.rds` (for Seurat) formats by following the links to the browsers above.
 
