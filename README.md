@@ -32,6 +32,14 @@ The genes x cells dataset is alternatively available in two .h5ad files:
 
 💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in `.h5ad` (AnnData, for Scanpy) and `.rds` (for Seurat) formats by following the links to the browsers above.
 
+In addition, expression matrices generated with the "standard" cellranger + velocyto pipeline using cellranger GRCh38-3.0.0 annotations are available in [loom](https://loompy.org) and [anndata](https://anndata.readthedocs.io/en/latest/) formats:
+
+[human_adult_GRCh38-3.0.0.loom](https://storage.googleapis.com/linnarsson-lab-human/human_adult_GRCh38-3.0.0.loom)
+
+[human_adult-GRCh38-3.0.0.h5ad](https://storage.googleapis.com/linnarsson-lab-human/human_adult_GRCh38-3.0.0.h5ad) (Annotations basically follow [CELLxGENE](https://cellxgene.cziscience.com/) standards.)
+
+These files contain exactly the same cells as adult_human_20221007.loom. Some ~70000 cells that were filtered out by this procedure have zero total UMI count.
+
 ### EEL Data (multiplexed RNA FISH)
 
 The files with the molecule coordinates (as .parquet) and gene x cell counts (as .loom) are available in the EEL_adult folder at: https://storage.cloud.google.com/linnarsson-lab-human
