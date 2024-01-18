@@ -13,7 +13,7 @@ experience with Windows.
 ```
 git clone https://github.com/linnarsson-lab/adult-human-brain.git
 cd adult-human-brain
-conda create -n cgenv python==3.9.12
+conda create -n cgenv python==3.9.12 h5py==2.10.0
 conda activate cgenv
 pip install -e .
 ```
