@@ -48,11 +48,11 @@ Data in the [.parquet](https://parquet.apache.org/) format can be opened by [FIS
 `r_px_microscope_stitched` and `c_px_microscope_stitched` contain the RNA molecule coordinates in pixels (pixel size of 0.18um).  
 `r_transformed` and	`c_transformed` contain the RNA molecule coordinates in pixels (pixel size of 0.27um).  
 
-## Code used for analysis
+## Code used for analysis and other output
 
 Clustering was performed using `cytograph`. Installation and usage are described [here](https://github.com/linnarsson-lab/adult-human-brain/tree/main/cytograph). Other materials include:
 - `scripts`: other scripts named in the Methods section
 - `notebooks`: the code used to make figures
-- `tables`: the manuscript's supplementary tables
+- `tables`: the manuscript's supplementary tables, as well as a subcluster annotation table.
 
  Auto-annotations are available in a separate [repository](https://github.com/linnarsson-lab/auto-annotation-ah).
