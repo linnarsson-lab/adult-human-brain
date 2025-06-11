@@ -32,6 +32,8 @@ The genes x cells dataset is alternatively available in two .h5ad files:
 
 💡**Tip:** Data for superclusters and dissections can also be downloaded from CELLxGENE in `.h5ad` (AnnData, for Scanpy) and `.rds` (for Seurat) formats by following the links to the browsers above.
 
+Column attribute 'Tissue' corresponds to dissections in the paper, and 'ROIGroupCoarse' to the 10 regions in Fig 1C.
+
 In addition, expression matrices generated with the "standard" cellranger + velocyto pipeline using cellranger GRCh38-3.0.0 annotations are available in [loom](https://loompy.org) and [anndata](https://anndata.readthedocs.io/en/latest/) formats:
 
 [human_adult_GRCh38-3.0.0.loom](https://storage.googleapis.com/linnarsson-lab-human/human_adult_GRCh38-3.0.0.loom)
