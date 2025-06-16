@@ -18,7 +18,7 @@ The dataset can be browsed from [our collection](https://cellxgene.cziscience.co
 
 Raw data in fastq and BAM format are available [at NeMO](http://data.nemoarchive.org/biccn/grant/u01_lein/linnarsson/transcriptome/sncell/10x_v3/human/).
 
-Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://storage.googleapis.com/linnarsson-lab-tmp/gb_pri_annot.gtf), and [the genes and transcripts that were discarded](https://storage.googleapis.com/linnarsson-lab-tmp/filtered_transcripts.txt).
+Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_annot_filtered.gtf.gz), and [the genes and transcripts that were discarded](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_filtered_transcripts.txt.gz).
 
 ### Expression matrices
 
