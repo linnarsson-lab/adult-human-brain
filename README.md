@@ -25,11 +25,13 @@ BAM files were generated with [STAR aligner](https://github.com/alexdobin/STAR) 
     STAR --soloFeatures Gene Velocyto GeneFull --soloBarcodeReadLength 0 --limitOutSJcollapsed 50000000 \
      --outFileNamePrefix $PREFIX --genomeDir $GENOMEDIR --readFilesIn $FQGZFILE_R2 $FQGZFILE_R1 \
      --soloType CB_UMI_Simple --soloCBwhitelist $WHITELISTFILE $UMIARG \
-     --soloCellFilter EmptyDrops_CR 5000 0.99 10 45000 90000 500 0.01 20000 0.01 10000 \
+     --soloCellFilter EmptyDrops_CR $TARGETNUMBERCELLS 0.99 10 45000 90000 500 0.01 20000 0.01 10000 \
      --soloCBmatchWLtype 1MM_multi_Nbase_pseudocounts --soloUMIfiltering MultiGeneUMI_CR --soloUMIdedup 1MM_CR \
      --clipAdapterType CellRanger4 --outFilterScoreMin 30 \
      --outSAMattributes NH HI nM AS CR UR CB UB GX GN sS sQ sM --outSAMtype BAM SortedByCoordinate --runThreadN 24 --readFilesCommand zcat"
 ```
+Chemistry was "v2" for sample IDs <= 10X135_4, and v3 for these above. 
+Target number of cells was 5000 for all samples with the exceptions: 10X120_6, 10X121_3, 10X203_2: 3000, 10X203_1, 10X445_3: 2000, 10X455_1, 10X455_2: 6000
 
 Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_annot_filtered.gtf.gz), and [the genes and transcripts that were discarded](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_filtered_transcripts.txt.gz).
 
