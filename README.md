@@ -33,7 +33,7 @@ BAM files were generated with [STAR aligner](https://github.com/alexdobin/STAR) 
 Chemistry was "v2" for sample IDs <= 10X135_4, and v3 for these above. 
 Target number of cells was 5000 for all samples with the exceptions: 10X120_6, 10X121_3, 10X203_2: 3000, 10X203_1, 10X445_3: 2000, 10X455_1, 10X455_2: 6000
 
-Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_annot_filtered.gtf.gz), and [the genes and transcripts that were discarded](https://storage.googleapis.com/linnarsson-lab-human/gb_pri_filtered_transcripts.txt.gz).
+Our gene and transcript annotation is based on GRCh38.p13 gencode V35 primary sequence assembly. We discarded genes or transcripts that overlapped or mapped to other genes' or non-coding RNAs' 3’ UTRs. Here we provide [the GTF file used to count reads](https://www.dropbox.com/scl/fi/2xbby59472v8wuvwezve3/hg38-final3_genes.gtf.gz?rlkey=eh4lf4thbrwt2armtse0uyvj7&st=ahjbi4zu&dl=1), [the genes and transcripts that were discarded](https://www.dropbox.com/scl/fi/hppwn6wcsy1thrju5nb3w/hg38-final3_filtered_transcripts.txt.gz?rlkey=s92unmz21o081akai8b5edrgs&st=5ykx75c5&dl=1), and a [description of columns in latter file](https://www.dropbox.com/scl/fi/ilxgt9mddu64jl0fkjmm1/hg38-final3_filtered_transcripts.README?rlkey=6lssdft9kqhue9ntm7hd8v2m1&st=1tytj2r1&dl=1).
 
 ### Expression matrices
 
